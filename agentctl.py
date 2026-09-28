@@ -21,7 +21,7 @@
 `local_canonical_host`）。仅使用 python3 标准库。
 
 **删除铁律**：本 CLI 只做创建/登记，不提供任何删除动作——agents/ 内目录清理一律走
-`dsync/gc.py add` 删除清单通道（bot/ 族还需 --force 审计旁路），绝不直接 rm。
+`agents-sync/gc.py add` 删除清单通道（bot/ 族还需 --force 审计旁路），绝不直接 rm。
 """
 import argparse
 import json
@@ -260,7 +260,7 @@ def cmd_topic_init(a):
     topic.md 骨架（frontmatter `when:` 占位 + 议题/已决/未决三小节）、inbox/（全量日志）、
     watcher/（订阅注册表）；`--watcher <会话裸名>` 可重复 = 建通道 A 订阅条目（存在即订阅、
     删条目即退订，实现层 receiver 每轮实时重扫）。
-    **只创建不删除**：散会/归档走 `dsync/gc.py add topic/<id>/` 通道（铁律）。"""
+    **只创建不删除**：散会/归档走 `agents-sync/gc.py add topic/<id>/` 通道（铁律）。"""
     check_name_segment(a.id, "topic id")
     tdir = proto.topic_dir(a.root, a.id)
     # 撞名检查覆盖全部布局（协议 §2.2 创建方义务）：同名 bot/task 在场即拒——防「职位信箱型
@@ -268,7 +268,7 @@ def cmd_topic_init(a):
     # `bot register` 反向不查 topic 同名（主持人 bot 与其主题成对出现，无落盘冲突）。
     for cand in (tdir, proto.bot_dir(a.root, a.id), proto.task_dir(a.root, a.id)):
         if os.path.exists(cand):
-            die("拒绝创建：%s 已存在（topic 不覆盖既有目录；删除走 dsync/gc.py 通道）"
+            die("拒绝创建：%s 已存在（topic 不覆盖既有目录；删除走 agents-sync/gc.py 通道）"
                 % cand, code=2)
     watchers = []
     for w in (a.watcher or []):
@@ -289,7 +289,7 @@ def cmd_topic_init(a):
     print("  layout   topic.md + inbox/ + watcher/"
           + ("（订阅条目：%s）" % ", ".join(watchers) if watchers else ""))
     print("  下一步   策展 topic.md（单写者=owner/主持人）；登记主持人 bot 用 "
-          "`agentctl bot register`；删除走 `dsync/gc.py add topic/%s/`" % a.id)
+          "`agentctl bot register`；删除走 `agents-sync/gc.py add topic/%s/`" % a.id)
 
 
 def topic_md_skeleton(tid, title):
@@ -305,7 +305,7 @@ when: "（占位：何时该来读本主题文档——一句话；入册后由 
 > topic = `{tid}`（协作容器：本文策展 + `inbox/` 全量日志 + `watcher/` 订阅注册表）。
 > **单写者** = owner/主持人；日志由机制自动过账（`send_message` 投递即落盘），绝不手工双写。
 > 机制权威：`assistant/docs/topic-design.md`（§5.1 主持人载体、§7 双件套）；消息与收件口径：`assistant/DISPATCH.md` §4/§8。
-> 删除/归档本主题一律走 `dsync/gc.py add topic/{tid}/` 通道（铁律：不得直接 rm）。
+> 删除/归档本主题一律走 `agents-sync/gc.py add topic/{tid}/` 通道（铁律：不得直接 rm）。
 
 ## 议题
 
@@ -636,12 +636,12 @@ def main():
 
     # bot 组：登记进程型 bot spec（subscribes = 通道 B 写入口，协议 §4.1）
     pb = sub.add_parser(
-        "bot", help="bot 登记（子命令：register）——删除仍走 dsync/gc.py 通道")
+        "bot", help="bot 登记（子命令：register）——删除仍走 agents-sync/gc.py 通道")
     bsub = pb.add_subparsers(dest="subcmd", required=True)
     p = bsub.add_parser(
         "register",
         help="登记进程型 bot spec：--subscribes topic/<id>[,…]（通道 B）；"
-             "spec 已在场时只改 subscribes（删除仍走 dsync/gc.py）")
+             "spec 已在场时只改 subscribes（删除仍走 agents-sync/gc.py）")
     p.add_argument("--name", required=True, help="bot 裸名（§2.1 段白名单）")
     p.add_argument("--subscribes", default=None,
                    help="逗号分隔的 topic/<id> 列表（只有 topic/ 族可绑定，防抢收）；"
@@ -667,7 +667,7 @@ def main():
     # topic 组：协作容器脚手架（设计稿 assistant/docs/topic-design.md §7/§8）
     pt = sub.add_parser(
         "topic", help="topic 协作容器（子命令：init）——只创建；删除/归档铁律走 "
-                      "dsync/gc.py add topic/<id>/ 通道，绝不直接 rm")
+                      "agents-sync/gc.py add topic/<id>/ 通道，绝不直接 rm")
     tsub = pt.add_subparsers(dest="subcmd", required=True)
     p = tsub.add_parser(
         "init",

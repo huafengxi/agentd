@@ -632,7 +632,7 @@ def topic_hosts(topic_id, watchers, bots):
         只经 topic 侧开 watcher 条目，不会为自己补登记 spec.subscribes）；
       ② `is_session_bot()` 为真（有 `?v=chat` 会话面；脚本型 bot 无）。
     **不以 `DISPATCH_PROFILE=moderator` 作判据**（profile 是人格资产不是身份判据）。
-    系统主题（名单单一事实源 = `proto.PROTECTED_SYSTEM_TOPICS`，与 dsync/gc.py 的
+    系统主题（名单单一事实源 = `proto.PROTECTED_SYSTEM_TOPICS`，与 agents-sync/gc.py 的
     PROTECTED_SYSTEM_PATHS 由 e2e S41 同源断言钉住 攒批 5）按设计无策展
     owner（日志全由机制过账）→ 判据入口即早返回空集合（豁免只做一次，不在渲染层散落
     判断）。返回按 id 升序的采集字典列表；零主持人 → []。"""

@@ -53,7 +53,7 @@ anchors:
 | `proto.py` | 公共库：原子落盘、时间戳/自动名、两层判定谓词、机身份匹配、杀纪律原语（procStart 读取、(pid,procStart) 校验） |
 | `runner.py` | 每机中央守护形态 runner（只含运行半边：spawn/监控/判挂死）；enable.json 门禁内置无开关（调度方 = 独立服务 `scheduler.py`，见下） |
 | `scheduler.py` | 调度半边（自 runner.py 拆出，独立常驻）：DAG 调度（resources/provides/needs + 全局占位上限），无参数任务 = FIFO 串行；`--all-hosts` 全局视图（为所有机器放行） |
-| `agentctl.py` | CLI：create / create-bot / **bot register**（进程型 bot spec + `--subscribes` 通道 B + `--description`（→ spec `name`，人类可读描述）/`--reaper`（→ spec `reaper`，终态通知收件面，文法 = `proto.is_valid_participant_id`，非法即拒且零落盘；两 flag 缺省时不写该键，spec 与既有行为逐字一致；spec 已在场分支只改 subscribes、两 flag 不生效））/ **topic init**（topic 标准布局脚手架）/ send / ack / control / enable / status / list。**只创建不删除**：`agents/` 清理一律走 `dsync/gc.py` 通道 |
+| `agentctl.py` | CLI：create / create-bot / **bot register**（进程型 bot spec + `--subscribes` 通道 B + `--description`（→ spec `name`，人类可读描述）/`--reaper`（→ spec `reaper`，终态通知收件面，文法 = `proto.is_valid_participant_id`，非法即拒且零落盘；两 flag 缺省时不写该键，spec 与既有行为逐字一致；spec 已在场分支只改 subscribes、两 flag 不生效））/ **topic init**（topic 标准布局脚手架）/ send / ack / control / enable / status / list。**只创建不删除**：`agents/` 清理一律走 `agents-sync/gc.py` 通道 |
 | `report.py` | 只读 markdown 报表：`agents/` 全链路状态（系统小节/统计头/异常区/活跃表；终态表缺省隐藏，`--finalized`/`--all` 显示），为反复刷新观察设计 |
 | `needscheck.py` | 只读判定 CLI（JSON）：「needs 不可满足（dead-ended）」任务清单，供 `task_status` 工具面取信号。判定/文案全部 import 复用（`scheduler._scan` 的 provider 五态 + `scheduler.eval_needs` 三态 + `report._provider_states_zh`），本文件零自实现；判定范围与 `report.py` 异常区「🚨 needs 不可满足」逐条对齐（同源断言钉在扩展单测）。仅呈现：不放行、不取消、不改调度语义 |
 | `pi-rpc-wrap.py` | 会话封装（任务/常驻两形态）：拉 `pi --mode rpc` + 观测 socket 透传 + 完成收敛 + 失败诊断；**人格装配单点**（能力展开：prompt/skills/extensions/工具面并集/knowledge 知识清单；`DISPATCH_PROFILE` 单值 → 薄清单 `caps` → 逐能力，口径 `@dispatch#params`；`model` 只住 profile → `--model` + **由其 provider 段派生的 `--provider`**（`<provider>/<id>` 形式才派生，畸形/无斜杠 fail-soft 不注入，判定单点 `provider_of_model`；注入序 = `--provider` 在 `--model` 前））。**profile 级 `contextCompaction` 装配单点**（每 profile 的上下文压缩策略；字段规范 = `@bots#persona-assets`）：合法策略 ⇒ env `AGENTD_CONTEXT_COMPACTION`（归一化紧凑 JSON）+ 一个 `-e bots/extensions/context-compaction/index.ts`（位在能力注入之后，**task 与 resident 两形态同等**）；执行体自建触发 + 对 pi 内建 `threshold` 触发做 cancel 以后移触发点（`overflow`/`manual` 一律放行；只读取证命令 `/compaction-policy`）。字段缺失 ⇒ env 与 `-e` 两者都不注入（含显式洗掉从宿主继承的同名 env）；形状非法（判据同 lint E16）∨ 执行体文件缺失 ⇒ WARN + 不注入（会话照起，压缩行为落回 pi 内建 settings 阈值）。**子端扩展注入单点** = `CHILD_EXTS`（只任务形态；resident 不注入，其主端扩展由 workdir 的 `.pi` 自动发现）：反问 / 发参与方消息 / **自家信箱推送收件**（`receiver-child.ts`，收件面锁死自家 `task/<id>/inbox`，口径 `@dispatch#lifecycle`/`@dispatch#notify`）。文件缺失只 WARN 跳过不拖垮会话（→ 收件面会静默失效，test_wrap T29 断言注入路径均在场）。**就绪握手**（🔴0）：初始投递收口后写 `run/agentd/<id>.init-ok`（单点 `proto.task_ready_path`）→ 子端据此开「就绪门」才开始 drain 自家 inbox；子端首次补扫后回写 `<id>.recv-armed`，wrap **有界**（缺省 3s）等它之后才进收敛监督。缺这道握手 = 子端在 `session_start` 抢跑注入，两种形态：pi 拒收初始 prompt（`stage=prompt_rejected`、exit 1 秒死）或注入轮先跑完被当任务收敛（**exit 0 假成功**、`session/session.jsonl` 永不落盘）。两枚标记 spawn 前清陈旧、退出即清；resident 不参与（主端 receiver 行为不变）。**两枚信号 env（`AGENTD_WRAP_INIT_OK`/`AGENTD_WRAP_RECV_ARMED`）是身份/信号类，不得继承**（🔴1）：已收进 `envscrub.ENV_SCRUB_EXACT`（否则被任务内每个孙进程继承 → `svc/clean-make.py` 的 `LEAK_PREFIXES` 自检洗不掉 → 任何子任务内一律拒绝执行 make），且子端按**自家身份自校**（单点 `core.ownReadyMarks`/`taskReadyPath` 镜像 `proto.task_ready_path`；基名不符 = 视为无标记 → 门保持闭、走有界超时后强制开门 + WARN，绝不用别人的标记开门、也不写别人的 arm）。排障判据（订正，🟡3）：**exit 0 不足以证明任务执行过**，且「`session/session.jsonl` 在场（含 user+assistant 事件）」**也不足以**——抢跑形态下注入轮先起，文件在场且含 user+assistant，但初始 prompt 从未进会话树（真 pi 反例§二）；硬判据 = **会话树含初始 prompt 的 user 事件**（或 `report.md` 在场）。**末轮模型错误档（agentd v92 起）**：会话末条 assistant 的 `stopReason=error` ∧ `report.md` **非空不**在场 ⇒ `diagnosis.md` stage `model_error_stopreason` + **exit 1**（不再假成功）；非空在场 ⇒ stage `model_error_stopreason_delivered` + exit 0（信息性、不参与完成判定；例外已记在 `assistant/docs/task-layout.md` 的 diagnosis 行）。triage 口径 = 按**上游瞬时错误**处置（重派前先核是否已实质交付，见 skill `task-incident-triage` A 节 2b）。**已知缺口（诊断面；提案与方案本体 = agentfw 域 backlog「诊断 `stage` 记收口形态、不记根因族」节）**：`stage` 记的是**收口形态**（进程怎么被收口的），**不记根因族** ⇒ 模型侧错误若走到看门狗收口路径就会被按 `stage` 分族的统计**漏计**（实例 = 任务 ``：树内末 4 条 assistant 全 `stopReason=error`〔`Request timed out.` / `Connection error.` / `terminated`〕，而 `stage` 记的是 `converge_timeout_killed`、`exitcode: 143`；同族的 `` 走 pi 自行退出路径 ⇒ 记 `model_error_stopreason`）。**拟修 = 增并存字段 `rootCauseFamily`**（`stage` 语义不动 ⇒ 纯增量、不破坏既有消费者），判据复用「末轮模型错误档」的**尾窗读法** ⇒ **同款假阴性形态**（尾窗内无 assistant 条目 ⇒ 记 `unknown`，不猜）。**一条 WARN 的语义**：日志里 `WARN 会话尾窗（末 262144B / 文件 …B）内无 assistant 条目` = 该档**拿不到证据、按 fail-soft 未判失败**（假阴性方向、**不是 bug**）；成因 = 末条 assistant 之后又有合计 >256KiB 的条目把它挤出尾窗（现网多数会话文件已超该上界 ⇒「丢弃尾窗首行」是常态路径；而「窗内无 assistant」按 2026-09-15 全量 310 个会话的回放实测 = 0 例） |
@@ -96,7 +96,7 @@ $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
      [--command … --workdir … --creator …]   # spec 不在场需后三件；已在场则只改 subscribes（''=清空）
      [--description <一句描述>] [--reaper <family/名>]   # 可选：新建 spec 时写 §4.1 的
      # `name`（人类可读描述）与 `reaper`（终态通知收件面）；缺省不写该键；已在场分支不生效
-# 删除铁律：两者都只创建——agents/ 内任何清理走 `python3 dsync/gc.py add <路径>` + `reap`
+# 删除铁律：两者都只创建——agents/ 内任何清理走 `python3 agents-sync/gc.py add <路径>` + `reap`
 
 # lore 资产清单 + 全局名字索引（`knowledge` 名 → 清单；规范 `@bots#kb-spec`，
 # 机制口径 `@dispatch#params`，lore 内容组织 `@lore#gates`，单测 bots/test_kb_index.py）
@@ -130,7 +130,7 @@ rc=0 退出（三个句柄任一处 `unref` 回退即红）、H0 = 主端装配�
 `assistant/.pi/extensions/agentd/tests/inject-gate-live.mjs`，跑法与环境要求见下「约定赋值与实现口径」的
 「收件注入闸门」条。
 
-**并发快照隔离纪律（攒批 3）**：`e2e.py`/`dsync/gc.py` 正被其它在飞任务修改期间跑 e2e，
+**并发快照隔离纪律（攒批 3）**：`e2e.py`/`agents-sync/gc.py` 正被其它在飞任务修改期间跑 e2e，
 必须用快照隔离——`mkdir -p /tmp/<taskId>-snap && git archive HEAD | tar -x -C /tmp/<taskId>-snap`
 后在快照里跑（e2e 全程按 `HERE` 相对路径取 `runner.py`/`fakepi_rpc.py`/`agentctl.py` 与
 `../assistant/.pi/extensions/agentd`，故整树快照即可）。否则被测文件会在跑到一半时被换掉 →
@@ -350,7 +350,7 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 watch 进程跑在**四机全部**（dev/nv1/nv2/mac，含 dev）上指向中立目录（`ssh-sync.py watch ~/m/agents
 dev:/data/shared/agents`，dev 上 ssh 自连；无 `--delete`），四机对等。
 **同步面排除当前为空**（receiver 的在飞态已移进进程内存 ⇒ 盘上不再有「只属写者本机」的短命账本；
-排除管道保留，重加一条 = 改 `dsync/ssh-sync.py::WATCH_EXCLUDES` 一个常量）**+ gc delete-list 路径拒收**；
+排除管道保留，重加一条 = 改 `agents-sync/ssh-sync.py::WATCH_EXCLUDES` 一个常量）**+ gc delete-list 路径拒收**；
 除此之外属组闸门后**整棵树都在同步面内**
 （无目录级排除）：`session/` 会话记忆体跨机同步（单写者免疫冲突），探活锁在树内双向天然正确。
 且 `watch` 子命令拒绝 `--delete` 参数（永不删除是传输契约硬约束）。
@@ -364,7 +364,7 @@ ad-hoc 一次性同步仍可用 `ssh-sync.py push/pull/both <显式目录>`。
 跳过判据 = rsync 自己的 `-c` 内容校验和；**检测器只回答「有没有变更」**，不记路径、不做快照、不参与
 覆盖裁决 ⇒ 一轮的成本与变更量无关，轮次节奏由速率下限（`--min-cycle`）与强制周期（`--interval`）界定，
 **任何变更的重新锚定上界 = `--interval`**（deadline 本身即触发，树完全静默也照跑；与检测器是否失效无关）。
-排除面无运行时开关。机制/成本/实测的权威 = `@dsync#watch-cost`（本节不复述）。
+排除面无运行时开关。机制/成本/实测的权威 = `@agents-sync#watch-cost`（本节不复述）。
 落盘一律 `--chown=:replica` 打标，组名在接收端本地解析——各机 gid 无需一致，跨机共识只有
 `replica` 这一个字符串。rsync 标志 `-rlptDvc`：属组只由 `--chown` 一处决定；`-c`（--checksum）
 判跳过——跳过判据 = 内容校验和，**时间戳不参与任何裁决**，字节一致零重写。
@@ -373,7 +373,7 @@ ad-hoc 一次性同步仍可用 `ssh-sync.py push/pull/both <显式目录>`。
 启动闸门三道（任一失败拒绝启动）：本机 `replica` 组可解析、本机 chown 功能自检（用户须为组成员——
 rsync 对 --chown 失败静默吞掉）、**端到端 `--chown` 管道探针**（真传一个探针文件到远端、核落地属组）；
 「远端组存在 / 远端 chgrp 能力 / 两端 rsync 版本」被第三道语义覆盖，只在它失败后作为诊断跑。
-存量树首跑前经 `dsync/replica-tag.py` 一次性打标（幂等、干跑留痕、未决保守保持未标记）。
+存量树首跑前经 `agents-sync/replica-tag.py` 一次性打标（幂等、干跑留痕、未决保守保持未标记）。
 检测层（本机 inotify∨watchdog、远端 ssh 事件流）只是**触发器**：只决定「要不要跑一轮」，不参与覆盖裁决。
 防乒乓由闸门本身保证：我 push 上去的副本在对端带标记，回到我这轮 pull 时我本地那份是未标记原件 ⇒ 受保护、
 不被覆盖，代价是一轮空转（空转不打日志）。
@@ -382,7 +382,7 @@ rsync 对 --chown 失败静默吞掉）、**端到端 `--chown` 管道探针**�
 文件名**禁用 `*?[]` 字符**：pull 保护清单是模式语义，含通配符的文件名会被拒收+告警并失去保护，
 故树内新建文件名一律禁用（登记侧 `agentctl create --name` 与 dispatch 任务名强制校验）。
 **树内清理 = 全节点同时处理**：无 `--delete` 契约 = 删除不跨机传播——树内删文件必须全部节点
-同时处理（各机本机删 + hub 删，或经 `dsync/gc.py` delete-list 由 pull 侧统一执行），
+同时处理（各机本机删 + hub 删，或经 `agents-sync/gc.py` delete-list 由 pull 侧统一执行），
 只删单机会被其余节点下一轮同步复活。
 探活锁语义：各机 runner 主循环每 5s 重写本机 `agents/run/agentd.<host>.lock` 刷新 `updatedAt`；
 别机判存活**基于 `updatedAt` 新鲜度而非存在性**（同步契约不传播删除、崩溃留死锁，优雅退出也

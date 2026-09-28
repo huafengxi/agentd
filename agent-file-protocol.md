@@ -114,7 +114,7 @@ agents/<participantId>/
 
 **目录地址即参与方标识**（participantId，下称「参与方标识」）：参与方以它在 `agents/` 下的**两段路径** `<族>/<名字>` 命名（寻址直落，见下），寻址一个参与方 = 向它的目录写文件（如向 `agents/bot/<名字>/inbox/` 写消息 = 给参与方 `bot/<名字>` 发消息；调度员职位信箱 = 系统主题 `agents/topic/dispatcher/inbox/`），不需要任何额外的地址登记。名字段为**唯一字符串**，两种获取方式见 §2.2。
 
-**目录布局 = 类型分层 + bot 族（单布局）**：参与方目录按类型落位——任务落 `agents/task/<id>/`（自动名 `<rand6>`，自定义名如心跳同落此处）、稳定名长驻体落 `agents/bot/<名字>/`（两类：**会话载体**（pi 会话）与**进程载体**（含分发地址：信箱 `inbox/` 信封同 §4.5 + `watcher/<participant名>` 订阅注册表 + 转发进程载体 `spec.json`/`pid.json`，语义见应用层权威 `@dispatch#channel`）；无会话载体的职位信箱已移族 topic）、协作容器落 `agents/topic/<id>/`（`topic.md` 策展文档 + `inbox/` 全量日志（信封逐条自动落盘）+ `watcher/` 订阅登记 + 可选 `minutes/`；创建入口 = `agentctl topic init`（脚手架）；非进程型，不入进程型扫描面；含**系统主题** `topic/dispatcher` = 调度员职位信箱（终态通知/ask/传话写入口，调度员会话直订），语义见 assistant/docs/topic-design.md，任务 m29ptz/4lonp3）。寻址 = 路径式 id 按第一段直落（§2.2 文法），无存在性探测、无回退。分层层数固定为「类型/参与方」两层，**不支持任意嵌套**；类型容器目录（`task/`/`bot/`/`topic/`）本身不是参与方。层次需求仍用命名分层与关系字段表达（决策见 §13 已决事项 1）。分发型 bot 是进程型参与方、进进程型扫描面；信箱型 bot 无 `spec.json`，天然不入任务列表；topic 族同为非进程型，不入扫描面。**GC 语义**：`task/`/`bot/`/`topic/` 三族同等可经 gc 通道删除（删除传播实现单点 `dsync/gc.py`，`FORBIDDEN_LAYOUT_DIRS` 现为空——`bot/` 族不朽铁律已于 2026-09-06 经用户拍板移除）；**系统保护 = `gc.py PROTECTED_SYSTEM_PATHS`**（现含系统主题 `topic/dispatcher`：连 `--force` 也拒——关键基础设施）；审计旁路 `add --force` 机制保留，服务未来列入 `FORBIDDEN_LAYOUT_DIRS` 的豁免族。
+**目录布局 = 类型分层 + bot 族（单布局）**：参与方目录按类型落位——任务落 `agents/task/<id>/`（自动名 `<rand6>`，自定义名如心跳同落此处）、稳定名长驻体落 `agents/bot/<名字>/`（两类：**会话载体**（pi 会话）与**进程载体**（含分发地址：信箱 `inbox/` 信封同 §4.5 + `watcher/<participant名>` 订阅注册表 + 转发进程载体 `spec.json`/`pid.json`，语义见应用层权威 `@dispatch#channel`）；无会话载体的职位信箱已移族 topic）、协作容器落 `agents/topic/<id>/`（`topic.md` 策展文档 + `inbox/` 全量日志（信封逐条自动落盘）+ `watcher/` 订阅登记 + 可选 `minutes/`；创建入口 = `agentctl topic init`（脚手架）；非进程型，不入进程型扫描面；含**系统主题** `topic/dispatcher` = 调度员职位信箱（终态通知/ask/传话写入口，调度员会话直订），语义见 assistant/docs/topic-design.md，任务 m29ptz/4lonp3）。寻址 = 路径式 id 按第一段直落（§2.2 文法），无存在性探测、无回退。分层层数固定为「类型/参与方」两层，**不支持任意嵌套**；类型容器目录（`task/`/`bot/`/`topic/`）本身不是参与方。层次需求仍用命名分层与关系字段表达（决策见 §13 已决事项 1）。分发型 bot 是进程型参与方、进进程型扫描面；信箱型 bot 无 `spec.json`，天然不入任务列表；topic 族同为非进程型，不入扫描面。**GC 语义**：`task/`/`bot/`/`topic/` 三族同等可经 gc 通道删除（删除传播实现单点 `agents-sync/gc.py`，`FORBIDDEN_LAYOUT_DIRS` 现为空——`bot/` 族不朽铁律已于 2026-09-06 经用户拍板移除）；**系统保护 = `gc.py PROTECTED_SYSTEM_PATHS`**（现含系统主题 `topic/dispatcher`：连 `--force` 也拒——关键基础设施）；审计旁路 `add --force` 机制保留，服务未来列入 `FORBIDDEN_LAYOUT_DIRS` 的豁免族。
 
 参与方分两类，**协议层对二者不做区分，只差有没有进程在跑**：
 
@@ -412,7 +412,7 @@ agents/<participantId>/
   无法区分的件：「真被丢弃后拉取侧救回」与「送达但晚于轮末 flush、被消费者抢先手写」）。
 - **对他机运行态文件的否定断言，先核本地副本新鲜度**：`agents/**` 的运行态面（`session/*.jsonl`、`inbox/`、`inbox/ack/`、`pid.json`、`report.md`）经 agents-sync 在各机有副本、可滞后分钟级 ⇒ 凡对**他机**这些文件下否定结论（零命中 / 不存在 / 未消费 / 未送达 / 判死），先核副本新鲜度 = 副本 `mtime`/`size` 是否晚于被核事件的 ts（`ls -l <副本>` 对照事件时刻；`pid.json` 的判活同族 = 本地副本的 `lastAliveAt` 也可能是旧值，判死要经 `rsh <机>` 读活文件）；不满足 ⇒ 结论无效，改 `rsh <机> -- 'grep …'` 核活文件。**否定断言必须写清取样面**（「<机> 侧 agents-sync 副本，size N、mtime T」），不写「其会话树」——后者会被读成活文件。**正向断言不受此限**：`.msg` 原件不删不移、`ack` 只增、jsonl 追加式 ⇒ 副本上「在场」在活文件上必曾在场（唯一例外 = gc 删除传播窗内的「文件不存在」类断言，仍按新鲜度核）。
 - **存量兼容**：终态 ack 一律视为已送达，不回溯重投、不删不改。旧实现留下的盘上记账件（`ack/<…>.pending`）
-  **不再是任何判据**：收件方见到对应终态 ack 时顺手清掉，其余无人读（无害；清理走 `dsync/gc.py`）。
+  **不再是任何判据**：收件方见到对应终态 ack 时顺手清掉，其余无人读（无害；清理走 `agents-sync/gc.py`）。
   带 `attempts` 字段的存量 ack 逐字保留（该字段随重投语义一并退役，新 ack 不写）。
 - **并发语义（明示变化）**：认领不再走盘上 `O_EXCL` 抢占，故**跨进程互斥消失**（两个进程同时扫同一信箱会各注入
   一次）；终态 ack 仍以 `wx` 写 ⇒ ack 唯一性不变，重复面只到「重复投递」（§6.4 契约内）。正常态每个信箱只有
@@ -427,7 +427,7 @@ agents/<participantId>/
 
 两态共存不互干扰（路径不同）。**命名空间段安全性**：段含 `/`、`\` 或 `..`（如订阅者名含连续点，名白名单只拒整名 `.`/`..`）时，实现层**拒绝该订阅者的整个绑定面**并留降级日志——共享信箱绝不落扁平 ack（扁平 = 全局先到先得，两个同样降级的订阅者会互抢/互挡）；自家信箱不受影响（单订阅，扁平 ack 即既有语义），改名去掉连续点即恢复。
 
-**副本打标口径（跨机同步属组闸门）**：一次性打标工具 `dsync/replica-tag.py` 按同一归属模型解宿主——信封按 `from`、**命名空间 ack 按订阅者**（ack 内 `subscriber` 字段权威、命名空间目录段回退；段不做点号反解，按现存 `task/`+`bot/` 目录名正向 `fsSafeId` 精确匹配）的 `spec.host`，扁平 ack 按信箱所属会话的宿主；解不出一律 UNKNOWN = 不打标（失效不对称，见 §15.4）。
+**副本打标口径（跨机同步属组闸门）**：一次性打标工具 `agents-sync/replica-tag.py` 按同一归属模型解宿主——信封按 `from`、**命名空间 ack 按订阅者**（ack 内 `subscriber` 字段权威、命名空间目录段回退；段不做点号反解，按现存 `task/`+`bot/` 目录名正向 `fsSafeId` 精确匹配）的 `spec.host`，扁平 ack 按信箱所属会话的宿主；解不出一律 UNKNOWN = 不打标（失效不对称，见 §15.4）。
 
 订阅声明字段 = `spec.subscribes`（已登记于 §4.1，可选扩展字段）与 topic 侧 `watcher/<裸名>` 条目（实现层注册表，非本协议文件）；**绑定判定与推送语义不属本协议层**（= 实现层 receiver，见 `@dispatch#notify` 与 `@topic-design#two-pieces`/`@topic-design#layout-addressing`③）。
 
@@ -1049,17 +1049,17 @@ agents/<participantId>/enable.json
 
 agent 目录内的运行期文件（`pid.json`、`control/ack/`、`inbox/ack/`、`session/` 及应用层产物）**只由 `spec.host` 所指机器的 runner/agent 写**；跨机参与方对其只读（消息例外——inbox 照旧由任一发送方写，但每个消息文件的写者仍唯一，§8）。
 
-> **共享式多订阅信箱的 ack 例外（§4.6 两态）**：`topic/<id>/inbox/ack/<订阅者>/<id>` 的写者 = **该订阅者会话的宕主机**（而非 topic 目录的某个单一 owner）——命名空间按订阅者分区，「每个文件恰有一个写入方」依旧成立（第一定律不破），跨机订阅者各写各的子目录无写冲突；topic 目录自身无 `spec.host`（非进程型不入监督面）。存量树的一次性打标同口径：`dsync/replica-tag.py` 把命名空间 ack 归给**订阅者**的宿主而非信箱所属方（§4.6）。
+> **共享式多订阅信箱的 ack 例外（§4.6 两态）**：`topic/<id>/inbox/ack/<订阅者>/<id>` 的写者 = **该订阅者会话的宕主机**（而非 topic 目录的某个单一 owner）——命名空间按订阅者分区，「每个文件恰有一个写入方」依旧成立（第一定律不破），跨机订阅者各写各的子目录无写冲突；topic 目录自身无 `spec.host`（非进程型不入监督面）。存量树的一次性打标同口径：`agents-sync/replica-tag.py` 把命名空间 ack 归给**订阅者**的宿主而非信箱所属方（§4.6）。
 
-> **ack 撤销面已收窄（原「撤销不跨机传播」局限 记录）**：推送侧（会话型收件方）的认领只在进程内存，注入失败 = 释放内存认领，**盘上没有 ack 可撤销** ⇒ 该局限在推送面消失。残留面只剩「不走在飞表的调用方」（无 tracker 的旧语义：`O_EXCL` 认领即写终态 ack，注入同步失败时本地 `unlink` 撤销）与拉取侧手写后又删 ack 的形态：agents-sync 网格不传播删除（无 `--delete`，删除只经 `dsync/gc.py` delete-list）→ 若撤销前该 ack 已 push 到 hub、且会话在下轮补投前死掉，重启后 pull 可能把 hub 残留 ack 回灌（本地已无该文件 → 不在 protect list），该条对该订阅者**永久不投**。窗口极窄（补投 poll 2s vs 同步周期）。**候选方向（未排期）**：撤销改为写 tombstone（可传播的显式撤回标记）而非删除。
+> **ack 撤销面已收窄（原「撤销不跨机传播」局限 记录）**：推送侧（会话型收件方）的认领只在进程内存，注入失败 = 释放内存认领，**盘上没有 ack 可撤销** ⇒ 该局限在推送面消失。残留面只剩「不走在飞表的调用方」（无 tracker 的旧语义：`O_EXCL` 认领即写终态 ack，注入同步失败时本地 `unlink` 撤销）与拉取侧手写后又删 ack 的形态：agents-sync 网格不传播删除（无 `--delete`，删除只经 `agents-sync/gc.py` delete-list）→ 若撤销前该 ack 已 push 到 hub、且会话在下轮补投前死掉，重启后 pull 可能把 hub 残留 ack 回灌（本地已无该文件 → 不在 protect list），该条对该订阅者**永久不投**。窗口极窄（补投 poll 2s vs 同步周期）。**候选方向（未排期）**：撤销改为写 tombstone（可传播的显式撤回标记）而非删除。
 
 > **在飞态无盘上载体 ⇒ 跨机同步面无排除项**：会话型收件方的在飞态（已认领、送达未确认）只在收件方进程内存
-> （§4.6），盘上没有「只属写者本机」的短命账本 ⇒ 同步面排除清单当前为空（`dsync/ssh-sync.py::WATCH_EXCLUDES`；
+> （§4.6），盘上没有「只属写者本机」的短命账本 ⇒ 同步面排除清单当前为空（`agents-sync/ssh-sync.py::WATCH_EXCLUDES`；
 > 管道保留：重加一条 = 改一个常量）。旧实现留下的 `*.pending` 存量无人再读（不是任何判据）：收件方见到对应终态
-> ack 时顺手清掉，其余走 `dsync/gc.py add`（delete-list 已列路径同步面永久拒收）。
+> ack 时顺手清掉，其余走 `agents-sync/gc.py add`（delete-list 已列路径同步面永久拒收）。
 > **对账不变量照旧**：一信封一终态 `ack/<id>`；统计某订阅者的 ack 条数直接数精确名即可（无需再过滤在飞形态）。
 
-> **职位信箱系统主题 `topic/dispatcher`**：信封写者 = 任意宿主（各机 runner 写本机终态通知的**回落份**、子端写 ask 的**回落份**、人机/服务写 inform；终态通知与子端 ask 的默认收件面均为 `spec.reaper` 的自家信箱，本系统主题**已退出二者默认收件面**，只在 reaper 解析不到目录或该收件方无消费者时作回落面，并保留 ask 转呈回落 / runner 与服务告警 / 人机传话三类写入口；分流与判重口径属应用层 = `@dispatch#lifecycle` 反问协议 / §8）——仍是「每个消息文件恰一个写者」；ack 写者 = 各订阅者会话的宿主（现网 `bot.dev-dispatcher` 命名空间 = dev）。本主题是关键基础设施，删除保护在 hub 侧 GC 工具（`dsync/gc.py PROTECTED_SYSTEM_PATHS`，连 `--force` 也拒），不属协议层。
+> **职位信箱系统主题 `topic/dispatcher`**：信封写者 = 任意宿主（各机 runner 写本机终态通知的**回落份**、子端写 ask 的**回落份**、人机/服务写 inform；终态通知与子端 ask 的默认收件面均为 `spec.reaper` 的自家信箱，本系统主题**已退出二者默认收件面**，只在 reaper 解析不到目录或该收件方无消费者时作回落面，并保留 ask 转呈回落 / runner 与服务告警 / 人机传话三类写入口；分流与判重口径属应用层 = `@dispatch#lifecycle` 反问协议 / §8）——仍是「每个消息文件恰一个写者」；ack 写者 = 各订阅者会话的宿主（现网 `bot.dev-dispatcher` 命名空间 = dev）。本主题是关键基础设施，删除保护在 hub 侧 GC 工具（`agents-sync/gc.py PROTECTED_SYSTEM_PATHS`，连 `--force` 也拒），不属协议层。
 
 > **所有权由 `spec.host` 声明、由写隔离执行。**
 

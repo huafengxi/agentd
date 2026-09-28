@@ -2193,7 +2193,7 @@ def s39():
     # d) GC 通道：topic/ 可入删除清单（对齐 task/ 口径）；bot/ 同样可入
     #    （bot 不朽铁律 2026-09-06 经用户拍板移除）；topic/dispatcher
     #    仍受 PROTECTED_SYSTEM_PATHS 保护（含 --force）
-    gc = os.path.join(HERE, os.pardir, "dsync", "gc.py")
+    gc = os.path.join(HERE, os.pardir, "agents-sync", "gc.py")
     gcenv = dict(os.environ, GC_WORKSPACE=ROOT,
                  GC_AGENTS_DIR=os.path.join(ROOT, "agents"))
     r = subprocess.run([sys.executable, gc, "add", "topic/s39-auto/"],
@@ -2254,7 +2254,7 @@ def s40():
         "骨架应带 frontmatter when: 占位"
     for sec in ("## 议题", "## 已决", "## 未决"):
         assert sec in md, "骨架缺小节 %s" % sec
-    assert "dsync/gc.py" in md and "dsync/gc.py" in out, \
+    assert "agents-sync/gc.py" in md and "agents-sync/gc.py" in out, \
         "骨架/回执应注明删除铁律走 gc 通道"
     # ④ 标题提取跳过 frontmatter（首行 `---` 不当标题）
     assert _report.topic_title(tdir) == "S40 演示议题", _report.topic_title(tdir)
@@ -2457,15 +2457,15 @@ def s41():
         _proto.BOT_DIR + "/" + _proto.POSITION_TOPIC: _proto.POSITION_PID}, \
         "退役表须与 core.ts RETIRED_MAILBOXES 同口径：%r" % _proto.RETIRED_MAILBOXES
     # ①b 系统主题豁免名单同源（攒批 5）：report.py 走 proto.PROTECTED_SYSTEM_*，
-    #    dsync/gc.py 自带 hub 侧副本（刻意 stdlib-only 不 import proto）→ 漏改一侧的后果 =
+    #    agents-sync/gc.py 自带 hub 侧副本（刻意 stdlib-only 不 import proto）→ 漏改一侧的后果 =
     #    新系统主题在 tasks tab 被判出主持人链接、或被 gc 误删，故以断言钉住同值。
     import importlib.util as _ilu
     _gc_spec = _ilu.spec_from_file_location(
-        "dsync_gc_s41", os.path.join(HERE, "..", "dsync", "gc.py"))
+        "agents_sync_gc_s41", os.path.join(HERE, "..", "agents-sync", "gc.py"))
     _gc = _ilu.module_from_spec(_gc_spec)
     _gc_spec.loader.exec_module(_gc)
     assert _proto.PROTECTED_SYSTEM_PATHS == _gc.PROTECTED_SYSTEM_PATHS, \
-        "系统主题保护名单两侧必须同值（proto.py 单点 ↔ dsync/gc.py 副本）：%r vs %r" % (
+        "系统主题保护名单两侧必须同值（proto.py 单点 ↔ agents-sync/gc.py 副本）：%r vs %r" % (
             _proto.PROTECTED_SYSTEM_PATHS, _gc.PROTECTED_SYSTEM_PATHS)
     assert _proto.PROTECTED_SYSTEM_TOPICS == (_proto.POSITION_TOPIC,), \
         "系统主题名单须由 POSITION_TOPIC 派生（不另立魔数）：%r" % (
