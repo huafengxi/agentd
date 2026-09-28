@@ -6,7 +6,7 @@
 spawn / kill / 判挂死。调度半边是独立模块/独立服务 scheduler.py（
 拆出， 彻底去合署， 起 --scheduled 参数
 彻底移除）：enable.json 门禁内置、无条件生效（有 spec 还需调度方写 enable.json 才 spawn），
-runner 不再实例化/调用调度器；调度方由 svc/scheduler-loop.sh 独立常驻（全局唯一实例）。
+runner 不再实例化/调用调度器；调度方由 scheduler-loop.sh 独立常驻（全局唯一实例）。
 
 判死纪律（计划 §0.b，硬约束）：
   - 本进程 spawn 的进程 → 句柄 poll() 收尾（防线 1，拿得到真死因）；

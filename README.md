@@ -67,14 +67,14 @@ anchors:
 ## 用法
 
 ```bash
-# 起 runner（前台；生产由 svc/agentd-loop.sh 监督，日志约定 ~/m/run/logs/agentd.log；
+# 起 runner（前台；生产由 loop.sh 监督，日志约定 ~/m/run/logs/agentd.log；
 # 机器身份 = 规范名（env/host-id 映射文件按 $(hostname) 查表）+ 本机 hostname 别名，见下「路由字段」；
-# 生产由 svc/agentd-loop.sh 内联查表，下方命令为手工等价形态）
+# 生产由 loop.sh 内联查表，下方命令为手工等价形态）
 python3 runner.py --root ~/m --host "$(awk -v h="$(hostname)" '!/^[[:space:]]*#/ && $1==h {print $2; exit}' ~/m/env/host-id)" --aliases "$(hostname)" \
     --interval 0.5 \
     --log-file ~/m/run/logs/agentd.log --log-level INFO
 
-# 起调度方（独立服务；生产由 svc/scheduler-loop.sh 监督，make scheduler.start/stop/status，
+# 起调度方（独立服务；生产由 scheduler-loop.sh 监督，make scheduler.start/stop/status，
 # 日志 ~/m/run/logs/scheduler.log；--all-hosts 全局视图 = 为所有机器放行）
 python3 scheduler.py --root ~/m --all-hosts --interval 0.5 \
     --log-file ~/m/run/logs/scheduler.log --log-level INFO
@@ -245,7 +245,7 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 
 | 部署 | 形态 |
 |---|---|
-| dev | runner 服务（`svc/agentd-loop.sh`，enable.json 门禁内置）+ 调度方服务（`svc/scheduler-loop.sh` → `scheduler.py --all-hosts`，`make scheduler.start`）各自独立 |
+| dev | runner 服务（`loop.sh`，enable.json 门禁内置）+ 调度方服务（`scheduler-loop.sh` → `scheduler.py --all-hosts`，`make scheduler.start`）各自独立 |
 | 其他机器 | 只有 runner 服务（门禁内置）；放行统一由 dev 调度方经同步树写 enable |
 
 硬约束：**调度方全局任意时刻至多一个实例**（`enable.json` 单写者）。
@@ -262,8 +262,8 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 ## 调度（独立调度方，scheduler.py）
 
 调度方完全无状态（`@agent-file-protocol#scheduler-recovery` 重启重扫即恢复）；决策可观察：每次放行/
-阻塞打日志，放行依据写入 `enable.json` 的 `note`。常驻由 `svc/scheduler-loop.sh`
-监督（崩溃 2s 自愈，形态同 agentd-loop.sh）；`--once` 供调试与人工兜底
+阻塞打日志，放行依据写入 `enable.json` 的 `note`。常驻由 `scheduler-loop.sh`
+监督（崩溃 2s 自愈，形态同 loop.sh）；`--once` 供调试与人工兜底
 （dev 长期离线时在任一带树镜像的机器上手工放行一批；前提 = 确认无其他调度实例在运行——
 双调度器会双放行，靠部署约束排除而非算法防）。
 
@@ -322,7 +322,7 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 - **登记行为**：两通道均恒写 `spec.host`（缺省 = 登记机规范名；dispatch 可显式传 `host`
   参数指定目标机）与 `spec.createdByHost`（= 登记机）。非法机器名（不在上面那份机器名清单）：
   dispatch 回执告警但放行登记（与 `@agent-file-protocol#host-offline` 排队语义一致）。
-- **runner 启动参数**：`--host <规范名> --aliases $(hostname)`（`svc/agentd-loop.sh` 启动时
+- **runner 启动参数**：`--host <规范名> --aliases $(hostname)`（`loop.sh` 启动时
   按 `env/host-id` 映射查表取规范名），使 spec.host 指向本机的任务被本机认领。
 - **认领侧语义**（与登记侧物化配套）：`spec.host` 匹配本机身份（规范名或别名）才认领；
   **缺失/空 = 无机器认领**——「缺省→本机认领」式兜底在多机下是双重拉起的危险源，不存在：

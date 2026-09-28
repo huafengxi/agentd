@@ -3,7 +3,7 @@
 
 职责（协议 §14 调度方）：给排队者写 enable.json 放行。runner.py 只保留运行半边，
 调度方独立部署（多机阶段 2：用户纠偏彻底拆分，废除合署）：
-生产由 svc/scheduler-loop.sh 监督常驻（make scheduler.start），全局唯一实例；
+生产由 scheduler-loop.sh 监督常驻（make scheduler.start），全局唯一实例；
 --once 供调试/人工兜底（设计 DESIGN-multimachine §4.1）。
 
 调度模型（DISPATCH.md §3 口径）：
@@ -45,7 +45,7 @@
 
 放行依据写进 enable.json 的 note 字段（协议零扩展），决策另打日志（验收可观察）。
 
-用法（独立常驻；监督脚本 svc/scheduler-loop.sh，make scheduler.start/stop/status）：
+用法（独立常驻；监督脚本 scheduler-loop.sh，make scheduler.start/stop/status）：
   python3 scheduler.py --root <ROOT> [--host NAME] [--aliases a,b]
                        [--max-concurrent N] [--all-hosts] [--once] [--interval 0.5]
                        [--log-file PATH] [--log-level DEBUG|INFO|WARNING|ERROR]
@@ -327,7 +327,7 @@ def eval_needs(needs, providers_by_cap):
 
 
 class Scheduler:
-    """调度方（无状态，每轮重扫 §14.5）。独立常驻服务（svc/scheduler-loop.sh 监督，
+    """调度方（无状态，每轮重扫 §14.5）。独立常驻服务（scheduler-loop.sh 监督，
     多机阶段 2 去合署）或 --once 单次使用。"""
 
     def __init__(self, root, local_ids, max_concurrent=DEFAULT_MAX_CONCURRENT,
