@@ -701,7 +701,7 @@ class Runner:
 
     def do_stop(self, pid_, req, doc):
         if doc is not None and doc.get("final") is True:
-            # 已 final：行为性停写，不再碰 pid.json（存疑 2 的推论：重复 stop → noop）
+            # 已 final：行为性停写，不再碰 pid.json（§13 条 2：重复 stop → noop）
             self.write_ack(pid_, req["id"], "noop", "already final")
             return doc
         if doc is None:
