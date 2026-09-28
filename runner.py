@@ -384,7 +384,7 @@ class Runner:
         → 回落职位信箱并带 note（同款语义）。
         AGENTD_ASK_INBOX = 收件目录绝对路径（reaper 自家信箱 ∨ 回落职位信箱）；
         AGENTD_ASK_NOTE = 回落成因 note（命中 reaper 时不写该枚）。两枚已收进 envscrub.ENV_SCRUB_EXACT
-        （身份/信号类，不得继承进孙进程，否则 svc/clean-make.py 的 LEAK_PREFIXES 自检拒绝执行）。
+        （身份/信号类，不得继承进孙进程：继承会把它带进被启动的服务，并让嵌套 receiver 误用外层任务的 ask 路由）。
         @returns {dict} 待 env.update 的键值（值恒为 str）"""
         r = self.resolve_reaper(spec)
         env = {"AGENTD_ASK_INBOX": r["inbox"]}

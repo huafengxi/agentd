@@ -56,29 +56,25 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # scrubbing. They are identity/signal class exactly like
                    # AGENTD_RESIDENT above: they must only ever come from the writer
                    # itself. Inherited copies leak into every grandchild (bash tool ->
-                   # node/python/make), which (a) made svc/clean-make.py refuse to run
-                   # in ANY subtask (its LEAK_PREFIXES self-check sees AGENT* it cannot
-                   # scrub -> not even read-only `svc.status`), and (b) let a nested
-                   # receiver-child trust an OUTER task's marks. No caller relies on
-                   # inheritance (repo-wide: only spawn_pi's explicit assignment,
+                   # node/python/make -> svc/svc.py -> the service it starts), and let a
+                   # nested receiver-child trust an OUTER task's marks. No caller relies
+                   # on inheritance (repo-wide: only spawn_pi's explicit assignment,
                    # fakepi_rpc.py fixtures and ext tests, all explicit).
                    "AGENTD_WRAP_INIT_OK", "AGENTD_WRAP_RECV_ARMED",
                    # ask 写侧收件面信号 env（项 1）：runner.spawn 复用 resolve_reaper 单点
                    # 解析出该任务的 reaper 信箱，经这两枚 env 交子端 core.writeAskMessage 取值
                    # （AGENTD_ASK_INBOX=收件目录、AGENTD_ASK_NOTE=回落成因 note），set explicitly AFTER
                    # scrubbing。与 AGENTD_WRAP_* 同族同理：身份/信号类，必须只来自写者本身——继承进孙进程
-                   # （bash→make）会让 svc/clean-make.py 的 LEAK_PREFIXES 自检（"AGENT" 前缀）洗不掉而拒绝
-                   # 执行，且嵌套 receiver 会误用外层任务的 ask 路由。No caller relies on inheritance。
+                   # （bash→make→svc.py）会把它带进被启动的服务，且嵌套 receiver 会误用外层任务的 ask
+                   # 路由。No caller relies on inheritance。
                    "AGENTD_ASK_INBOX", "AGENTD_ASK_NOTE",
                    # heartbeat-session marker (spec.command env prefix):
                    # it must only ever come from the spec.command string of the
                    # heartbeat task itself (registered by assistant/heartbeat.sh as
                    # `DISPATCH_HEARTBEAT=1 exec ...`; convention = agent-file-protocol.md
                    # "命令前缀标记惯例"). Inherited copies leak into every grandchild
-                   # (bash tool -> make -> svc/svc.py), which (a) made svc/clean-make.py
-                   # refuse to run in ANY heartbeat session (its LEAK_PREFIXES self-check
-                   # sees the DISPATCH* prefix it cannot scrub -> not even read-only
-                   # `svc.status`), and (b) if the started service is agentd, EVERY task
+                   # (bash tool -> make -> svc/svc.py -> the service being started): if
+                   # that service is agentd, EVERY task
                    # it later spawns inherits the recursion-guard heartbeat exemption
                    # (core.ts recursionGuardReason) -> the leaf-no-redispatch guard fails
                    # silently, system-wide. The heartbeat session itself is unaffected:
@@ -110,6 +106,14 @@ ENV_SCRUB_PREFIXES = ("DISPATCH_TASK_",
                       # PI_SESSION_FILE — prefix now covers the whole family,
                       #)
                       "PI_")
+
+# 本名单是**枚名制**（不是身份前缀制：同前缀族里住着大量配置旋钮——AGENTD_WRAP_* 超时族、
+# AGENTD_DIR、SESSIOND_* 五枚——按前缀洗会静默把旋钮洗成缺省值）⇒ 一枚新增的身份标记若漏进
+# 名单，会静默继承进被启动的服务（无运行时守卫拦它）。兜底面 = **提交期钉桩**：
+# pi-wrap/test_wrap.py T47 扫 spec.command 的 env 前缀键（bots/daemon/*/spec.json、
+# assistant/heartbeat.sh、w/ext/sessiond/proc.py 的 create_bot 模板），逐枚断言 scrub_env
+# 真洗掉；漏列 ⇒ 测试红（在提交前，不在事故里）。新增身份标记的姿势 = 同批把它加进
+# ENV_SCRUB_EXACT（旋钮类则不必：它本该继承）。
 
 
 def scrub_env(base=None, keep=frozenset(), strip_third_party=False):
