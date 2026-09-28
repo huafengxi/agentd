@@ -2387,7 +2387,7 @@ def s40():
     ctl("bot", "register", "--name", "s40-wonly", "--command", sess_cmd,
         "--workdir", ROOT, "--creator", "task/s40", "--host", "nv1")
     ctl("bot", "register", "--name", "s40-script", "--subscribes", "topic/" + tid,
-        "--command", "exec bash svc/loop.sh", "--workdir", ROOT,
+        "--command", "exec bash test-fixture-loop.sh", "--workdir", ROOT,
         "--creator", "task/s40", "--host", "dev")   # 脚本型：订阅也不出链
     for nm in ("s40-wonly", "s40-script", "s40-host"):
         open(os.path.join(tdir, "watcher", nm), "w").close()   # 通道 A 条目（含重名者）

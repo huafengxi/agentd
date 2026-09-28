@@ -486,8 +486,8 @@ def collect_system_health(root, now):
     口径：① runner 存活 = 锁内 updatedAt 新鲜度，解析路径/时间戳格式/阈值全部复用
     scheduler（host_lock_path/_parse_ts/HOST_ALIVE_THRESHOLD），与调度门禁零漂移；
     ② agents-sync 链路为间接口径——远端锁由远端 runner 写、经同步链路到达 dev，
-    内容新鲜即同时证明「远端 runner 活 + 同步链路通」；dev 为 hub 无本地链路（口径同
-    svc.status 的 skip），注明即可。任何读取失败只降级标注，不炸整体。"""
+    内容新鲜即同时证明「远端 runner 活 + 同步链路通」；dev 为 hub 无本地链路，注明即可。
+    任何读取失败只降级标注，不炸整体。"""
     rows = []
     abn = []
     for host in SYSTEM_HOSTS:

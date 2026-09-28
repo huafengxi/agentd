@@ -633,7 +633,7 @@ class Runner:
         adir = self.adir(pid_)
         # 环境洗刷（票 1t7e9o）：任务进程不得继承调度方身份族与
         # pi 机密（实证泄漏：PI_WEB_PASSWORD 明文）。口径单点 = envscrub.py，
-        # 与 svc/svc.py 同源；任务侧 keep 必须空集（无业务豁免）。
+        # 与 serviced/serviced.py 同源；任务侧 keep 必须空集（无业务豁免）。
         # strip_third_party=True：连第三方 API key 族（*_API_KEY）
         # 一并剥除——子任务不继承宿主用钥；宿主服务自身环境不受影响（洗的是子进程副本）。
         env = envscrub.scrub_env(strip_third_party=True)

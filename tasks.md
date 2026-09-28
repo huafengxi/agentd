@@ -34,7 +34,7 @@ ${agentd/report.py -s recent}
 ## 说明
 
 - 调度基础设施健康度：各 host runner / scheduler / agents-sync 链路
-- 调度基础设施健康度（口径）：runner 判活 = `agents/run/agentd.<host>.lock` 的 updatedAt 新鲜度，阈值取 `scheduler.HOST_ALIVE_THRESHOLD`（当前 60s，复用调度门禁判活口径）；agents-sync 链路为间接口径——远端锁由远端 runner 写、经同步链路到达 dev，内容新鲜即同时证明「远端 runner 活 + 同步链路通」（✅ 双活）；dev 为 hub 无本地同步链路（口径同 svc.status 的 skip）
+- 调度基础设施健康度（口径）：runner 判活 = `agents/run/agentd.<host>.lock` 的 updatedAt 新鲜度，阈值取 `scheduler.HOST_ALIVE_THRESHOLD`（当前 60s，复用调度门禁判活口径）；agents-sync 链路为间接口径——远端锁由远端 runner 写、经同步链路到达 dev，内容新鲜即同时证明「远端 runner 活 + 同步链路通」（✅ 双活）；dev 为 hub 无本地同步链路
 - 失败/心跳停滞/应跑未跑/基础设施异常集中区：无异常时一行「（无异常）」
 - task/bot 两族状态计数（口径）：bot 族为常驻进程，无成败语义，终态多为被停用/一次跑完；明细见「bot 族常驻/一次性进程状态」节
 - 未终态任务：运行中 + 排队/已放行待拉起，含调度依赖与最新进展
