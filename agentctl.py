@@ -368,7 +368,7 @@ def cmd_bot_register(a):
         在本分支**不生效**（改字段 = 人工编辑 spec.json 后 `control restart`），给了只提示。
       - spec.json **不在场** → 需要 `--command/--workdir/--creator` 三件（与 `create` 同纪律）
         才创建进程型 bot spec（+ inbox/）；只想要信箱用 `create-bot`，守护型 bot 走被追踪
-        声明源 `svc/bots/<名字>/spec.json` + `make bots.seed`（fresh clone 自愈）。
+        声明源 `bots/daemon/<名字>/spec.json` + `make bots.seed`（fresh clone 自愈）。
 
     实现层 receiver 每轮实时重读 spec（通道 B 与通道 A 取并集），故订阅改动对在跑会话
     动态生效；但 spec 只承载**登记期意图**（口径见 topic-design.md §5.1）。"""
@@ -412,7 +412,7 @@ def cmd_bot_register(a):
     # 新建 spec：command/workdir/creator 三件必备（与 cmd_create 同纪律）
     if not a.command or not a.workdir or not a.creator:
         die("bot/%s 无 spec.json：新建进程型 bot spec 需 --command/--workdir/--creator 三件"
-            "（只要信箱用 `create-bot`；守护型 bot 走被追踪声明源 svc/bots/<名字>/spec.json"
+            "（只要信箱用 `create-bot`；守护型 bot 走被追踪声明源 bots/daemon/<名字>/spec.json"
             " + `make bots.seed`；只想改订阅而 spec 应在场 = 先核对路径 --root）" % a.name,
             code=2)
     spec = {"command": a.command,
