@@ -17,26 +17,6 @@ anchors:
 
 # agentd — Agent 文件通信协议生产核心
 
-> **In English**: `agentd` is a file-protocol agent supervisor + scheduler. A
-> *runner* (one per machine) spawns and supervises agent sessions declared by
-> `spec.json` files under a plain directory tree (`agents/task/<id>/`,
-> `agents/bot/<name>/`, `agents/topic/<id>/`), envelopes and acks are files in
-> per-participant `inbox/` directories, liveness is a pid file plus an identity
-> check plus a per-machine lock, and orphan adoption lets a restarted runner keep
-> supervising sessions it did not start. A separate *scheduler* process decides
-> which registered tasks may start (capability `needs`/`provides` with
-> success/pending tri-state, exclusive resources, concurrency caps, target-host
-> liveness). `report.py` renders the whole tree to markdown for a dashboard;
-> `agentctl.py` is the write-side CLI; `proto.py` is the single source of the
-> path/envelope/exit-code contract (mirrored by the TypeScript side). Everything
-> is Python 3 stdlib only — no database, no message broker: the filesystem *is*
-> the protocol, which makes the whole system inspectable with `ls` and `cat`.
->
-> Protocol authority: `agent-file-protocol.md` (in this repo).
-> Verification: `python3 e2e.py` (48 end-to-end scenarios), `python3
-> test_runner_notify.py`. The RPC session wrapper lives in the sibling repo
-> `pi-wrap/` (`../pi-wrap/`), which imports `proto.py` from here.
->
 > 注：正文里的 `` `@<名>#<锚点>` `` 是作者工作区的按名引用记号（解析器在那个工作区内），
 > 在本仓单独阅读时按「另一册的节名」理解即可。
 
