@@ -29,7 +29,9 @@ AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 
 通用：--root <ROOT>（**工作区根**，如 ~/m —— 不是 ~/m/agents；<ROOT>/agents 须在场，
 缺失即拒绝且不静默建目录；<ROOT>/env/host-id 缺失只告警、登记不失败，口径同
-`local_canonical_host`）。仅使用 python3 标准库。
+`local_canonical_host`）。**缺省 = 本脚本所在仓的父目录**（现场发现，不依赖 cwd 与 env
+⇒ 工作区内任何目录直接 `python3 <WS>/agentd/agentctl.py <动词> …` 即可）；显式 --root
+只用于另一棵树（如测试临时树）。仅使用 python3 标准库。
 
 **删除铁律**：本 CLI 只做创建/登记，不提供任何删除动作——agents/ 内目录清理一律走
 `agents-sync/gc.py add` 删除清单通道（bot/ 族还需 --force 审计旁路），绝不直接 rm。
@@ -102,6 +104,15 @@ def require_workspace_root(root):
               "（工作区根含 agents/ 与 env/host-id），若不是请改正；登记照旧进行，"
               "登记机规范名回退本机 hostname" % r, file=sys.stderr)
     return r
+
+
+def default_root():
+    """缺省工作区根 = 本仓所在根（布局固定为 `<root>/agentd/agentctl.py` ⇒ 上两级）。
+
+    现场发现、不依赖 cwd 与 env：会话里从任何工作目录调用都解析到同一个根（收录判据 ①
+    的「现场发现 ∨ 调用方注入」两档里的前者）。本仓单独 checkout（父目录无 `agents/`）时
+    该值过不了 `require_workspace_root` 的硬前置 ⇒ 报「不是工作区根」，此时显式传 `--root`。"""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def portable_path(p):
@@ -732,9 +743,10 @@ def die(msg, code=1):
 
 def main():
     ap = argparse.ArgumentParser(prog="agentctl")
-    ap.add_argument("--root", required=True,
+    ap.add_argument("--root", default=None,
                     help="工作区根（如 ~/m），不是 ~/m/agents：<root>/agents 不在场即拒绝"
-                         "（不静默建目录）；<root>/env/host-id 不在场只告警（登记不失败）")
+                         "（不静默建目录）；<root>/env/host-id 不在场只告警（登记不失败）。"
+                         "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("create", help="写 spec.json 创建参与方")
@@ -882,7 +894,8 @@ def main():
     p.set_defaults(fn=cmd_list)
 
     a = ap.parse_args()
-    a.root = require_workspace_root(a.root)   # 错 root 前置拒绝（不静默建嵌套树）
+    # 错 root 前置拒绝（不静默建嵌套树）；缺省值 = 现场发现（本仓父目录）
+    a.root = require_workspace_root(a.root or default_root())
     a.fn(a)
 
 

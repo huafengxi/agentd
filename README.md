@@ -75,16 +75,23 @@ python3 runner.py --root ~/m --host "$(awk -v h="$(hostname)" '!/^[[:space:]]*#/
 python3 scheduler.py --root ~/m --all-hosts --interval 0.5 \
     --log-file ~/m/run/logs/scheduler.log --log-level INFO
 
-# CLI
-A="python3 agentctl.py --root ~/m"
-$A create --command 'sleep 10' --workdir /tmp --creator me   # 自动生成名；--name 自定义；
-$A create ... --resources '["gpu"]' --provides '["capA"]' --needs '["capB"]'  # DAG 调度字段（可选）
-$A list
-$A send <name> --type ask --body 'ping?' --from me
-$A ack  <name> <msg-id>
-$A control <name> stop|restart|clear [--inject X] [--reason R]
-$A status <name>      # 输出代终态/生命周期终态判定（§10）
-$A enable <name> --by who    # 手工放行（兑底；正常由调度方写）
+# CLI（--root 缺省 = 本仓父目录，现场发现 ⇒ 工作区内任何 cwd 直接调；另一棵树才显式 --root）
+A="python3 ~/m/agentd/agentctl.py"
+$A list                                    # 全参与方与状态摘要
+$A status task/<id>                        # 代终态/生命周期终态判定（§10）
+$A create --command 'sleep 10' --workdir /tmp --creator topic/dispatcher  # 自动名；--name 自定义
+$A create … --resources '["gpu"]' --provides '["capA"]' --needs '["capB"]'  # DAG 调度字段（可选）
+# 消息：协议动词 send/ack（只落盘）、用例动词 answer（带前置门）。
+# `from` 缺省取环境 AGENT_SELF，再缺省回落职位信箱（不接受裸名；显式 --from 非法即拒）
+$A send task/<id> --body '补充裁定' --deliver steer   # type 缺省 inform；steer = 立即介入当前轮（§6.6）
+$A send bot/<名> --type ask --body-file -            # 长正文走 stdin（不经 shell 断词）；ask 自动带 via
+$A answer task/<id> --body '按方案 A 继续'           # 自动找最早未答 ask，reply 继承其 via（§4.5）
+$A ack task/<id> <msg-id>                            # 收件方传输层确认（§4.6）
+# 控制：协议动词 control（收尾清理也可写）、用例动词 cancel/update（带前置门）
+$A control task/<id> stop|restart|clear [--inject X] [--reason R]
+$A cancel task/<id> --reason '需求作废'              # = control stop + 存活前置门
+$A update task/<id> --resources '["gpu"]'            # 只改未放行排队任务；已放行即拒
+$A enable task/<id> --by who                        # 手工放行（兜底；正常由调度方写）
 
 # topic 脚手架与 bot 登记（设计稿 `@topic-design#moderator-carrier`/`@topic-design#layout-addressing`）
 $A topic init <议题 id> [--title <标题>] [--watcher <会话裸名>]…   # 建 topic.md 骨架 + inbox/ + watcher/ 订阅条目

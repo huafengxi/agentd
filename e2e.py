@@ -128,7 +128,8 @@
       （无未答 ask / 已 final / 无 spec）全拒；cancel 带存活前置门而 control 不过门（对照）；
       update 五道硬校验（含「已放行即拒」）且只覆盖传入字段；**跨语言钉桩** = TS 收件侧
       core.ts 的 `ASK_VIA_SEND_MESSAGE`/`DELIVER_MODES`/消息型枚举与本仓 proto 常量
-      逐字相等（不一致 = Python 写的答复 TS drain 不认 → 静默悬空）
+      逐字相等（不一致 = Python 写的答复 TS drain 不认 → 静默悬空）；`--root` 缺省 = 现场发现
+      （本仓父目录；仓内/工作区根/根上层三种 cwd 同根，只读），显式传错 root 仍前置拒绝
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -4290,7 +4291,9 @@ def s58():
     ④ `update` = 五道硬校验（至少一字段 / 字符串数组 / 存在 / 非 final / **未放行**）+ 只覆盖传入字段；
     ⑤ **跨语言钉桩**：TS 收件侧（core.ts）的 `ASK_VIA_SEND_MESSAGE` / `DELIVER_MODES` /
        消息型枚举与本仓 proto 常量逐字相等——Python 写的 via/deliver 必须被 TS drain 认得，
-       否则答复静默悬空（§4.5：带 via 的 reply 才被收件侧放行消费）。
+       否则答复静默悬空（§4.5：带 via 的 reply 才被收件侧放行消费）；
+    ⑥ `--root` 缺省 = 现场发现（本仓父目录）：仓内 / 工作区根 / 根上层三种 cwd 调用均解析到
+       同一个根（只读动词，不依赖 cwd/env）；显式传错 root 仍前置拒绝。
     只写信封/请求，不起进程，收尾自清。**夹具期间 runner/scheduler 停机**：本场景是纯落盘面，
     而真 runner 会消费夹具里的 stop 请求（未启动任务被取消 → 写 final/killed 的 pid.json），
     把 ④ 的存活门断言污染成「已终态」；停机后本场景不依赖任何运行侧行为。"""
@@ -4490,6 +4493,26 @@ def s58():
             assert m, "core.ts 未找到 PARTICIPANT_MESSAGE_TYPES 声明"
             assert set(re.findall(r'"([^"]+)"', m.group(1))) == set(_proto.MSG_TYPES), \
                 "消息型枚举跨语言不一致"
+
+        # ---- ⑥ --root 缺省 = 现场发现（不依赖 cwd/env）----
+        # 读真工作区树（只读动词 list）：本仓单独 checkout 时无树可读 → 显式 skip。
+        ws = os.path.dirname(HERE)
+        if not os.path.isdir(os.path.join(ws, "agents")):
+            platform_skip("S58⑥ --root 缺省现场发现",
+                          "本仓不在工作区树内（父目录无 agents/）：%s" % ws)
+        else:
+            for cwd in (HERE, ws, os.path.dirname(ws)):
+                r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"), "list"],
+                                   capture_output=True, text=True, cwd=cwd)
+                assert r.returncode == 0 and "不是工作区根" not in r.stderr, \
+                    "cwd=%s 时 --root 缺省应解析到工作区根：%s" % (cwd, r.stderr)
+            # 错 root 样本用本仓目录（其下永无 agents/）：不用 `<WS>/agents`——那取决于
+            # 工作区里有无误传 root 留下的嵌套残骸（残骸在场会让硬前置误通过）。
+            r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
+                                "--root", HERE, "list"],
+                               capture_output=True, text=True)
+            assert r.returncode == 2 and "不是工作区根" in r.stderr, \
+                "显式错 root 仍须前置拒绝，不因缺省发现而松动"
     finally:
         for d in (tadir, ladir, oadir):
             shutil.rmtree(d, ignore_errors=True)
@@ -4567,7 +4590,8 @@ def main():
           "・answer（用例动词：扫描面并集里找最早未答 ask + reply 继承 via + 回执点名所答条目；"
           "无未答 ask/已 final/无 spec 三种意图落空全拒）・cancel（= control stop + 存活前置门；"
           "对照 control 不过门）・update（五道硬校验 + 只覆盖传入字段）"
-          "・跨语言钉桩（TS core.ts 的 via/deliver/消息型枚举与 proto 常量逐字相等）", s58)
+          "・跨语言钉桩（TS core.ts 的 via/deliver/消息型枚举与 proto 常量逐字相等）"
+          "・--root 缺省现场发现（三种 cwd 同根；显式错 root 仍拒）", s58)
     stop_runner()
     stop_scheduler()
 
