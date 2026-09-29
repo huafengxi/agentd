@@ -372,6 +372,132 @@ def ack_key(env, fn) -> str:
     return fn[:-4] if isinstance(fn, str) and fn.endswith(".msg") else (fn or "")
 
 
+# ---- 消息信封读写（§4.5/§6.2/§6.4） ----
+#
+# 写侧单点：信封的字段集、id/文件名形状、原子落盘与撞名重试均住本层，CLI 只组信封。
+# 读侧对**半截件**宽容（§11.6）：JSON 不可解析即跳过，下轮重试——写侧是 tmp+rename，
+# 正常链路读不到半截件，该宽容只对付非本协议写者的残留物。
+
+MSG_TYPES = ("ask", "inform", "reply")        # §6.2 会话语用三分法（封闭集）
+DELIVER_MODES = ("steer", "followUp")          # §6.6 投递方式（与 type 正交；缺省不写 = followUp）
+ASK_VIA_SEND_MESSAGE = "send_message"          # §4.5 `via`：非阻塞征询的 ask 来源标记
+SYSTEM_SENDER = "agentd"                       # §2.2 系统发送方（裸名保留特例）
+
+
+def list_messages(inbox_dir):
+    """信箱内全部信封（按文件名字典序 = 时间序），每条补 `_file`/`_name`。
+    目录不存在 → 空表；半截件跳过（§11.6）。"""
+    try:
+        names = sorted(f for f in os.listdir(inbox_dir) if f.endswith(".msg"))
+    except OSError:
+        return []
+    out = []
+    for fn in names:
+        doc = read_json(os.path.join(inbox_dir, fn))
+        if not isinstance(doc, dict):
+            continue
+        doc["_file"] = os.path.join(inbox_dir, fn)
+        doc["_name"] = fn
+        out.append(doc)
+    return out
+
+
+def write_message(inbox_dir, envelope_no_id, retries=8):
+    """写一枚信封（§4.5）：补 `id`（= 文件名主体 `<ts>-<from转写>-<rand>`）后 tmp+rename 原子落盘。
+    同名撞车（同毫秒同 rand）换 rand 重试；耗尽抛 RuntimeError。返回 `(mid, path)`。"""
+    os.makedirs(inbox_dir, exist_ok=True)
+    sender = envelope_no_id.get("from") or ""
+    for _ in range(retries):
+        mid = now_ts() + "-" + fs_safe_id(sender) + "-" + rand_suffix()
+        path = os.path.join(inbox_dir, mid + ".msg")
+        if os.path.exists(path):
+            continue
+        doc = dict(envelope_no_id)
+        doc["id"] = mid
+        atomic_write_json(path, doc)
+        return mid, path
+    raise RuntimeError("write_message：连续 %d 次文件名冲突，放弃" % retries)
+
+
+def ask_scan_inboxes(root, task_pid):
+    """ask 扫描面（§4.5 写侧收件面 = 该任务的 reaper）：**职位信箱 ∪ `spec.reaper` 自家信箱**。
+
+    读侧对写侧落点不可知（落点由 runner spawn 时的活性解析决定），故未答 ask 判定一律扫
+    **并集**覆盖所有候选落点。**取值非二次解析**：只读登记侧写定的 `spec.reaper` 字段并拼
+    其信箱路径，不做活性判定、不做「选哪个」的回落决策（那是写侧 `runner.resolve_reaper`
+    的职责，本层不另立第二套）。缺字段 / 文法非法 / spec 不可读 → 只职位信箱。
+    返回去重后的 inbox 目录列表（至少含职位信箱）。"""
+    out = [position_inbox(root)]
+    spec = read_json(spec_path(root, task_pid))
+    reaper = (spec or {}).get("reaper")
+    reaper = reaper.strip() if isinstance(reaper, str) else ""
+    if reaper and is_valid_participant_id(reaper):
+        cand = inbox_path(root, reaper)
+        if cand not in out:
+            out.append(cand)
+    return out
+
+
+def list_task_asks(root, task_pid):
+    """该任务发过的全部 ask（扫描面 = `ask_scan_inboxes`）：跨信箱按 id 去重，并按 id 字典序
+    归并（id 前缀 = 时间戳 ⇒ 字典序即时间序）→「最早未答 ask」语义跨信箱稳定。
+    排序用**码元序**（不用 locale 感知比较：它会重排标点/大小写 → 与「最早」序漂移）。"""
+    out, seen = [], set()
+    for ib in ask_scan_inboxes(root, task_pid):
+        for m in list_messages(ib):
+            if m.get("type") == "ask" and m.get("from") == task_pid \
+                    and m.get("id") not in seen:
+                seen.add(m.get("id"))
+                out.append(m)
+    out.sort(key=lambda m: str(m.get("id")))
+    return out
+
+
+def find_pending_ask(root, pid_):
+    """目标任务的**最早一条未答 ask**：扫描面中 `from == <task 路径式 id>` 的 ask，且目标任务
+    `inbox/` 中不存在 `ref == ask.id` 的 reply（§6.4：每个 ask 至多一个 reply）。无则 None。
+    消费证据是 reply 信封在场，**不是 ack**（ack 是收件侧传输层判重，与「已答」无关）。"""
+    asks = list_task_asks(root, pid_)
+    if not asks:
+        return None
+    answered = {r.get("ref") for r in list_messages(inbox_path(root, pid_))
+                if r.get("type") == "reply"}
+    for a in asks:
+        if a.get("id") not in answered:
+            return a
+    return None
+
+
+def ask_question_text(ask):
+    """ask 信封 body 里的 question 原文（body 约定 = JSON 字符串 `{question,…}`，§4.5；
+    解析失败按原文）。"""
+    body = (ask or {}).get("body")
+    if isinstance(body, str):
+        try:
+            doc = json.loads(body)
+        except ValueError:
+            return body
+        if isinstance(doc, dict) and isinstance(doc.get("question"), str):
+            return doc["question"]
+        return body
+    return "" if body is None else str(body)
+
+
+def ask_summary(ask, limit=200):
+    """ask 的展示摘要（question 优先；非 JSON body 折叠空白后截断）。"""
+    body = (ask or {}).get("body")
+    if isinstance(body, str):
+        try:
+            doc = json.loads(body)
+            if isinstance(doc, dict) and isinstance(doc.get("question"), str):
+                return doc["question"]
+        except ValueError:
+            pass
+        t = " ".join(body.split())
+        return t[:limit] + "…" if len(t) > limit else t
+    return "" if body is None else str(body)
+
+
 # ---- 机器身份（§15.3：hostname + 别名） ----
 
 def local_hosts(host_arg=None, aliases_arg=None):

@@ -120,11 +120,21 @@
       显式 `--from`（非法即拒 + 零落盘副作用）＞ 环境 `AGENT_SELF`（过 §2.2 文法白名单，
       非法/缺失静默落下一档）＞ 回落职位信箱 `topic/dispatcher`；非调度员会话（领域会话/
       主持人）的取消因此记成它自己（审计与权威归属不再失真）
+  S58 写侧动词两档（协议动词 send/ack/control/enable vs 用例动词 answer/cancel/update）：
+      send 的 type 缺省 inform、`--deliver` 显式才落盘、`--body-file -` 逐字保真、
+      `type=ask` 自动带 via、from 三档归属、六种拒分支零落盘；answer 在扫描面并集
+      （职位信箱 ∪ spec.reaper 自家信箱）里找**最早一条未答 ask**、reply 继承其 via
+      （阻塞 ask 无 via → reply 也不带）、回执点名所答条目与阻塞态，三种意图落空
+      （无未答 ask / 已 final / 无 spec）全拒；cancel 带存活前置门而 control 不过门（对照）；
+      update 五道硬校验（含「已放行即拒」）且只覆盖传入字段；**跨语言钉桩** = TS 收件侧
+      core.ts 的 `ASK_VIA_SEND_MESSAGE`/`DELIVER_MODES`/消息型枚举与本仓 proto 常量
+      逐字相等（不一致 = Python 写的答复 TS drain 不认 → 静默悬空）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
 S45/S54/S55 自建合成收件方夹具（`_synth_bot`/`_synth_proc_bot`）→ **可单跑**；
-S57 自建控制信封夹具（不起进程、收尾自清）→ **可单跑**。
+S57 自建控制信封夹具（不起进程、收尾自清）→ **可单跑**；
+S58 自建写信封夹具（不起进程；职位信箱只删本场景写的件）→ **可单跑**。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -4266,6 +4276,228 @@ def s57():
         shutil.rmtree(adir, ignore_errors=True)
 
 
+# ----------------- S58（写侧动词两档：send/answer/cancel/update + 跨语言常量钉桩）
+
+def s58():
+    """写侧 CLI 面（收录判据 ②：纯文件读写一律落 agentctl，不做 pi 工具）：
+    ① `send` = 协议动词：type 缺省 inform、`--deliver` 显式才落盘、`--body-file -` 走 stdin
+       逐字保真（不经 shell 断词）、`type=ask` 自动带 `via`、`from` 三档归属（同 S57 单点）、
+       空正文/正文歧义/reply 无 ref 一律拒且零落盘；
+    ② `answer` = 用例动词：自动找**最早一条未答 ask**（扫描面 = 职位信箱 ∪ spec.reaper 自家
+       信箱，单点 `proto.ask_scan_inboxes`）→ 写 reply（ref 回引 + **继承 ask 的 via**）+ 回执
+       点名所答条目；无未答 ask / 已 final / 无 spec 三种意图落空一律拒且零落盘；
+    ③ `cancel` = control stop + 存活前置门；对照 `control`（协议动词）不过门：已 final 仍写；
+    ④ `update` = 五道硬校验（至少一字段 / 字符串数组 / 存在 / 非 final / **未放行**）+ 只覆盖传入字段；
+    ⑤ **跨语言钉桩**：TS 收件侧（core.ts）的 `ASK_VIA_SEND_MESSAGE` / `DELIVER_MODES` /
+       消息型枚举与本仓 proto 常量逐字相等——Python 写的 via/deliver 必须被 TS drain 认得，
+       否则答复静默悬空（§4.5：带 via 的 reply 才被收件侧放行消费）。
+    只写信封/请求，不起进程，收尾自清。**夹具期间 runner/scheduler 停机**：本场景是纯落盘面，
+    而真 runner 会消费夹具里的 stop 请求（未启动任务被取消 → 写 final/killed 的 pid.json），
+    把 ④ 的存活门断言污染成「已终态」；停机后本场景不依赖任何运行侧行为。"""
+    import proto as _proto
+    stop_runner()
+    stop_scheduler()
+    t, lead = "task/s58-t", "bot/s58-lead"
+    # other = 扫描面外的第三方信箱（非 reaper、非职位信箱）：① 的 ask/via 测试投这里，
+    # 不污染 ② 的「最早未答 ask」判定面。
+    other = "bot/s58-other"
+    tadir, ladir, oadir = adir_of(t), adir_of(lead), adir_of(other)
+    pos_inbox = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox")
+    for d in (tadir, ladir, oadir):
+        shutil.rmtree(d, ignore_errors=True)
+    for d in (tadir, ladir, oadir):
+        os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
+    os.makedirs(pos_inbox, exist_ok=True)
+    with open(os.path.join(tadir, "spec.json"), "w") as f:
+        json.dump({"command": "true", "workdir": ROOT, "restartPolicy": "one-shot",
+                   "creator": "task/tester", "host": "e2ehost", "name": "s58-t",
+                   "reaper": lead}, f)
+    pos_before = set(os.listdir(pos_inbox))
+
+    def run(args, env_extra=None, stdin=None, expect_rc=None):
+        """真 CLI 子进程 + 受控环境（逐档布置 AGENT_SELF，不用共享 ctl()）。"""
+        env = dict(os.environ)
+        env.pop("AGENT_SELF", None)
+        env.update(env_extra or {})
+        r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
+                            "--root", ROOT, *args], capture_output=True, text=True,
+                           env=env, input=stdin)
+        if expect_rc is not None:
+            assert r.returncode == expect_rc, \
+                "agentctl %s rc=%d (want %d): %s" % (" ".join(args), r.returncode,
+                                                     expect_rc, r.stderr)
+        return r
+
+    def msgs(d):
+        return sorted(f for f in os.listdir(d) if f.endswith(".msg"))
+
+    def last_env(d):
+        fs = msgs(d)
+        assert fs, "信箱空：%s" % d
+        with open(os.path.join(d, fs[-1])) as f:
+            return json.load(f)
+
+    try:
+        # ---- ① send（协议动词）----
+        linbox = os.path.join(ladir, "inbox")
+        run(["send", lead, "--body", "hi"], {"AGENT_SELF": t}, expect_rc=0)
+        e = last_env(linbox)
+        assert e["type"] == "inform", "type 缺省 = inform：%s" % e
+        assert "deliver" not in e, "缺省不落 deliver 字段（§6.6）：%s" % e
+        assert "via" not in e and e["from"] == t, e
+        run(["send", lead, "--body", "改向", "--deliver", "steer"],
+            {"AGENT_SELF": t}, expect_rc=0)
+        assert last_env(linbox)["deliver"] == "steer"
+        # 长正文/引号/换行/变量字面量走 stdin：逐字保真（不经 shell 断词与展开）。
+        # 投扫描面外的 other：本封是 ask（带 via），落在 reaper/职位信箱会被 ② 当成待答项。
+        raw = '第一行 "引号" $VAR `cmd`\n第二行\t制表\n'
+        run(["send", other, "--type", "ask", "--body-file", "-"],
+            {"AGENT_SELF": t}, stdin=raw, expect_rc=0)
+        e = last_env(os.path.join(oadir, "inbox"))
+        assert e["body"] == raw.strip(), "stdin 正文逐字保真（trim 后）：%r" % e["body"]
+        assert e["via"] == _proto.ASK_VIA_SEND_MESSAGE, \
+            "type=ask 必带 via 来源标记（否则其 reply 不被收件侧消费）：%s" % e
+        # from 三档归属（与 S57 同源单点）
+        run(["send", lead, "--body", "x", "--from", "bot/s58-lead"], expect_rc=0)
+        assert last_env(linbox)["from"] == "bot/s58-lead"
+        run(["send", lead, "--body", "x"], expect_rc=0)
+        assert last_env(linbox)["from"] == "topic/dispatcher", "无 AGENT_SELF → 回落职位信箱"
+        run(["send", lead, "--body", "x"], {"AGENT_SELF": "裸名"}, expect_rc=0)
+        assert last_env(linbox)["from"] == "topic/dispatcher", "非法 AGENT_SELF 静默落下一档"
+        # 拒路径：零落盘副作用
+        for bad_args, kw in ((["send", lead, "--body", "   "], "正文为空"),
+                             (["send", lead, "--body", "a", "--body-file", "-"], "二选一"),
+                             (["send", lead, "--type", "reply", "--body", "a"], "--ref"),
+                             (["send", lead, "--body", "a", "--from", "operator"], "非法"),
+                             (["send", "bot/dispatcher", "--body", "a"], "退役"),
+                             (["send", "lead", "--body", "a"], "非法")):
+            n = len(msgs(linbox))
+            r = run(bad_args, {"AGENT_SELF": t})
+            assert r.returncode != 0, "应拒：%s" % bad_args
+            assert kw in r.stderr, (bad_args, r.stderr)
+            assert len(msgs(linbox)) == n, "拒分支零落盘：%s" % bad_args
+        assert run(["send", lead, "--body", "x", "--deliver", "now"]).returncode == 2, \
+            "deliver 枚举外的值由 argparse 拒（rc=2）"
+
+        # ---- ② answer（用例动词）----
+        # 扫描面并集两路各投一条 ask：职位信箱（reaper 不可达时的回落面）与 reaper 自家信箱。
+        # 先投的（职位信箱，**无 via** = 阻塞征询形态）应被先答；隔 10ms 保证 id 字典序即时间序。
+        pos_ask_id = _proto.now_ts() + "-" + _proto.fs_safe_id(t) + "-aaaa"
+        _proto.atomic_write_json(os.path.join(pos_inbox, pos_ask_id + ".msg"), {
+            "id": pos_ask_id, "from": t, "ts": _proto.now_ts(), "type": "ask",
+            "body": json.dumps({"question": "阻塞征询：要不要继续？"}, ensure_ascii=False)})
+        time.sleep(0.01)
+        run(["send", "topic/dispatcher", "--type", "ask",
+             "--body", json.dumps({"question": "第二条（也在职位信箱）"},
+                                  ensure_ascii=False)], {"AGENT_SELF": t}, expect_rc=0)
+        time.sleep(0.01)
+        run(["send", lead, "--type", "ask",
+             "--body", json.dumps({"question": "第三条（reaper 自家信箱）"},
+                                  ensure_ascii=False)], {"AGENT_SELF": t}, expect_rc=0)
+        tibox = os.path.join(tadir, "inbox")
+        r = run(["answer", t, "--body", "继续，按方案 A"], {"AGENT_SELF": lead}, expect_rc=0)
+        rep = last_env(tibox)
+        assert rep["type"] == "reply" and rep["ref"] == pos_ask_id, \
+            "答最早一条未答 ask（职位信箱里那条）：%s" % rep
+        assert "via" not in rep, "阻塞 ask（无 via）的 reply 不带 via（归阻塞面单一消费）：%s" % rep
+        assert rep["from"] == lead, rep
+        assert r.stdout.split("\n")[0].strip() == rep["id"], "首行 = reply id：%r" % r.stdout
+        assert "blocking=yes" in r.stdout and pos_ask_id in r.stdout, \
+            "回执当场点名所答条目与阻塞态：%r" % r.stdout
+        r = run(["answer", t, "--body", "第二条的答复"], {"AGENT_SELF": lead}, expect_rc=0)
+        rep2 = last_env(tibox)
+        assert rep2["ref"] != pos_ask_id and rep2["via"] == _proto.ASK_VIA_SEND_MESSAGE, \
+            "第二条（send --type ask）的 reply 继承 via → 收件侧 drain 放行：%s" % rep2
+        assert "blocking=no" in r.stdout, r.stdout
+        run(["answer", t, "--body", "第三条的答复"], {"AGENT_SELF": lead}, expect_rc=0)
+        assert len(msgs(tibox)) == 3, "三条 ask 各得一条 reply"
+        n = len(msgs(tibox))
+        r = run(["answer", t, "--body", "无主答复"], {"AGENT_SELF": lead})
+        assert r.returncode != 0 and "没有未答的 ask" in r.stderr, r.stderr
+        assert len(msgs(tibox)) == n, "意图落空零落盘"
+        r = run(["answer", "task/s58-nospec", "--body", "x"], {"AGENT_SELF": lead})
+        assert r.returncode != 0 and "无 spec.json" in r.stderr, r.stderr
+        _proto.atomic_write_json(os.path.join(tadir, "pid.json"),
+                                {"pid": 999999, "status": "exited", "final": True})
+        r = run(["answer", t, "--body", "x"], {"AGENT_SELF": lead})
+        assert r.returncode != 0 and "生命周期终态" in r.stderr, r.stderr
+
+        # ---- ③ cancel 前置门 vs control 不过门 ----
+        r = run(["cancel", t, "--reason", "需求作废"], {"AGENT_SELF": lead})
+        assert r.returncode != 0 and "生命周期终态" in r.stderr, "已 final → cancel 拒：%s" % r.stderr
+        cdir = os.path.join(tadir, "control")
+        assert not os.path.isdir(cdir) or not os.listdir(cdir), "cancel 拒分支零落盘"
+        run(["control", t, "stop"], {"AGENT_SELF": lead}, expect_rc=0)
+        assert len([f for f in os.listdir(cdir) if f.endswith(".req")]) == 1, \
+            "协议动词 control 不过存活门（收尾清理也要能写 stop）"
+        os.remove(os.path.join(tadir, "pid.json"))          # 回到未启动态
+        r = run(["cancel", t, "--reason", "需求作废"], {"AGENT_SELF": lead}, expect_rc=0)
+        reqf = [f for f in os.listdir(cdir) if f.endswith(".req")]
+        with open(os.path.join(cdir, sorted(reqf)[-1])) as f:
+            req = json.load(f)
+        assert req["action"] == "stop" and req["reason"] == "需求作废", req
+        assert req["from"] == lead and r.stdout.split("\n")[0].strip() == req["id"], (req, r.stdout)
+
+        # ---- ④ update 五道硬校验 ----
+        r = run(["update", t])
+        assert r.returncode != 0 and "至少传一个" in r.stderr, r.stderr
+        r = run(["update", t, "--resources", "gpu"])
+        assert r.returncode != 0 and "JSON 字符串数组" in r.stderr, r.stderr
+        r = run(["update", t, "--needs", '["ok", 3]'])
+        assert r.returncode != 0, "非字符串元素应拒"
+        r = run(["update", "task/s58-nospec", "--needs", "[]"])
+        assert r.returncode != 0 and "无 spec.json" in r.stderr, r.stderr
+        before = json.load(open(os.path.join(tadir, "spec.json")))
+        run(["update", t, "--resources", '["gpu","net"]', "--needs", "[]"], expect_rc=0)
+        after = json.load(open(os.path.join(tadir, "spec.json")))
+        assert after["resources"] == ["gpu", "net"] and after["needs"] == [], after
+        assert "provides" not in after, "未传字段不得凭空出现"
+        for k in set(before) | set(after):        # 逐键对照（不写死键名清单：夹具与生产 spec 字段集不同）
+            if k in ("resources", "provides", "needs"):
+                continue
+            assert before.get(k) == after.get(k), "只覆盖传入字段：%s 被动了" % k
+        _proto.atomic_write_json(os.path.join(tadir, "enable.json"),
+                                {"ts": _proto.now_ts(), "by": "s58"})
+        r = run(["update", t, "--provides", '["x"]'])
+        assert r.returncode != 0 and "已放行" in r.stderr, r.stderr
+        assert "provides" not in json.load(open(os.path.join(tadir, "spec.json"))), \
+            "已放行拒分支零落盘"
+        os.remove(os.path.join(tadir, "enable.json"))
+        _proto.atomic_write_json(os.path.join(tadir, "pid.json"),
+                                {"pid": 999999, "status": "killed", "final": True})
+        r = run(["update", t, "--provides", '["x"]'])
+        assert r.returncode != 0 and "生命周期终态" in r.stderr, r.stderr
+
+        # ---- ⑤ 跨语言钉桩（TS 收件侧 ↔ 本仓写侧）----
+        core_ts = os.path.abspath(os.path.join(HERE, "..", "assistant", ".pi",
+                                              "extensions", "agentd", "core.ts"))
+        if not os.path.exists(core_ts):
+            platform_skip("S58⑤ 跨语言常量钉桩",
+                          "调用方工作区的 TS 收件侧不在场（本仓单独 checkout）：%s" % core_ts)
+        else:
+            src = open(core_ts, encoding="utf-8").read()
+            m = re.search(r'export const ASK_VIA_SEND_MESSAGE = "([^"]+)"', src)
+            assert m, "core.ts 未找到 ASK_VIA_SEND_MESSAGE 声明（钉桩面漂移）"
+            assert m.group(1) == _proto.ASK_VIA_SEND_MESSAGE, \
+                "via 字面量跨语言不一致：TS=%r proto=%r（不一致 = 答复静默悬空）" % (
+                    m.group(1), _proto.ASK_VIA_SEND_MESSAGE)
+            m = re.search(r"export const DELIVER_MODES = \[([^\]]*)\]", src)
+            assert m, "core.ts 未找到 DELIVER_MODES 声明"
+            ts_deliver = re.findall(r'"([^"]+)"', m.group(1))
+            assert ts_deliver == list(_proto.DELIVER_MODES), \
+                "deliver 枚举跨语言不一致：TS=%r proto=%r" % (ts_deliver, _proto.DELIVER_MODES)
+            m = re.search(r"export const PARTICIPANT_MESSAGE_TYPES = \[([^\]]*)\]", src)
+            assert m, "core.ts 未找到 PARTICIPANT_MESSAGE_TYPES 声明"
+            assert set(re.findall(r'"([^"]+)"', m.group(1))) == set(_proto.MSG_TYPES), \
+                "消息型枚举跨语言不一致"
+    finally:
+        for d in (tadir, ladir, oadir):
+            shutil.rmtree(d, ignore_errors=True)
+        # 职位信箱是共享面：只删本场景写的件，不碰存量
+        for fn in set(os.listdir(pos_inbox)) - pos_before:
+            os.remove(os.path.join(pos_inbox, fn))
+
+
 def main():
     os.makedirs(os.path.join(ROOT, "agents"), exist_ok=True)
     # tester：信箱型 bot（只有 inbox，§2.1；bot 布局）
@@ -4330,6 +4562,12 @@ def main():
           " AGENT_SELF（过文法白名单，非法/缺失静默落档）＞回落职位信箱 topic/dispatcher；"
           "裸名缺省值（\"operator\"）退场；信封 from 与文件名前缀同源（与 TS 侧"
           " core.resolveCreatorPid 同优先级）", s57)
+    check("S58 写侧动词两档：send（协议动词：type 缺省 inform / --deliver 显式才落盘 / "
+          "--body-file - 逐字保真 / type=ask 自动带 via / from 三档归属 / 拒分支零落盘）"
+          "・answer（用例动词：扫描面并集里找最早未答 ask + reply 继承 via + 回执点名所答条目；"
+          "无未答 ask/已 final/无 spec 三种意图落空全拒）・cancel（= control stop + 存活前置门；"
+          "对照 control 不过门）・update（五道硬校验 + 只覆盖传入字段）"
+          "・跨语言钉桩（TS core.ts 的 via/deliver/消息型枚举与 proto 常量逐字相等）", s58)
     stop_runner()
     stop_scheduler()
 
