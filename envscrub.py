@@ -93,7 +93,7 @@ ENV_SCRUB_PREFIXES = ("DISPATCH_TASK_",
 # AGENTD_DIR、SESSIOND_* 五枚——按前缀洗会静默把旋钮洗成缺省值）⇒ 一枚新增的身份标记若漏进
 # 名单，会静默继承进被启动的服务（无运行时守卫拦它）。兜底面 = **提交期钉桩**：
 # pi-wrap/test_wrap.py T47 扫 spec.command 的 env 前缀键（bots/daemon/*/spec.json、
-# assistant/heartbeat/register.py、w/ext/sessiond/proc.py 的 create_bot 模板），逐枚断言 scrub_env
+# heartbeats/register.py、w/ext/sessiond/proc.py 的 create_bot 模板），逐枚断言 scrub_env
 # 真洗掉；漏列 ⇒ 测试红（在提交前，不在事故里）。新增身份标记的姿势 = 同批把它加进
 # ENV_SCRUB_EXACT（旋钮类则不必：它本该继承）。
 
