@@ -223,9 +223,9 @@ def md_link(text, url):
 
 def is_session_bot(b):
     """bot 族是否有会话观测面：pi-rpc-wrap 常驻会话（spec.command 含 pi-rpc-wrap.py，
-    或 pid.json 有 sock 字段）。脚本型 bot（notify-user/heartbeat-loop）与 channel
-    转发器（dispatcher）无会话 → 纯文本。取代 旧口径「bot 族一律无会话观测面」
-    （会话型 bot 上线后已过时）。"""
+    或 pid.json 有 sock 字段）。脚本型 bot 与 channel 转发器无会话 → 纯文本
+    （哪些 bot 属哪一族不在本仓复述：名单住调用方的声明面）。取代 旧口径
+    「bot 族一律无会话观测面」（会话型 bot 上线后已过时）。"""
     return "pi-rpc-wrap.py" in str(b.get("command") or "") or bool(b.get("has_sock"))
 
 
@@ -1048,8 +1048,8 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             hb = fmt_ts(b["lastAliveAt"]) if b["lastAliveAt"] else "-"
             # bot 族会话观测面（修正 旧口径）：pi-rpc-wrap 常驻
             # 会话型 bot（`bot/<名>`，pid.json 有 sock）与 task 族同权，bot 名
-            # 与用途名均可点击弹出 ?v=chat 观测窗；脚本型 bot（notify-user/
-            # heartbeat-loop）与 channel 转发器（dispatcher）无会话 → 保持纯文本。
+            # 与用途名均可点击弹出 ?v=chat 观测窗；脚本型 bot 与 channel
+            # 转发器无会话 → 保持纯文本（族别名单住调用方的声明面）。
             burl = chat_url(b["id"], b["host"]) if is_session_bot(b) else ""
             L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"
                      % (md_link("`%s`" % b["id"].split("/", 1)[1], burl),
