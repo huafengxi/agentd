@@ -144,7 +144,7 @@ def _str_list(v):
 
 def is_resident(spec):
     """常驻候补识别（设计 §2.5.2）：spec.command 内嵌 `AGENTD_RESIDENT=1`
-    env 前缀（心跳 DISPATCH_HEARTBEAT=1 同款命令串匹配口径）。常驻者不占并发槽位、
+    env 前缀（命令串匹配口径，零字段扩展）。常驻者不占并发槽位、
     免互斥资源即时放行（不占槽/免资源判定见 _scan/tick）。"""
     return isinstance(spec, dict) and "AGENTD_RESIDENT=1" in spec.get("command", "")
 

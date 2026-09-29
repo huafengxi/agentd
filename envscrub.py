@@ -68,24 +68,6 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # （bash→make→serviced.py）会把它带进被启动的服务，且嵌套 receiver 会误用外层任务的 ask
                    # 路由。No caller relies on inheritance。
                    "AGENTD_ASK_INBOX", "AGENTD_ASK_NOTE",
-                   # heartbeat-session marker (spec.command env prefix):
-                   # it must only ever come from the spec.command string of the
-                   # heartbeat task itself (registered by assistant/heartbeat.sh as
-                   # `DISPATCH_HEARTBEAT=1 exec ...`; convention = agent-file-protocol.md
-                   # "命令前缀标记惯例"). Inherited copies leak into every grandchild
-                   # (bash tool -> make -> serviced/serviced.py -> the service started): if
-                   # that service is agentd, EVERY task
-                   # it later spawns inherits the recursion-guard heartbeat exemption
-                   # (core.ts recursionGuardReason) -> the leaf-no-redispatch guard fails
-                   # silently, system-wide. The heartbeat session itself is unaffected:
-                   # runner.spawn scrubs FIRST, then runs spec.command via bash -c, so the
-                   # prefix injects the marker AFTER scrubbing, and pi-rpc-wrap.py does
-                   # not scrub (spawn_pi passes os.environ through) -> the pi child still
-                   # sees it. Same family/reason as AGENTD_RESIDENT above (also
-                   # spec.command-prefix-only). No caller relies on inheritance
-                   # (repo-wide: only heartbeat.sh's spec.command, the TS guard readers
-                   # in core.ts/index.ts, wrap's convergence-branch note and tests).
-                   "DISPATCH_HEARTBEAT",
                    # harness marker set by pi itself at entry (dist/cli.js,
                    # dist/rpc-entry.js: process.env.AI_AGENT = "pi"): children
                    # that need it re-set it, so inheriting only mis-tags services
@@ -111,7 +93,7 @@ ENV_SCRUB_PREFIXES = ("DISPATCH_TASK_",
 # AGENTD_DIR、SESSIOND_* 五枚——按前缀洗会静默把旋钮洗成缺省值）⇒ 一枚新增的身份标记若漏进
 # 名单，会静默继承进被启动的服务（无运行时守卫拦它）。兜底面 = **提交期钉桩**：
 # pi-wrap/test_wrap.py T47 扫 spec.command 的 env 前缀键（bots/daemon/*/spec.json、
-# assistant/heartbeat.sh、w/ext/sessiond/proc.py 的 create_bot 模板），逐枚断言 scrub_env
+# assistant/heartbeat/register.py、w/ext/sessiond/proc.py 的 create_bot 模板），逐枚断言 scrub_env
 # 真洗掉；漏列 ⇒ 测试红（在提交前，不在事故里）。新增身份标记的姿势 = 同批把它加进
 # ENV_SCRUB_EXACT（旋钮类则不必：它本该继承）。
 

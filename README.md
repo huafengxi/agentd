@@ -120,9 +120,7 @@ rc=0 退出（三个句柄任一处 `unref` 回退即红）、H0 = 主端装配�
 （子任务/服务进程内继承的调度身份变量会污染 guard 与登记方判据；`AGENTD_WRAP_*` 两枚 = 就绪门信号路径 补入——它们是 `pi-rpc-wrap.py` 显式传给本次会话的**身份/信号类** env，继承来的副本会让子端就绪门
 拿到外层任务的标记（🔴1）；`AGENTD_ASK_*` 两枚 = 子端 ask 写侧收件面注入值 补入——
 runner spawn 时注入的是**本任务所在生产树的结对路径**，继承来的副本会让测试里的 `writeAskMessage` 把合成信封
-写进生产信箱（且既有用例假红并中止整套件🔴3）；`DISPATCH_HEARTBEAT` = 心跳会话的递归守卫豁免标记 补入——它只应来自心跳任务 spec.command 的 `VAR=1` 前缀（登记方 = `assistant/heartbeat.sh`），继承来的副本
-会经 bash 工具 → `make` → `serviced/serviced.py` 带进被启动的服务：若那是 agentd，它 spawn 的每个任务都会带上豁免（递归守卫全网失效）；心跳会话自身不受影响（前缀注入在 runner 洗刷之后，
-同构先例 = `AGENTD_RESIDENT`）。名单单一事实源 = `agentd/envscrub.py` 的
+写进生产信箱（且既有用例假红并中止整套件🔴3）。名单单一事实源 = `agentd/envscrub.py` 的
 `ENV_SCRUB_EXACT`（**本节只记各枚的来历与后果、不复述枚名**，枚名以上面那段命令取现值）；扩展单测另有一组同源断言钉住该清单已含这四枚（防再漏改）。
 
 ## 报表（report.py）

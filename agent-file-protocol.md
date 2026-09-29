@@ -196,7 +196,7 @@ agents/<participantId>/
 
 - **两个目录模型**：① `workdir` 属外部世界，协议不管理其中任何文件；② 应用层产物**没有独立目录概念**——agent 自家目录一身二任（协议文件容器 + 报告等产物的默认家园），协议对其中非协议文件一律无视（单写者：报告由 agent 自己写，§10.1）。
 - **协议与启动内容的边界**：提示词、权限、工具清单等启动内容文件（如 `prompt.md`）是**应用层普通文件，与报告同等地位**；`spec.json` 只保留进程管理必需的结构化字段（`command`/`workdir`/`restartPolicy`/`creator`），启动载荷组装归实现。➖ 的**可选扩展字段**（`host`/`createdByHost`/`subscribes`/`reaper`）不属这个最小集：它们是叠加层的结构化声明，缺失即零感知。
-- **命令前缀标记惯例**：`command` 可内嵌 `VAR=1` env 前缀声明进程形态标记（经 `bash -c` 天然生效、识别靠命令串匹配，零字段扩展）：`DISPATCH_HEARTBEAT=1` = 心跳任务；`AGENTD_RESIDENT=1` = 常驻会话（不占调度槽位/免互斥资源、豁免 hang 监督，§7.2）。
+- **命令前缀标记惯例**：`command` 可内嵌 `VAR=1` env 前缀声明进程形态标记（经 `bash -c` 天然生效、识别靠命令串匹配，零字段扩展）：`AGENTD_RESIDENT=1` = 常驻会话（不占调度槽位/免互斥资源、豁免 hang 监督，§7.2）。
 
 ### 4.2 `pid.json`（runner 写，全协议唯一可变档，final 后停写）
 
