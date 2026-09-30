@@ -31,7 +31,7 @@ anchors:
 
 # Agent 文件通信协议（Agent File Communication Protocol）
 
-> **章节号冻结**：全仓以 `协议 §N.M` 引用本文（含代码注释），章节号是稳定锚点——只增不改：新内容追加为末尾新节或 `N.Mbis`；**删节不留墓碑标题，其编号永久空缺、绝不重排**（frontmatter `anchors` 声明的节标题不得删）。`bash assistant/lint-docs.sh` 校验全仓引用可解析。
+> **章节号冻结**：全仓以 `协议 §N.M` 引用本文（含代码注释），章节号是稳定锚点——只增不改：新内容追加为末尾新节或 `N.Mbis`；**删节不留墓碑标题，其编号永久空缺、绝不重排**（frontmatter `anchors` 声明的节标题不得删）。调用方侧的文档一致性 lint 校验全仓引用可解析（该工具属调用方部署面，本仓不钉其路径）。
 > **收录面**：本文只住协议本体的 require（文法、字段与写者归属、语义、判定谓词、边界处置）。**不进本文**：实测与事故实例、机制推导与设计理由、实现单点（函数/行号）、命令序列与报文原文、任务 id 与拍板日期。落点：实现面与实测 = `@agentd`、`agentd/RACE-NOTES.md`、`pi-wrap/`、`w/ext/sessiond/`；应用层机制 = `@dispatch`/`@notify-and-delivery`/`@topic-design`；消费侧裁定与指标 = `lore/library/dispatch/facts/delivery-protocol.md`、`lore/library/agentfw/facts/{inbox-receiver,evidence-collection}.md`。
 
 ---
