@@ -238,9 +238,9 @@ def position_inbox(root: str) -> str:
 
 
 # ---- 已退役信箱地址表（移族；Python 侧护栏 = 建议修 2） ----
-# **单点口径（跨语言双实现）**：本表与 TS 侧 `assistant/.pi/extensions/agentd/core.ts` 的
-# `export const RETIRED_MAILBOXES`（定位：`git grep -n "RETIRED_MAILBOXES" --
-# assistant/.pi/extensions/agentd/core.ts`）**同源同口径——改一处必须同步另一处**
+# **单点口径（跨语言双实现）**：本表与 TS 侧 agentd 扩展 `core.ts` 的
+# `export const RETIRED_MAILBOXES`（定位 = 在调用方工作区 `git grep -n RETIRED_MAILBOXES`；
+# 扩展根由调用方的 pi 装载面决定，本仓不钉它的路径）**同源同口径——改一处必须同步另一处**
 # （键 = 退役的路径式地址，值 = 新地址）。
 # 语义：写侧命中即**显式拒绝并回执新地址**——不静默重定向（地址口径单一，投递方按回执
 # 自愈重投），更不得落旧地址（`os.makedirs` 会重建无人消费的僵尸信箱 = 静默丢信；
@@ -316,7 +316,7 @@ def task_ready_path(root: str, pid_: str, kind: str) -> str:
     kind 两态（各自单写者，两个文件而非一个 = 避免双写者竞态）：
       - `init-ok`    写者 = 封装脚本 pi-wrap/pi-rpc-wrap.py：初始 prompt 已被 pi 接受
                      （或幂等跳过 / resident 裸启动）后落盘 → 子端收件扩展
-                     （assistant/.pi/extensions/agentd/receiver-child.ts）据此开「就绪门」
+                     （agentd 扩展的 receiver-child.ts）据此开「就绪门」
                      才开始 drain 自家 inbox。缺它 = 子端在 session_start 抢跑注入 →
                      pi 侧「Agent is already processing」拒收初始 prompt（exit 1 秒死）
                      或注入轮先跑完触发 agent_settled → wrap 误判收敛（exit 0 假成功、

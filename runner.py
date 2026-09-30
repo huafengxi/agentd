@@ -347,7 +347,7 @@ class Runner:
         ① `spec.reaper` 在场且过文法白名单 → 它（文法非法 → 视作缺字段走 ② + 一行 WARNING：
            登记侧已拒非法值，运行侧只可能是人工补录）；
         ② reaper 不在场/文法非法 → 职位信箱 + note。缺字段的**形态按登记路径分档**：
-           dispatch 登记路径（assistant/.pi/extensions/agentd/core.ts 的 resolveReaper）
+           dispatch 登记路径（agentd 扩展 core.ts 的 resolveReaper）
            恒写 reaper（缺省推导 = creator）⇒ 那侧缺字段属异常；`agentctl create`/
            `bot register` 是**给了才写**（政策不钉进代码缺省值 ⇒ CLI 不代填，未给时
            只在登记当场打一行 WARN）⇒ **缺字段在 CLI 路径是正常形态而非异常**，note

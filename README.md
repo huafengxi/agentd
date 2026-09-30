@@ -125,7 +125,8 @@ python3 bots/kb_index.py check                                  # 名引用/锚�
 python3 e2e.py
 ```
 
-扩展侧 guard 测试 = `assistant/.pi/extensions/agentd/tests/agentd-ext.test.mjs`；guard 行为变更须同步扩断言。
+扩展侧 guard 测试 = `<扩展根>/tests/agentd-ext.test.mjs`（**`<扩展根>`** = 调用方 pi 的**全局扩展装载面**里的
+agentd 扩展目录；本仓 ⛔ 不钉它的路径，现场值 = `e2e.py` 的 `EXT_REL`）；guard 行为变更须同步扩断言。
 **跑它（以及任何外部命令）一律用 `timeout N` 包一层**（P1 事故 2026-09-15：常驻会话在自己轮里无上界跑本套件
 ⇒ 主端扩展泄漏的 ref'd 句柄让 node 永不退出、把该会话的 toolCall 楔住 11h45m，用户转呈链路断 11h40m）；
 且 rc 不得经管道取（`| tail` 会让 `rc=$?` 变成 tail 的 0）——重定向到文件后取 ∨ `set -o pipefail` ∨ `${PIPESTATUS[0]}`。
@@ -136,13 +137,13 @@ rc=0 退出（三个句柄任一处 `unref` 回退即红）、H0 = 主端装配�
 能力/profile 资产 lint 单测 = `bots/test_cap_lint.py`（lint 本体 `bots/cap_lint.py`：改人格资产后必跑、
 零 ERROR 才 commit，判据与反向索引口径见 `@bots#persona-assets`）。
 收件注入面的**真 pi 端到端装置**（opt-in，不进缺省回归面）=
-`assistant/.pi/extensions/agentd/tests/inject-gate-live.mjs`，跑法与环境要求见下「约定赋值与实现口径」的
+`<扩展根>/tests/inject-gate-live.mjs`，跑法与环境要求见下「约定赋值与实现口径」的
 「收件注入闸门」条。
 
 **并发快照隔离纪律（攒批 3）**：`e2e.py`/`agents-sync/gc.py` 正被其它在飞任务修改期间跑 e2e，
 必须用快照隔离——`mkdir -p /tmp/<taskId>-snap && git archive HEAD | tar -x -C /tmp/<taskId>-snap`
 后在快照里跑（e2e 全程按 `HERE` 相对路径取 `runner.py`/`fakepi_rpc.py`/`agentctl.py` 与
-`../assistant/.pi/extensions/agentd`，故整树快照即可）。否则被测文件会在跑到一半时被换掉 →
+调用方扩展目录〔`EXT_REL` 的现场值〕，故整树快照即可）。否则被测文件会在跑到一半时被换掉 →
 假失败且临时树里的证据与 HEAD 不一致、无从复现。跑前一律用干净环境：
 `env $(python3 -c "import sys;sys.path.insert(0,'agentd');import envscrub;print(' '.join('-u '+k for k in sorted(envscrub.ENV_SCRUB_EXACT)))") <命令>`
 （**名单不在此复述枚名**：单一事实源 = `agentd/envscrub.py` 的 `ENV_SCRUB_EXACT`，取现值用上面这段。本节曾长期只列 10 枚、而事实源是 14 枚 ⇒ **复述即滞后，按旧清单跑会得出假失败**）
@@ -193,8 +194,8 @@ cap 与原因：无 provider / provider 无成功者，逐个点名状态：空�
 该形态调度器判 wait 不放行，若报表只显示旧 success 会看着像调度器卡死（严重度低于
 「needs 不可满足」，故 ⚠️ 不用 🚨）；活跃表「调度依赖」列同序呈现（展示序 = eval_needs
 裁决序，pending 优先并附「忽略旧成功 task/<id>」）。
-**同一判定的机器可读面 = `agentd/needscheck.py`**：`task_status` 工具（扩展
-`assistant/.pi/extensions/agentd/core.ts`）经它取判定，在列表行尾标
+**同一判定的机器可读面 = `agentd/needscheck.py`**：`task_status` 工具（agentd 扩展的
+`core.ts`）经它取判定，在列表行尾标
 `⛔needs不可满足: cap←provider（态）`、在详情单列一节 + 处置三选一（helper 不可用则降级为
 不标记 + **输出头部**一行 ℹ️ 提示，工具不报错；提示不放末尾——列表全文已超 50 KB，放尾部会被
 工具输出截断吃掉这一元信号）。为何需要这一面：调度员实际扫的是 `task_status` 列表，而它
@@ -354,7 +355,7 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 - **e2e**：S22（agentctl 通道登记写 host/显式他机不认领/映射未命中与缺失回退）、S59（`--root`
   前置校验：错 root = agents 树本身残骸在场也拒 / 正常根零回归 / `env/host-id` 仍为软前置）；dispatch
   通道与告警语义（含机器名清单并集、mac 零告警）在
-  `assistant/.pi/extensions/agentd/tests/agentd-ext.test.mjs` 路由字段组。
+  `<扩展根>/tests/agentd-ext.test.mjs` 路由字段组。
 
 ## 跨机同步通道
 
@@ -537,11 +538,11 @@ report.md：在场 → 按 `@agent-file-protocol#operations` 完成判定（fina
   **不判丢口径下本闸门是丢弃面的唯一预防手段**（注入被 pi 的 activeRun 守卫丢弃时扩展侧零可见性，而实现
   不重投）⇒ 假空闲态零注入与真空闲态一轮一个单元两条纪律承重等级上升，不得随简化削掉。
   假 ctx 单测 = 扩展单测的注入闸门 G 组（进缺省回归面）。
-  **真 pi 端到端装置** = `assistant/.pi/extensions/agentd/tests/inject-gate-live.mjs`（**opt-in**：需
+  **真 pi 端到端装置** = `<扩展根>/tests/inject-gate-live.mjs`（**opt-in**：需
   `AGENTD_LIVE_PROBE=1`，缺省直接跳过并打印跳过原因、不进缺省回归面——它依赖本机 pi 二进制且每场景
   ~10–20s 墙钟；沙箱 = 临时 `AGENTD_ROOT`/cwd/`--session-dir` + 本地假模型 provider + `-ne` 不发现生产
   扩展，零网络、零生产信箱、跑完自清理、有界等待）：
-  `AGENTD_LIVE_PROBE=1 node assistant/.pi/extensions/agentd/tests/inject-gate-live.mjs`
+  `AGENTD_LIVE_PROBE=1 node <扩展根>/tests/inject-gate-live.mjs`
   （三场景 = 空闲 burst / 假空闲态下的后续注入 / 标志一致忙碌的 followUp+steer 零回归；`--scenario <名>`
   单跑、`--keep` 保留沙箱、`--ext-dir <另一份扩展目录>` 跑对照面——修前对照的取法写在该文件头注）。
   **实测环境戳**：dev、pi **0.84.1**（`pi --version`）、node v22.23.2；**pi 升级后需重跑**——本装置钉的是

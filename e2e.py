@@ -181,6 +181,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PI_WRAP_DIR = os.environ.get("PI_WRAP_DIR") or os.path.join(
     os.path.dirname(HERE), "pi-wrap")
 WRAP = os.path.join(PI_WRAP_DIR, "pi-rpc-wrap.py")
+# 调用方扩展目录（相对工作区根）：agentd 扩展住调用方 pi 的**全局装载面**，本仓 ⛔ 不逐处钉它的
+# 路径 ⇒ 单点在此，可由 AGENTD_EXT_REL 注入（与 pi-wrap/pi-rpc-wrap.py 的 EXT_DIR_REL 同名同口径）。
+EXT_REL = os.environ.get("AGENTD_EXT_REL") or "pi-core/agent/extensions/agentd"
+EXT_PARTS = tuple(EXT_REL.split("/"))
+EXT_DIR = os.path.abspath(os.path.join(HERE, "..", *EXT_PARTS))
 TMPBASE = tempfile.mkdtemp(prefix="agentd-e2e.%d." % os.getpid())
 
 
@@ -3455,7 +3460,7 @@ def s45():
 # 子端收件扩展：子任务自家信箱的推送收件面。e2e 临时树里没有扩展代码，
 # 故驱动按**真仓库绝对路径** import 真 receiver-child.ts + 真 core.ts，对 e2e 临时树
 # （含真 runner 写的职位信箱终态通知）跑一次子端收件。
-CHILD_RECV_REL = "assistant/.pi/extensions/agentd/receiver-child.ts"
+CHILD_RECV_REL = EXT_REL + "/receiver-child.ts"
 
 _S49_DRIVER = r"""
 // S49 驱动：真 receiver-child.ts 对 e2e 临时树跑一次子端收件，输出 JSON
@@ -3531,8 +3536,7 @@ def s49():
     rpc 下 steer/followUp 两队列均为一等公民（pi docs/rpc.md §steer / §follow_up）。"""
     node = shutil.which("node")
     assert node, "S49 需 node（驱动真 TS 扩展）；pi 本体即 node 应用，不应缺失"
-    ext_dir = os.path.abspath(os.path.join(HERE, "..", "assistant", ".pi",
-                                          "extensions", "agentd"))
+    ext_dir = EXT_DIR
     assert os.path.exists(os.path.join(ext_dir, "receiver-child.ts")), \
         "子端收件扩展不在场：%s" % ext_dir
     stop_runner()
@@ -3614,12 +3618,11 @@ def s49():
 # e2e 临时树里没有扩展代码，而 wrap 的 CHILD_EXTS 按 $AGENT_ROOT 相对路径判存在性注入
 # （缺失 → WARN 跳过 → child_recv_injected 为假 → 就绪握手不成立）。故把真仓库扩展目录
 # **软链**进临时树（不改真仓、不复制大文件；os.path.exists 跟随软链）。
-CHILD_EXT_SRC = os.path.abspath(os.path.join(HERE, "..", "assistant", ".pi",
-                                            "extensions", "agentd"))
+CHILD_EXT_SRC = EXT_DIR
 
 
 def _ensure_child_ext_in_root():
-    dst = os.path.join(ROOT, "assistant", ".pi", "extensions", "agentd")
+    dst = os.path.join(ROOT, *EXT_PARTS)
     if os.path.exists(dst):
         return dst
     os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -4509,8 +4512,7 @@ def s58():
         assert r.returncode != 0 and "生命周期终态" in r.stderr, r.stderr
 
         # ---- ⑤ 跨语言钉桩（TS 收件侧 ↔ 本仓写侧）----
-        core_ts = os.path.abspath(os.path.join(HERE, "..", "assistant", ".pi",
-                                              "extensions", "agentd", "core.ts"))
+        core_ts = os.path.join(EXT_DIR, "core.ts")
         if not os.path.exists(core_ts):
             platform_skip("S58⑤ 跨语言常量钉桩",
                           "调用方工作区的 TS 收件侧不在场（本仓单独 checkout）：%s" % core_ts)

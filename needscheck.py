@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """needscheck.py — 只读「needs 不可满足（dead-ended）」判定 CLI。
 
-用途：给 `task_status` 工具面（`assistant/.pi/extensions/agentd/core.ts`）提供**判定单点在
+用途：给 `task_status` 工具面（agentd 扩展的 `core.ts`）提供**判定单点在
 Python 侧**的机器可读结果——TS 侧不重写 provider 状态分类与三态判定（否则与调度面口径漂移）。
 事故来源： （provides `cap:dingmsg-2026-09-08`，host=mac）连击熔断收口且无 report.md
 ⇒ 其唯一下游（needs 同能力）按调度语义永久留在 not-started；调度员靠人工扫 task_status
