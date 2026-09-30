@@ -186,6 +186,14 @@ WRAP = os.path.join(PI_WRAP_DIR, "pi-rpc-wrap.py")
 EXT_REL = os.environ.get("AGENTD_EXT_REL") or "pi-core/agent/extensions/agentd"
 EXT_PARTS = tuple(EXT_REL.split("/"))
 EXT_DIR = os.path.abspath(os.path.join(HERE, "..", *EXT_PARTS))
+# 继承面洗刷（t-zqm0）：名单单一事实源 = 同目录 envscrub.py（与 runner.py /
+# serviced/serviced.py / w/ext/sessiond/proc.py 同源），本文件 ⛔ 不复制第二份名单。
+# 入口就地洗 os.environ（_scrub_inherited_env），其后所有子进程 env 一律经 scrub_env()
+# 取（幂等：入口洗过后再洗零增量），⛔ 不再直接 dict(os.environ) 继承宿主身份族。
+# 放在 PI_WRAP_DIR/EXT_REL 取值之后 ⇒ 那两个注入口（PI_ 前缀族）不受洗刷影响。
+sys.path.insert(0, HERE)
+from envscrub import scrub_env  # noqa: E402
+
 TMPBASE = tempfile.mkdtemp(prefix="agentd-e2e.%d." % os.getpid())
 
 
@@ -317,7 +325,7 @@ def start_runner(extra=None, env_extra=None):
     global RUNNER
     env = None
     if env_extra:
-        env = dict(os.environ, **env_extra)
+        env = dict(scrub_env(), **env_extra)
     RUNNER = subprocess.Popen(
         [sys.executable, os.path.join(HERE, "runner.py"), "--root", ROOT,
          "--host", "e2ehost", "--aliases", "e2e-alias",
@@ -1611,7 +1619,7 @@ def s25():
     reg_home = os.path.join(TMPBASE, "s25-reg-home")
     reg_wd = os.path.join(reg_home, "proj")
     os.makedirs(reg_wd, exist_ok=True)
-    env = dict(os.environ)
+    env = scrub_env()
     env["HOME"] = reg_home
     r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
                         "--root", ROOT, "create", "--name", "s25-reg",
@@ -2219,7 +2227,7 @@ def s39():
     #    （bot 不朽铁律 2026-09-06 经用户拍板移除）；topic/dispatcher
     #    仍受 PROTECTED_SYSTEM_PATHS 保护（含 --force）
     gc = os.path.join(HERE, os.pardir, "agents-sync", "gc.py")
-    gcenv = dict(os.environ, GC_WORKSPACE=ROOT,
+    gcenv = dict(scrub_env(), GC_WORKSPACE=ROOT,
                  GC_AGENTS_DIR=os.path.join(ROOT, "agents"))
     r = subprocess.run([sys.executable, gc, "add", "topic/s39-auto/"],
                        capture_output=True, text=True, env=gcenv)
@@ -3572,7 +3580,7 @@ def s49():
         os.makedirs(os.path.dirname(driver), exist_ok=True)
         with open(driver, "w", encoding="utf-8") as f:
             f.write(_S49_DRIVER)
-        env = dict(os.environ)
+        env = scrub_env()
         env.update({"AGENTD_ROOT": ROOT, "AGENT_SELF": recv,
                     "AGENTD_NO_WATCH": "1", "AGENTD_CHILD_POLL_MS": "50",
                     "S49_EXT_DIR": ext_dir, "S49_VICTIM": victim,
@@ -4217,7 +4225,7 @@ def s57():
 
     def ctl_env(args, env_extra=None):
         """真 CLI 子进程 + 受控环境（夹具层：不用共享 ctl() 以便逐档布置 AGENT_SELF）。"""
-        env = dict(os.environ)
+        env = scrub_env()
         env.pop("AGENT_SELF", None)
         env.update(env_extra or {})
         return subprocess.run(
@@ -4333,7 +4341,7 @@ def s58():
 
     def run(args, env_extra=None, stdin=None, expect_rc=None):
         """真 CLI 子进程 + 受控环境（逐档布置 AGENT_SELF，不用共享 ctl()）。"""
-        env = dict(os.environ)
+        env = scrub_env()
         env.pop("AGENT_SELF", None)
         env.update(env_extra or {})
         r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
@@ -4604,7 +4612,7 @@ def s59():
     os.makedirs(os.path.join(nohost, "agents", "task"), exist_ok=True)
 
     def run(root, *args):
-        env = dict(os.environ)
+        env = scrub_env()
         env.pop("AGENT_SELF", None)                       # from 归属不取宿主会话身份
         return subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
                                "--root", root, *args], capture_output=True, text=True,
@@ -4666,7 +4674,22 @@ def s59():
         _s59_rm_root(S59BASE)
 
 
+def _scrub_inherited_env():
+    """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
+
+    e2e 常从 agentd 子任务里直接跑 ⇒ 继承 AGENTD_WRAP_INIT_OK / AGENTD_WRAP_RECV_ARMED
+    等身份/信号标记，S49 的嵌套 receiver 会信外层任务的就绪标记而假 FAIL（就绪门身份
+    自校正确，属脚手架环境卫生、非产品缺陷）。洗刷判据与名单一律取自 envscrub.scrub_env
+    （strip_third_party=False：第三方 key 族是 runner spawn 侧的口径，e2e 不剥——S17 的
+    假 key 经 start_runner(env_extra=…) 注入，在洗刷之后叠加，不受影响）。
+    """
+    clean = scrub_env()
+    for k in [k for k in os.environ if k not in clean]:
+        del os.environ[k]
+
+
 def main():
+    _scrub_inherited_env()
     os.makedirs(os.path.join(ROOT, "agents"), exist_ok=True)
     # tester：信箱型 bot（只有 inbox，§2.1；bot 布局）
     os.makedirs(os.path.join(ROOT, "agents", "bot", "tester", "inbox"), exist_ok=True)
