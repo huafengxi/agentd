@@ -627,7 +627,7 @@ rpc 封装形态任务自带只读直播观测与人驾介入能力。协议侧�
 
 本章为对照参考，供将来实施（吸收/重构现有系统）时使用；所引现状文档只读，不因本协议而修改。
 
-### 12.1 与 `~/m/assistant/DISPATCH.md`（现行调度系统）的概念映射
+### 12.1 与 `~/m/dispatch/DISPATCH.md`（现行调度系统）的概念映射
 
 > **整表已移出本文**（旧表全文 = git 历史）；现行实现口径逐条对照 = `@agentd`（`usage`/`report`/`scheduler`/`conventions`/`routing`）与 `@dispatch`。按号引用本节的两个结论：**取消 = `control/` 的 `stop`**（§5.2/§5.4 规则 4，exitcode 约定 = `@agentd#conventions`）；**资源锁 / 依赖调度属调度方策略层**（协议只承载门禁结果 `enable.json`，§14）。
 

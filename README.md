@@ -455,7 +455,7 @@ report.md：在场 → 按 `@agent-file-protocol#operations` 完成判定（fina
   `_ask_inbox_env` 把解析结果注入 `AGENTD_ASK_INBOX`/`AGENTD_ASK_NOTE` env，子端 `core.writeAskMessage`
   取值（.ts 侧不另立第二套解析；reaper 不可达 → 回落职位信箱带 note，同款语义；**同树守卫**：注入值只在与本次 `root` 同树（`<root>/agents/` 下）时采纳，跨树 = 视作无注入 → 回落职位信箱，防继承来的生产绝对路径把合成信封写进生产信箱；.ts 侧自行回落且无注入 note 时自造一句成因）。
   **读侧扫描面 = `core.askScanInboxes`（唯一定义）**：职位信箱 ∪ `spec.reaper`（= 写侧全部候选落点；Python 侧镜像随会话活性监督面退役）——写侧落点由 spawn 时的活性解析决定、读侧不可知，故读判据扫并集（喂 findPendingAsk / findAskById / findAnsweredTwinAsk / findReusableAsk）。漏扫一档的后果是实证的：只扫职位信箱时，落 reaper 信箱的 ask 对读侧不可见 → `task_status` 不显示 waiting-answer、`agentctl answer` 找不到可答的 ask。两枚 env 已收进 `envscrub.ENV_SCRUB_EXACT`（身份/信号类，
-  不得继承进孙进程：继承会把它带进被启动的服务、并让嵌套 receiver 误用外层任务的 ask 路由）。应用层口径 = `assistant/DISPATCH.md`
+  不得继承进孙进程：继承会把它带进被启动的服务、并让嵌套 receiver 误用外层任务的 ask 路由）。应用层口径 = `dispatch/DISPATCH.md`
   §4 反问协议 / §8；字段登记 = `@agent-file-protocol#spec-json`；细节 = `dispatch/docs/ask-protocol.md`。e2e S45/S54/S55/S56 +
   `test_runner_notify.py` H13/H14 + 扩展侧单测 reaper 组与项1组。
 - **终态通知幂等 = 自家目录 `notified.json` 标记判重（粒度 = (taskId, 收件方)）∩ 重放护栏**（通知面只报「本次守护运行期间到达终态」的参与方）：
