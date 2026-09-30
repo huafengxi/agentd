@@ -130,12 +130,19 @@
       core.ts 的 `ASK_VIA_SEND_MESSAGE`/`DELIVER_MODES`/消息型枚举与本仓 proto 常量
       逐字相等（不一致 = Python 写的答复 TS drain 不认 → 静默悬空）；`--root` 缺省 = 现场发现
       （本仓父目录；仓内/工作区根/根上层三种 cwd 同根，只读），显式传错 root 仍前置拒绝
+  S59 `--root` 前置校验的自我击穿回归：错 root（= agents 树本身）在**嵌套残骸已在场**
+      （残骸恰好满足「`<root>/agents` 在场」这条硬前置）时仍 die（rc=2）且零新建目录/文件
+      （写侧 send 与只读 status 两面各钉一次）；零回归 = 正常工作区根的只读动词照常 rc=0、
+      **残骸在场也放行**（判据射程只到「root 是不是工作区根」，不收窄 `<root>/agents/` 下
+      条目的形状 ⇒ 不得写成全称判据）；`env/host-id` 软前置未被升硬（缺该文件只 WARN、
+      rc=0，登记回退 hostname 非空；S22④/S27③ 同族）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
 S45/S54/S55 自建合成收件方夹具（`_synth_bot`/`_synth_proc_bot`）→ **可单跑**；
 S57 自建控制信封夹具（不起进程、收尾自清）→ **可单跑**；
-S58 自建写信封夹具（不起进程；职位信箱只删本场景写的件）→ **可单跑**。
+S58 自建写信封夹具（不起进程；职位信箱只删本场景写的件）→ **可单跑**；
+S59 自建临时工作区根夹具（含残骸；不起进程、不读主树 ROOT，收尾自清）→ **可单跑**。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -4506,8 +4513,8 @@ def s58():
                                    capture_output=True, text=True, cwd=cwd)
                 assert r.returncode == 0 and "不是工作区根" not in r.stderr, \
                     "cwd=%s 时 --root 缺省应解析到工作区根：%s" % (cwd, r.stderr)
-            # 错 root 样本用本仓目录（其下永无 agents/）：不用 `<WS>/agents`——那取决于
-            # 工作区里有无误传 root 留下的嵌套残骸（残骸在场会让硬前置误通过）。
+            # 错 root 样本用本仓目录（其下永无 agents/）：钉的是「`<root>/agents` 不在场」
+            # 这条硬前置；`<WS>/agents`（agents 树本身、含残骸在场形态）由 S59 单独钉。
             r = subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
                                 "--root", HERE, "list"],
                                capture_output=True, text=True)
@@ -4519,6 +4526,112 @@ def s58():
         # 职位信箱是共享面：只删本场景写的件，不碰存量
         for fn in set(os.listdir(pos_inbox)) - pos_before:
             os.remove(os.path.join(pos_inbox, fn))
+
+
+# ------------- S59（--root 前置校验：错 root = agents 树本身，残骸在场也拒）
+
+S59BASE = os.path.join(TMPBASE, "root-s59")   # 本场景自建根（专用临时目录，不用生产树）
+
+
+def _s59_rm_root(d):
+    """场景根清理（root 身份断言）：只删本套件临时基目录下自建的场景根。
+    拒两形态 —— 等于生产根（工作区根 ∨ 本仓根）与生产根在其内部；不传
+    ignore_errors（吞错 = 把清理失败伪装成成功）。"""
+    real = os.path.realpath(d)
+    base = os.path.realpath(TMPBASE)
+    assert real != base and real.startswith(base + os.sep), \
+        "拒绝清理：场景根不在本套件临时基目录内：%s（base=%s）" % (real, base)
+    for prod in (os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "拒绝清理：场景根等于生产根 %s" % rp
+        assert not rp.startswith(real + os.sep), \
+            "拒绝清理：生产根 %s 在场景根内部" % rp
+    shutil.rmtree(real)
+
+
+def s59():
+    """`--root` 前置校验的自我击穿回归（缺陷形态 = 硬化被它要防的那棵残骸树击穿）：
+    ① 错 root（= agents 树本身）在**嵌套残骸已在场**时仍 die（rc=2）且零新建目录/文件——
+      残骸恰好满足「`<root>/agents` 在场」这条硬前置，单留它 ⇒ 同类误用只报一行软 WARN
+      就放行、写侧 makedirs 继续往嵌套树里建目录（basename 判据不依赖残骸，故拦得住）；
+      写侧动词（send）与只读动词（status）各钉一次；
+    ② 零回归：正常工作区根（自建临时根 + 真工作区根）的只读动词照常 rc=0，**残骸在场
+      也放行**（判据射程只到「root 是不是工作区根」，不收窄 `<root>/agents/` 下条目的形状）；
+    ③ `env/host-id` 软前置未被升硬：缺该文件的临时根只 WARN、rc=0，登记回退 hostname 非空
+      （既有裁定：映射缺失不阻塞登记；S22④/S27③ 同族）。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    prod_ws = os.path.dirname(HERE)                       # 真工作区根（本仓单独 checkout 时不是）
+    ws = os.path.join(S59BASE, "ws")                      # 自建「工作区根 + 残骸在场」
+    os.makedirs(os.path.join(ws, "agents", "task", "s59-plain"), exist_ok=True)
+    os.makedirs(os.path.join(ws, "agents", "agents", "bot", "s59-victim", "inbox"),
+                exist_ok=True)                            # 嵌套残骸（只有空目录 = 现网形态）
+    os.makedirs(os.path.join(ws, "env"), exist_ok=True)
+    with open(os.path.join(ws, "env", "host-id"), "w") as f:
+        f.write("%s s59-canonical\n" % socket.gethostname())
+    nohost = os.path.join(S59BASE, "ws-nohostid")          # ③ 缺 env/host-id 的临时根
+    os.makedirs(os.path.join(nohost, "agents", "task"), exist_ok=True)
+
+    def run(root, *args):
+        env = dict(os.environ)
+        env.pop("AGENT_SELF", None)                       # from 归属不取宿主会话身份
+        return subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
+                               "--root", root, *args], capture_output=True, text=True,
+                              env=env, timeout=60)
+
+    def ntree(d):
+        """(目录数, 文件数)：拒分支「零新建」的计数面。"""
+        dirs = files = 0
+        for _r, ds, fs in os.walk(d):
+            dirs += len(ds)
+            files += len(fs)
+        return dirs, files
+
+    try:
+        # ---- ① 错 root = agents 树本身（残骸在场 ⇒ 硬前置被满足的自我击穿形态）----
+        wrong = os.path.join(ws, "agents")
+        assert os.path.isdir(os.path.join(wrong, "agents")), \
+            "夹具前提：嵌套残骸须在场（那正是本缺陷的成立条件）"
+        before = ntree(ws)
+        for args in (["send", "bot/s59-victim", "--body", "误投"],   # 写侧动词
+                     ["status", "bot/s59-victim"]):                  # 只读动词
+            r = run(wrong, *args)
+            assert r.returncode == 2, \
+                "错 root（agents 树本身）应 die：%s rc=%d %s" % (args, r.returncode, r.stderr)
+            assert "不是工作区根" in r.stderr and "agents 树本身" in r.stderr, r.stderr
+            assert ntree(ws) == before, "拒后零新建目录/文件：%s" % (args,)
+        # 写侧动词也不得往残骸里落任何件（信封/控制请求）
+        assert ntree(os.path.join(ws, "agents", "agents"))[1] == 0, \
+            "残骸树里不得长出文件"
+
+        # ---- ② 零回归：正常工作区根（含残骸在场的那棵）----
+        r = run(ws, "list")
+        assert r.returncode == 0 and "不是工作区根" not in r.stderr, \
+            "正常工作区根（自带残骸）的只读动词应 rc=0：%s" % r.stderr
+        assert "s59-plain" in r.stdout, r.stdout
+        if os.path.isdir(os.path.join(prod_ws, "agents")):
+            r = run(prod_ws, "list")          # 只读：真工作区根也不得被新判据误伤
+            assert r.returncode == 0 and "不是工作区根" not in r.stderr, \
+                "真工作区根 %s 的只读动词应 rc=0：%s" % (prod_ws, r.stderr)
+        else:
+            platform_skip("S59② 真工作区根只读回归",
+                          "本仓不在工作区树内（父目录无 agents/）：%s" % prod_ws)
+
+        # ---- ③ env/host-id 软前置（只 WARN、不改 rc）----
+        assert not os.path.exists(os.path.join(nohost, "env", "host-id")), "夹具前提"
+        r = run(nohost, "list")
+        assert r.returncode == 0, "软前置不得升硬（rc 应为 0）：%s" % r.stderr
+        assert "WARN env/host-id 不在场" in r.stderr, r.stderr
+        r = run(nohost, "create", "--name", "s59-nohostid", "--command", "true",
+                "--workdir", nohost, "--creator", "tester", "--restart-policy", "one-shot")
+        assert r.returncode == 0, "映射缺失不阻塞登记：%s" % r.stderr
+        spec = os.path.join(nohost, "agents", "task", "s59-nohostid", "spec.json")
+        assert os.path.exists(spec), spec
+        with open(spec) as f:
+            s = json.load(f)
+        assert s["host"] == socket.gethostname() and s["host"], \
+            "回退 hostname 非空（S22④/S27③ 同口径）：%s" % s
+    finally:
+        _s59_rm_root(S59BASE)
 
 
 def main():
@@ -4592,6 +4705,11 @@ def main():
           "对照 control 不过门）・update（五道硬校验 + 只覆盖传入字段）"
           "・跨语言钉桩（TS core.ts 的 via/deliver/消息型枚举与 proto 常量逐字相等）"
           "・--root 缺省现场发现（三种 cwd 同根；显式错 root 仍拒）", s58)
+    check("S59 --root 前置校验自我击穿回归：错 root（agents 树本身）在嵌套残骸在场时"
+          "仍 die（rc=2）且零新建目录/文件（写侧 send + 只读 status 各一次）"
+          "・零回归：正常工作区根（自建临时根 + 真工作区根）只读动词 rc=0、残骸在场也放行"
+          "（不收窄 <root>/agents/ 下条目形状）・env/host-id 软前置未升硬（只 WARN、rc=0、"
+          "登记回退 hostname 非空）", s59)
     stop_runner()
     stop_scheduler()
 

@@ -27,10 +27,11 @@
 写信封与写控制请求的 `from` 归属一律走 `resolve_sender` 单点（显式 --from ＞ 环境
 AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 
-通用：--root <ROOT>（**工作区根**，如 ~/m —— 不是 ~/m/agents；<ROOT>/agents 须在场，
-缺失即拒绝且不静默建目录；<ROOT>/env/host-id 缺失只告警、登记不失败，口径同
-`local_canonical_host`）。**缺省 = 本脚本所在仓的父目录**（现场发现，不依赖 cwd 与 env
-⇒ 工作区内任何目录直接 `python3 <WS>/agentd/agentctl.py <动词> …` 即可）；显式 --root
+通用：--root <ROOT>（**工作区根**，如 ~/m —— 不是 ~/m/agents；<ROOT> 的 basename 为
+`agents` ∨ <ROOT>/agents 不在场，两者任一即拒绝且不静默建目录；<ROOT>/env/host-id 缺失
+只告警、登记不失败，口径同 `local_canonical_host`）。**缺省 = 本脚本所在仓的父目录**
+（现场发现，不依赖 cwd 与 env ⇒ 工作区内任何目录直接
+`python3 <WS>/agentd/agentctl.py <动词> …` 即可）；显式 --root
 只用于另一棵树（如测试临时树）。仅使用 python3 标准库。
 
 **删除铁律**：本 CLI 只做创建/登记，不提供任何删除动作——agents/ 内目录清理一律走
@@ -80,11 +81,20 @@ def local_canonical_host(root):
 def require_workspace_root(root):
     """--root 前置校验（错 root 可见性硬化）：root 必须是**工作区根**（如 ~/m）。
 
-    硬前置（缺失即 die，**绝不静默建目录**）：<root>/agents —— proto.* 一律
-    join(root, "agents", …) 且写侧 makedirs(recursive=True)，所以错 root（典型 = 误传
-    ~/m/agents）会静默建出一棵无人消费的嵌套树：control 请求写进去、重启不发生、
-    残骸要两条 gc 台账条目才收得掉（实例 2026-09-15：两个任务各误投一枚 control req 到
-    agents/agents/bot/<名>/control/）。
+    硬前置（任一命中即 die，**绝不静默建目录**）：
+      ① basename(realpath(root)) == "agents" —— root 传成了 agents 树本身。本条**不依赖
+         嵌套残骸是否在场**：残骸（`<工作区根>/agents/agents/`，即错 root 误用的产物）恰好
+         满足 ②，只留 ② 会被它自我击穿（同类误用只报一行软 WARN 就放行、写侧 makedirs
+         继续往嵌套树里建目录与落信封）。
+      ② <root>/agents 不在场 —— proto.* 一律 join(root, "agents", …) 且写侧
+         makedirs(recursive=True)，所以错 root 会静默建出一棵无人消费的嵌套树：control
+         请求写进去、重启不发生、残骸要两条 gc 台账条目才收得掉（实例 2026-09-15：两个
+         任务各误投一枚 control req 到 agents/agents/bot/<名>/control/）。
+
+    判据射程只到「root 是不是工作区根」，**不收窄 `<root>/agents/` 下条目的形状**：
+    depth-1 legacy 条目继续合法（权威 = lore/library/agentfw/facts/not-doing.md「gc 台账
+    不收窄 depth-1 legacy 条目」）⇒ 不得改写成「第一段必须是 task/bot/topic/gc」一类全称
+    判据。残骸清理不在本校验射程（一律走 agents-sync/gc.py add 通道，绝不直接 rm）。
 
     软前置（只告警、不改 rc）：<root>/env/host-id —— 既有裁定「映射文件缺失 → 回退
     hostname 本身，不阻塞守护启动与任务登记」（本文件头注与 env/host-id 头注、
@@ -94,6 +104,10 @@ def require_workspace_root(root):
 
     返回归一化后的绝对路径（expanduser + abspath；对既有绝对路径入参是 no-op）。"""
     r = os.path.abspath(os.path.expanduser(root))
+    if os.path.basename(os.path.realpath(r)) == "agents":
+        die("--root %r 不是工作区根：你传的是 agents 树本身（basename=agents）。"
+            "--root 须为工作区根（如 ~/m），不是 ~/m/agents；本次未创建任何目录/文件。"
+            % root, code=2)
     agents = os.path.join(r, "agents")
     if not os.path.isdir(agents):
         die("--root %r 不是工作区根：%s 不在场。--root 须为工作区根（如 ~/m），"
@@ -744,8 +758,9 @@ def die(msg, code=1):
 def main():
     ap = argparse.ArgumentParser(prog="agentctl")
     ap.add_argument("--root", default=None,
-                    help="工作区根（如 ~/m），不是 ~/m/agents：<root>/agents 不在场即拒绝"
-                         "（不静默建目录）；<root>/env/host-id 不在场只告警（登记不失败）。"
+                    help="工作区根（如 ~/m），不是 ~/m/agents：basename 为 agents ∨ "
+                         "<root>/agents 不在场即拒绝（不静默建目录）；<root>/env/host-id "
+                         "不在场只告警（登记不失败）。"
                          "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
