@@ -297,7 +297,7 @@ def task_sock_path(root: str, pid_: str) -> str:
     ≤107 字节（Linux，sun_path 108 含结尾 NUL）/ ≤103（macOS，104）。超限时
     CPython 在下调 bind(2) 前自行预检长度，抛 OSError("AF_UNIX path too long")
     且 errno=None（**不是**内核 ENAMETOOLONG）；wrap 的超限判定因此取 errno 与
-    报文两信号并集，以 sock_bind_failed 诊断退出。生产 root=~/m 不受影响，深根
+    报文两信号并集，以 sock_bind_failed 诊断退出。生产 root=<workspace-root> 不受影响，深根
     临时树自避。
     run/ = 宿主本地运行时区（不入 git、不进 agents/ 跨机同步树——实测 rsync -a 会复制死
     socket 节点，用户拍板绝不落 agents/）。写者：封装脚本 pi-wrap/pi-rpc-wrap.py（bind/

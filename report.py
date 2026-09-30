@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""report.py — ~/m/agents/ 任务目录 markdown 报表（只读扫描，绝不写任务目录）。
+"""report.py — <workspace-root>/agents/ 任务目录 markdown 报表（只读扫描，绝不写任务目录）。
 
 用途：反复刷新生成物，接近实时地观察全链路任务状态（用户 2026-08-28 需求）。与 agentctl.py 并列的单文件脚本，仅 python3 标准库。
 
@@ -84,7 +84,7 @@ restarts/gen 等键 → bot 表渲染 KeyError，且整份报表先 build 再切
   python3 agentd/report.py --out /tmp/agents-report.md   # 原子写文件
   python3 agentd/report.py --finalized     # 显示终态表（缺省不显示；显示最近 20 条）
   python3 agentd/report.py --all           # 终态表显示全部（隐含 --finalized）
-  python3 agentd/report.py --root ~/m      # 指定工作区根（扫描 <root>/agents/）
+  python3 agentd/report.py --root <workspace-root>   # 指定工作区根（扫描 <root>/agents/）
   python3 agentd/report.py -s active         # 只输出单个小节的正文（无标题/无生成时间行）
 """
 
@@ -1220,7 +1220,7 @@ def atomic_write_text(path, text):
 def main():
     ap = argparse.ArgumentParser(
         prog="report.py",
-        description="~/m/agents/ 任务目录 markdown 报表（只读扫描；跨机同步半截"
+        description="<workspace-root>/agents/ 任务目录 markdown 报表（只读扫描；跨机同步半截"
                     "文件自动降级标注，绝不整体崩溃）。",
         epilog="用法示例：\n"
                "  python3 agentd/report.py                # 打印到 stdout\n"
@@ -1228,7 +1228,7 @@ def main():
                "  python3 agentd/report.py --out /tmp/agents-report.md\n"
                "  python3 agentd/report.py --finalized     # 显示终态表（缺省隐藏；最近 20 条）\n"
                "  python3 agentd/report.py --all           # 终态表不截断（隐含 --finalized）\n"
-               "  python3 agentd/report.py --root ~/m      # 指定工作区根\n"
+               "  python3 agentd/report.py --root <workspace-root>   # 指定工作区根\n"
                "  python3 agentd/report.py -s active         # 只输出单个小节正文（无标题/时间行）",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=agentctl.default_root(),

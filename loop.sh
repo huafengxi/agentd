@@ -8,8 +8,8 @@
 # 只管 <root>/agents/ 一棵树，无共享状态。
 #
 # --root 语义（已核实 T1-3）：树布局 = <ROOT>/agents/<id>
-# （proto.agent_dir = root/agents/<id>），工具层 core.ts 写 ~/m/agents/<taskId>，
-# 故 root = ~/m（$WS）——不是 ~/m/agents（那是计划 §2.2/README 的笔误，已随本任务更正）。
+# （proto.agent_dir = root/agents/<id>），工具层 core.ts 写 <workspace-root>/agents/<taskId>，
+# 故 root = <workspace-root>（$WS）——不是 <workspace-root>/agents（那是计划 §2.2/README 的笔误，已随本任务更正）。
 #
 # 日志：runner 自身经 --log-file 写 run/logs/agentd.log；loop 自身的启停记录也写同一文件。
 set -u

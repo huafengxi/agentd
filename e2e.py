@@ -3946,7 +3946,7 @@ def _live_cmd(live):
     """任务命令夹具：真 pi（经包装脚本）+ 合成配置目录 + 加速落盘确认的 poll 兜底。
     PI_CODING_AGENT_DIR 必须由命令前缀带（runner spawn 会按 envscrub 剥掉 PI_ 前缀族）。"""
     # AGENTD_ROOT 必须显式给：core.rootDir() 优先读它，缺失才回落到「按扩展文件位置推仓库根」
-    # ——生产两者同值（~/m 既是仓库根又是 AGENT_ROOT），但 e2e 临时树的扩展是**软链进真仓快照**的，
+    # ——生产两者同值（<workspace-root> 既是仓库根又是 AGENT_ROOT），但 e2e 临时树的扩展是**软链进真仓快照**的，
     # 回落会把 root 解到快照仓（实测形态：session_start 不装配、日志落错树）。runner 只注入
     # AGENT_ROOT（wrap 侧口径），故由命令前缀补 AGENTD_ROOT（扩展侧口径），两值同源同树。
     return ('echo "e2e S53 live prompt" > "$AGENT_HOME/prompt.md" && '

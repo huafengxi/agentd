@@ -35,8 +35,8 @@ cap 级明细不用正则解析 `eval_needs` 的 reason 串（那会在本文件
                         "why": "provider 无成功者：task/y（已失败）"}]}]}
 
 用法：
-  python3 agentd/needscheck.py                  # 扫 ~/m/agents/
-  python3 agentd/needscheck.py --root ~/m       # 指定工作区根
+  python3 agentd/needscheck.py                  # 扫 <workspace-root>/agents/
+  python3 agentd/needscheck.py --root <workspace-root>   # 指定工作区根
 """
 import argparse
 import json

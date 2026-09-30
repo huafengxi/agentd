@@ -24,7 +24,7 @@ runner 不再实例化/调用调度器；调度方由 scheduler-loop.sh 独立�
   --root       agents/ 树所在根目录（布局 <ROOT>/agents/<participantId>/）
                spawn 前需 enable.json 放行（门禁内置无开关，§14.3；
                调度方在独立服务 scheduler.py，本机守护不合署）
-  --log-file   日志文件（缺省输出 stderr）；生产部署约定 ~/m/run/logs/agentd.log
+  --log-file   日志文件（缺省输出 stderr）；生产部署约定 <workspace-root>/run/logs/agentd.log
   --log-level  日志级别（缺省 INFO）
 
 仅使用 python3 标准库。
@@ -1003,7 +1003,7 @@ def main():
     ap.add_argument("--aliases", default="", help="本机别名，逗号分隔（§15.3）")
     ap.add_argument("--interval", type=float, default=0.5)
     ap.add_argument("--log-file", default=None,
-                    help="日志文件（缺省 stderr；生产约定 ~/m/run/logs/agentd.log）")
+                    help="日志文件（缺省 stderr；生产约定 <workspace-root>/run/logs/agentd.log）")
     ap.add_argument("--log-level", default="INFO",
                     choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     ap.add_argument("--replay-grace", type=float, default=REPLAY_GRACE_DEFAULT,

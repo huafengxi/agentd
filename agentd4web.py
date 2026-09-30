@@ -20,7 +20,7 @@ _STDERR_LIMIT = 2000
 
 def _self_dir():
     # type=script 经 exec 执行（无 __file__）；server 进程 chdir 到 web 根
-    # （~/m），故回退 = web 根下的 agentd/ 目录
+    # （<workspace-root>），故回退 = web 根下的 agentd/ 目录
     try:
         return os.path.dirname(os.path.realpath(__file__))
     except NameError:

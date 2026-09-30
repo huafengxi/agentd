@@ -28,7 +28,7 @@
 写信封与写控制请求的 `from` 归属一律走 `resolve_sender` 单点（显式 --from ＞ 环境
 AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 
-通用：--root <ROOT>（**工作区根**，如 ~/m —— 不是 ~/m/agents；<ROOT> 的 basename 为
+通用：--root <ROOT>（**工作区根**，如 <workspace-root> —— 不是 <workspace-root>/agents；<ROOT> 的 basename 为
 `agents` ∨ <ROOT>/agents 不在场，两者任一即拒绝且不静默建目录；<ROOT>/env/host-id 缺失
 只告警、登记不失败，口径同 `local_canonical_host`）。**缺省 = 本脚本所在仓的父目录**
 （现场发现，不依赖 cwd 与 env ⇒ 工作区内任何目录直接
@@ -80,7 +80,7 @@ def local_canonical_host(root):
 
 
 def require_workspace_root(root):
-    """--root 前置校验（错 root 可见性硬化）：root 必须是**工作区根**（如 ~/m）。
+    """--root 前置校验（错 root 可见性硬化）：root 必须是**工作区根**（如 <workspace-root>）。
 
     硬前置（任一命中即 die，**绝不静默建目录**）：
       ① basename(realpath(root)) == "agents" —— root 传成了 agents 树本身。本条**不依赖
@@ -107,12 +107,13 @@ def require_workspace_root(root):
     r = os.path.abspath(os.path.expanduser(root))
     if os.path.basename(os.path.realpath(r)) == "agents":
         die("--root %r 不是工作区根：你传的是 agents 树本身（basename=agents）。"
-            "--root 须为工作区根（如 ~/m），不是 ~/m/agents；本次未创建任何目录/文件。"
+            "--root 须为工作区根（如 <workspace-root>），不是 <workspace-root>/agents；"
+            "本次未创建任何目录/文件。"
             % root, code=2)
     agents = os.path.join(r, "agents")
     if not os.path.isdir(agents):
-        die("--root %r 不是工作区根：%s 不在场。--root 须为工作区根（如 ~/m），"
-            "不是 ~/m/agents；本次未创建任何目录/文件。"
+        die("--root %r 不是工作区根：%s 不在场。--root 须为工作区根"
+            "（如 <workspace-root>），不是 <workspace-root>/agents；本次未创建任何目录/文件。"
             % (root, agents), code=2)
     if not os.path.exists(os.path.join(r, "env", "host-id")):
         print("agentctl: WARN env/host-id 不在场（root=%s）：--root 须为工作区根"
@@ -788,7 +789,8 @@ def die(msg, code=1):
 def main():
     ap = argparse.ArgumentParser(prog="agentctl")
     ap.add_argument("--root", default=None,
-                    help="工作区根（如 ~/m），不是 ~/m/agents：basename 为 agents ∨ "
+                    help="工作区根（如 <workspace-root>），不是 <workspace-root>/agents："
+                         "basename 为 agents ∨ "
                          "<root>/agents 不在场即拒绝（不静默建目录）；<root>/env/host-id "
                          "不在场只告警（登记不失败）。"
                          "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）")
