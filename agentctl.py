@@ -13,7 +13,8 @@
                 `--body-file -` 走 stdin（长正文不经 shell 断词）；type=ask 自动带 via 标记（§4.5）
   ack           收件方写传输层确认 inbox/ack/<id>（§3.1/§6.4）
   control       写控制请求 stop|restart|clear [--inject][--reason]（§5.2/§4.3）
-  answer        答复目标任务的未答 ask（自动找 askId、继承其 via、回执点名所答条目）
+  answer        答复目标任务的未答 ask（自动找 askId、继承其 via、回执点名所答条目）；
+                `--deliver` 投递方式（同 send，§6.6；缺省不写字段 = followUp）
   cancel        取消参与方（= control stop + 存活前置门）
   update        改未放行排队任务的调度字段 resources/provides/needs（§14）
   enable        调度方写 enable.json 放行（调度扩展，§14.2）
@@ -637,7 +638,13 @@ def cmd_answer(a):
     ② 三道前置门（存在 / 非 final / 确有未答 ask）；③ **继承所答 ask 的 `via`**——非阻塞
     征询（`send --type ask`）的 reply 带 via 才会被收件侧 drain 放行消费，丢了该标记 = 答复
     静默悬空（§4.5）。回执把「答的是哪条、它是不是阻塞态」当场可见（最早未答 ask 未必是
-    调用方以为在解的那条）。"""
+    调用方以为在解的那条）。
+
+    `--deliver`（与 `send` 同形）：显式给才落盘该字段，缺省 = followUp（§6.6）。缺它的后果 =
+    发送方要在「自动 askId + via 继承」与「steer」之间二选一（退到裸 `send --type reply --ref`
+    就丢了 via 继承与三道前置门）；非阻塞征询（via=send_message）的 reply 靠收件侧 drain 注入
+    ⇒ 收件方在长轮里时缺省档的答复直到轮末才可见。阻塞 ask 的 reply 归 waitForReply 单一消费、
+    不走注入 ⇒ 不受本旋钮影响。"""
     require_pid(a.participant, "目标任务")
     require_not_retired(a.participant, "目标任务")
     body = body_of(a)
@@ -649,6 +656,8 @@ def cmd_answer(a):
            "type": "reply", "ref": ask.get("id"), "body": body}
     if ask.get("via"):
         env["via"] = ask["via"]             # 继承来源标记（阻塞 ask 无 via → reply 也不带）
+    if a.deliver:
+        env["deliver"] = a.deliver          # 可选字段：只在显式指定时落盘（缺省 = followUp，§6.6；同 cmd_send）
     mid, _p = proto.write_message(proto.inbox_path(a.root, a.participant), env)
     q = " ".join(str(proto.ask_summary(ask) or "").split())
     if len(q) > 120:
@@ -863,6 +872,9 @@ def main():
     p.add_argument("participant", help="目标任务（task/<id>）")
     p.add_argument("--body", help="答复正文（与 --body-file 二选一）")
     p.add_argument("--body-file", dest="body_file", help="答复正文取自文件；`-` = stdin")
+    p.add_argument("--deliver", choices=list(proto.DELIVER_MODES), default=None,
+                   help="投递方式（§6.6，与 type 正交；同 send --deliver）：steer = 立即介入收件方"
+                        "运行中的当前轮；缺省不写字段 = followUp（排队等当前轮结束）")
     p.add_argument("--from", dest="sender", help="答复方身份（同 send --from）")
     p.set_defaults(fn=cmd_answer)
 
