@@ -2357,8 +2357,8 @@ def s40():
     # 信箱型 create-bot 行为零回归（不写 spec）
     assert not os.path.exists(os.path.join(ROOT, "agents", "bot", "s40-pal", "spec.json"))
 
-    # ④ --description / --reaper（：8080 表单登记入口需要的两个可选 spec 字段，
-    #    §4.1 `name` = 人类可读描述、`reaper` = 终态通知唯一收件面）
+    # ④ --description / --reaper（§4.1 的两个可选 spec 字段：`name` = 人类可读描述、
+    #    `reaper` = 终态通知唯一收件面）
     ctl("bot", "register", "--name", "s40-desc", "--subscribes", "topic/s40-unrelated",
         "--command", "true", "--workdir", ROOT, "--creator", "task/s40",
         "--restart-policy", "auto",

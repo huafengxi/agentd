@@ -379,8 +379,7 @@ def check_reaper(raw, what="reaper"):
 def check_description(raw, what="description"):
     """`--description` 校验（写入 spec 的 `name` 字段 = 人类可读描述，协议 §4.1）：
     只拒不可落盘的形态（含 NUL）；缺失/空串 = 不写该键（spec 与现行为逐字一致）。
-    长度上界属调用方口径（8080 表单侧限 ≤200 字符，见 w/ext/sessiond/proc.py），
-    CLI 不代设——人工登记长描述是合法用法。"""
+    长度上界属调用方口径，CLI 不代设——人工登记长描述是合法用法。"""
     if raw is None:
         return None
     s = str(raw)
@@ -396,7 +395,7 @@ def cmd_bot_register(a):
     （通道 B = 登记期订阅意图）一个合法写入口，消灭手写不可变档（S2 结论：
     字段留在 spec.json，登记为可选扩展字段）。`--description`/`--reaper`
     把 §4.1 另两个可选字段 `name`（人类可读描述）与 `reaper`（终态通知收件面）也纳入
-    同一写入口——8080 表单登记（`op=create_bot`）经本命令落盘，不另开写盘路径。
+    同一写入口——bot 登记只有本命令这一条写盘路径。
 
     两态：
       - spec.json **已在场** → 只改 `subscribes` 一个字段，其余字段逐字保留（spec 是协议

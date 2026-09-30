@@ -617,7 +617,7 @@ rpc 封装形态任务自带只读直播观测与人驾介入能力。协议侧�
 - **端点落宿主本地运行时区（如 `<root>/run/agentd/<taskId>.sock` + 伴生档），socket 绝不落 `agents/` 同步树**（同步会跨机复制死 socket 节点，违反「文件即状态」）；端点经 `pid.json` 的 `sock` 字段可发现（§4.2），陈旧节点的身份接管/双宿主拒启同按二元组口径（§5.5）；
 - **所有权不变量**：封装脚本持有会话进程（spawn/收敛/诊断），生命周期判罚仍归 runner（普通命令 + 退出码），观测消费方（8080 sessiond）是纯 attach 客户端、**无杀权**（禁 kill/reload/clear）；
 - **独立失败域**：观测链路（socket/桥接/前端）任何故障只降级观测，**不影响调度面**（放行/心跳/完成判定/终态通知）；反之调度面不依赖观测面任何状态；
-- **拉起权单点 = runner**：web 侧只呈现路由判定（活 socket → 透传直播 / 终态 → 拒绝并指引换代经 control restart / 缺席 → 等待提示 / 旧形态运行中 → 拒绝（双宿主风险）/ 跨机 → 指引宿主机）；会话入口唯一 = **spec.json 声明者路径**（`/agents/(task|bot)/<名>/spec.json?v=chat`，产物路径直开被拒）；task 族无启动接口，bot 族有登记入口（`op=create_bot`，写 `spec.json` + `enable.json`），spawn 仍单点归 runner。
+- **拉起权单点 = runner**：web 侧只呈现路由判定（活 socket → 透传直播 / 终态 → 拒绝并指引换代经 control restart / 缺席 → 等待提示 / 旧形态运行中 → 拒绝（双宿主风险）/ 跨机 → 指引宿主机）；会话入口唯一 = **spec.json 声明者路径**（`/agents/(task|bot)/<名>/spec.json?v=chat`，产物路径直开被拒）；task 族无启动接口，bot 族登记走 CLI（`agentctl bot register` 写 `spec.json`、`agentctl enable` 写 `enable.json`），web 侧无登记入口，spawn 仍单点归 runner。
 
 接口契约（status / entries 基线 / events SSE / cmd 上行）与部署落点 = `w/ext/sessiond/ARCHITECTURE.md`；竞态窗留档 = `agentd/RACE-NOTES.md`。
 
