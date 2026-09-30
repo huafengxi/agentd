@@ -325,7 +325,7 @@ when: "（占位：何时该来读本主题文档——一句话；入册后由 
 # {title}
 
 > topic = `{tid}`（协作容器：本文策展 + `inbox/` 全量日志 + `watcher/` 订阅注册表）。
-> **单写者** = owner/主持人；日志由机制自动过账（`send_message` 投递即落盘），绝不手工双写。
+> **单写者** = owner/主持人；日志由机制自动过账（`agentctl send` 投递即落盘），绝不手工双写。
 > 机制权威：`assistant/docs/topic-design.md`（§5.1 主持人载体、§7 双件套）；消息与收件口径：`assistant/DISPATCH.md` §4/§8。
 > 删除/归档本主题一律走 `agents-sync/gc.py add topic/{tid}/` 通道（铁律：不得直接 rm）。
 
@@ -505,8 +505,8 @@ def resolve_sender(explicit, what="发送方"):
 
 def require_not_retired(s, what="参与方"):
     """退役地址护栅：命中 `proto.RETIRED_MAILBOXES`
-    → **拒绝 + 回执新地址**，与 TS 侧 `core.sendParticipantMessage` 对 `core.RETIRED_MAILBOXES`
-    的处置同口径（单点声明见 proto.py）。
+    → **拒绝 + 回执新地址**；该表与 TS 侧 `core.RETIRED_MAILBOXES`（core.ts）跨语言同源
+    同口径（单点声明见 proto.py，钉桩见 e2e.py `s41`）。
 
     调用位置硬约束：必须在任何路径计算 / `os.makedirs` / `atomic_write_json` **之前**
     （否则 `inbox_path` + 原子写会先把僵尸信箱的父目录建出来）；且**独立于目录是否在
