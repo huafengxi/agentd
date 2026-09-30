@@ -101,9 +101,10 @@ import tempfile
 import time
 import urllib.parse
 
-# 复用同目录协议库与调度门禁谓词（二者均仅标准库），保证「应跑」判定与
-# scheduler.tick 放行条件零漂移。
+# 复用同目录协议库、调度门禁谓词与 CLI 的缺省根单点（三者均仅标准库），保证「应跑」判定与
+# scheduler.tick 放行条件零漂移、`--root` 缺省与 agentctl 同源（现场发现，⛔ 不写死部署值）。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import agentctl  # noqa: E402
 import proto  # noqa: E402
 import scheduler  # noqa: E402
 
@@ -1230,8 +1231,9 @@ def main():
                "  python3 agentd/report.py --root ~/m      # 指定工作区根\n"
                "  python3 agentd/report.py -s active         # 只输出单个小节正文（无标题/时间行）",
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default=os.path.expanduser("~/m"),
-                    help="工作区根目录（扫描 <root>/agents/；缺省 ~/m）")
+    ap.add_argument("--root", default=agentctl.default_root(),
+                    help="工作区根目录（扫描 <root>/agents/；缺省 = 本脚本所在仓的父目录，"
+                         "现场发现，不依赖 cwd/env）")
     ap.add_argument("--out", metavar="PATH",
                     help="写文件而非 stdout（临时文件+rename 原子写）")
     ap.add_argument("--finalized", action="store_true",
