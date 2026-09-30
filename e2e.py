@@ -124,7 +124,9 @@
       send 的 type 缺省 inform、`--deliver` 显式才落盘、`--body-file -` 逐字保真、
       `type=ask` 自动带 via、from 三档归属、六种拒分支零落盘；answer 在扫描面并集
       （职位信箱 ∪ spec.reaper 自家信箱）里找**最早一条未答 ask**、reply 继承其 via
-      （阻塞 ask 无 via → reply 也不带）、回执点名所答条目与阻塞态，三种意图落空
+      （阻塞 ask 无 via → reply 也不带）、回执点名所答条目与阻塞态，`--deliver` 与 send
+      同形（steer 逐字落盘 / 缺省 = 信封不写该键而非写 followUp / 枚举外值 argparse 拒
+      rc=2），三种意图落空
       （无未答 ask / 已 final / 无 spec）全拒；cancel 带存活前置门而 control 不过门（对照）；
       update 五道硬校验（含「已放行即拒」）且只覆盖传入字段；**跨语言钉桩** = TS 收件侧
       core.ts 的 `ASK_VIA_SEND_MESSAGE`/`DELIVER_MODES`/消息型枚举与本仓 proto 常量
@@ -4293,7 +4295,9 @@ def s58():
        空正文/正文歧义/reply 无 ref 一律拒且零落盘；
     ② `answer` = 用例动词：自动找**最早一条未答 ask**（扫描面 = 职位信箱 ∪ spec.reaper 自家
        信箱，单点 `proto.ask_scan_inboxes`）→ 写 reply（ref 回引 + **继承 ask 的 via**）+ 回执
-       点名所答条目；无未答 ask / 已 final / 无 spec 三种意图落空一律拒且零落盘；
+       点名所答条目；`--deliver` 与 `send` 同形（显式给才落盘该字段、缺省 = **键不在场**
+       而非写 followUp、枚举外值 argparse 拒 rc=2，§6.6）；无未答 ask / 已 final / 无 spec
+       三种意图落空一律拒且零落盘；
     ③ `cancel` = control stop + 存活前置门；对照 `control`（协议动词）不过门：已 final 仍写；
     ④ `update` = 五道硬校验（至少一字段 / 字符串数组 / 存在 / 非 final / **未放行**）+ 只覆盖传入字段；
     ⑤ **跨语言钉桩**：TS 收件侧（core.ts）的 `ASK_VIA_SEND_MESSAGE` / `DELIVER_MODES` /
@@ -4421,6 +4425,32 @@ def s58():
         assert "blocking=no" in r.stdout, r.stdout
         run(["answer", t, "--body", "第三条的答复"], {"AGENT_SELF": lead}, expect_rc=0)
         assert len(msgs(tibox)) == 3, "三条 ask 各得一条 reply"
+
+        # ②′ `answer --deliver` 两档（与 send 同形，§6.6）：显式给才落盘该字段、缺省 =
+        # **键不在场**（⛔ 不是写了 followUp）。每档先投一条新 ask 再答（不污染上面
+        # 「最早未答 ask」的判定面）；信封按 answer 回执首行的 reply id 直取，不依赖
+        # 文件名字典序。
+        for extra, want in ((["--deliver", "steer"], "steer"), ([], None)):
+            tag = want or "缺省"
+            run(["send", lead, "--type", "ask",
+                 "--body", json.dumps({"question": "deliver 档探针（%s）" % tag},
+                                      ensure_ascii=False)],
+                {"AGENT_SELF": t}, expect_rc=0)
+            r = run(["answer", t, "--body", "deliver 档答复（%s）" % tag, *extra],
+                    {"AGENT_SELF": lead}, expect_rc=0)
+            mid = r.stdout.split("\n")[0].strip()
+            with open(os.path.join(tibox, mid + ".msg")) as f:
+                rep = json.load(f)
+            assert rep["type"] == "reply" and rep["id"] == mid, rep
+            if want is None:
+                assert "deliver" not in rep, \
+                    "缺省（不带 --deliver）= 信封**不写该键**（⛔ 不是写 followUp，§6.6）：%s" % rep
+            else:
+                assert rep.get("deliver") == want, \
+                    "answer --deliver %s ⇒ 落盘信封的 deliver 字段逐字相等：%s" % (want, rep)
+        assert run(["answer", t, "--body", "x", "--deliver", "now"]).returncode == 2, \
+            "answer 的 deliver 枚举外的值同由 argparse 拒（rc=2，与 send 同形）"
+
         n = len(msgs(tibox))
         r = run(["answer", t, "--body", "无主答复"], {"AGENT_SELF": lead})
         assert r.returncode != 0 and "没有未答的 ask" in r.stderr, r.stderr
@@ -4701,7 +4731,8 @@ def main():
     check("S58 写侧动词两档：send（协议动词：type 缺省 inform / --deliver 显式才落盘 / "
           "--body-file - 逐字保真 / type=ask 自动带 via / from 三档归属 / 拒分支零落盘）"
           "・answer（用例动词：扫描面并集里找最早未答 ask + reply 继承 via + 回执点名所答条目；"
-          "无未答 ask/已 final/无 spec 三种意图落空全拒）・cancel（= control stop + 存活前置门；"
+          "`--deliver` 与 send 同形：steer 逐字落盘 / 缺省 = 信封不写该键（⛔ 非 followUp）/ "
+          "枚举外值 argparse 拒 rc=2；无未答 ask/已 final/无 spec 三种意图落空全拒）・cancel（= control stop + 存活前置门；"
           "对照 control 不过门）・update（五道硬校验 + 只覆盖传入字段）"
           "・跨语言钉桩（TS core.ts 的 via/deliver/消息型枚举与 proto 常量逐字相等）"
           "・--root 缺省现场发现（三种 cwd 同根；显式错 root 仍拒）", s58)

@@ -190,6 +190,7 @@ def cmd_create(a):
         spec["name"] = description        # §4.1 `name` = 人类可读描述（非目录名）
     if reaper:
         spec["reaper"] = reaper           # §4.1 终态通知唯一收件面（缺失 → 运行时回落职位信箱带 note）
+    warn_unwritten_spec_keys(reaper, a.restart_policy)   # 只打 WARN，不改上面的键集
     spec["createdAt"] = beijing_iso()
     # 路由字段（多机阶段 0，设计 §3.2）：「spec.host 缺省=
     # 登记机」在登记时刻物化落盘（B-2 修复）——不传 --host 自动写本机规范名，
@@ -390,6 +391,26 @@ def check_description(raw, what="description"):
     return s
 
 
+def warn_unwritten_spec_keys(reaper, restart_policy):
+    """未给的可选 spec 键各打一行 WARN 到 **stderr**（登记照常成功：退出码、校验、
+    spec 键集一律不变——不传就仍然不写键）。
+
+    政策不钉进代码缺省值（CLI 不代填 `reaper`/`restartPolicy`）⇒ 缺省的**后果**必须在
+    登记当场可见：两键都是「给了才写」，不写键即落到运行时的回落/不自愈语义
+    （`runner.resolve_reaper` 三档 ② ∨ 自愈判据 `spec.get("restartPolicy")=="auto"`）。
+    适用面 = `create` 与 `bot register` 的**新建 spec** 分支（resolve_reaper 对 task 与
+    bot 两族同规则，两条 CLI 路径的不对称是同一个）；bot register 的「spec 已在场」
+    分支两 flag 本就不生效 ⇒ 不打。文案两段（后果 + 怎么给）缺一不可。"""
+    if not reaper:
+        print("WARN: 未声明 --reaper ⇒ spec 不写该键 ⇒ 终态通知回落职位信箱 %s 并带 note；"
+              "要指定收尾方就带 --reaper <两段路径式 id>（如 bot/<名> ∨ task/<id> ∨ "
+              "topic/<id>）" % proto.POSITION_PID, file=sys.stderr)
+    if not restart_policy:
+        print('WARN: 未声明 --restart-policy ⇒ spec 不写该键 ⇒ 崩溃不自愈（runner 的自愈'
+              '判据是 spec.get("restartPolicy")=="auto"）；常驻体要自愈必须显式 '
+              '--restart-policy auto', file=sys.stderr)
+
+
 def cmd_bot_register(a):
     """登记进程型 bot（bot 族 spec.json）：给协议 §4.1 的可选扩展字段 `subscribes`
     （通道 B = 登记期订阅意图）一个合法写入口，消灭手写不可变档（S2 结论：
@@ -471,6 +492,7 @@ def cmd_bot_register(a):
         spec["name"] = description        # §4.1 `name` = 人类可读描述（非目录名）
     if reaper:
         spec["reaper"] = reaper           # §4.1 终态通知唯一收件面（缺失 → 回落职位信箱）
+    warn_unwritten_spec_keys(reaper, a.restart_policy)   # 只打 WARN，不改上面的键集
     proto.atomic_write_json(spath, spec)  # temp+rename（§5.1）
     print("bot/%s" % a.name)
     print("  spec     %s（新建）" % spath)
@@ -785,7 +807,11 @@ def main():
                         "缺省不写该键 → 运行时回落职位信箱 %s 带 note"
                         % (", ".join(proto.FAMILIES), proto.POSITION_PID))
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
-                   default="")
+                   default="",
+                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈'
+                        '（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"）；'
+                        '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
+                        'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
     p.add_argument("--host")
     p.add_argument("--created-by-host")
     p.add_argument("--resources", default=None,
@@ -817,7 +843,11 @@ def main():
     p.add_argument("--workdir", help="新建 spec 必备：工作目录（~/ 可，落盘归一化可移植）")
     p.add_argument("--creator", help="新建 spec 必备：登记方（路径式 id 或任务名）")
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
-                   default="")
+                   default="",
+                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈'
+                        '（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"）；'
+                        '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
+                        'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
     p.add_argument("--host")
     p.add_argument("--created-by-host")
     p.add_argument("--description", default=None,

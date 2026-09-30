@@ -86,6 +86,8 @@ $A create … --resources '["gpu"]' --provides '["capA"]' --needs '["capB"]'  # 
 $A send task/<id> --body '补充裁定' --deliver steer   # type 缺省 inform；steer = 立即介入当前轮（§6.6）
 $A send bot/<名> --type ask --body-file -            # 长正文走 stdin（不经 shell 断词）；ask 自动带 via
 $A answer task/<id> --body '按方案 A 继续'           # 自动找最早未答 ask，reply 继承其 via（§4.5）
+$A answer task/<id> --body '立刻改做 X' --deliver steer  # --deliver 同 send（§6.6、与 type 正交）：
+     # steer = 立即介入收件方在飞的当前轮；缺省不写该字段 = followUp（排队等当前轮结束）
 $A ack task/<id> <msg-id>                            # 收件方传输层确认（§4.6）
 # 控制：协议动词 control（收尾清理也可写）、用例动词 cancel/update（带前置门）
 $A control task/<id> stop|restart|clear [--inject X] [--reason R]
@@ -97,8 +99,12 @@ $A enable task/<id> --by who                        # 手工放行（兜底；�
 $A topic init <议题 id> [--title <标题>] [--watcher <会话裸名>]…   # 建 topic.md 骨架 + inbox/ + watcher/ 订阅条目
 $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
      [--command … --workdir … --creator …]   # spec 不在场需后三件；已在场则只改 subscribes（''=清空）
-     [--description <一句描述>] [--reaper <family/名>]   # 可选：新建 spec 时写 §4.1 的
-     # `name`（人类可读描述）与 `reaper`（终态通知收件面）；缺省不写该键；已在场分支不生效
+     [--description <一句描述>] [--reaper <family/名>] [--restart-policy manual|auto|one-shot]
+     # 可选：新建 spec 时写 §4.1 的 `name`（人类可读描述）/`reaper`（终态通知收件面）/
+     # `restartPolicy`；两 flag 缺省时各打一行 WARN 到 stderr（登记照常成功）；已在场分支不生效
+     # 两个可选 flag 的缺省后果（各一句，可独立抄）：
+     # --restart-policy 缺省 = spec 不写该键 ⇒ 崩溃不自愈（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"）；常驻体要自愈必须显式 --restart-policy auto（守护型的正规路径 = 被追踪声明源 bots/daemon/<名>/spec.json + make bots.seed，其 spec 自带该字段）。
+     # --reaper 缺省 = spec 不写该键 ⇒ 终态通知回落职位信箱 topic/dispatcher 并带 note；要指定收尾方就显式 --reaper <两段路径式 id>（bot/<名> ∨ task/<id> ∨ topic/<id>）。
 # 删除铁律：两者都只创建——agents/ 内任何清理走 `python3 agents-sync/gc.py add <路径>` + `reap`
 
 # lore 资产清单 + 全局名字索引（`knowledge` 名 → 清单；规范 `@bots#kb-spec`，

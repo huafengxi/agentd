@@ -189,7 +189,7 @@ agents/<participantId>/
 | `workdir` | string | ✅ | **外部工作目标目录**（agent 的 cwd）：**协议不管理其中任何文件**。**路径可移植**：`$HOME` 内路径登记侧归一化为 `~/...` 落盘、非 home 路径保持绝对，运行方以 `expanduser` 展开 |
 | `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual`（缺省）崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 终止即 final（第一代终止时生命周期即终结） |
 | `creator` | string | ✅ | 创建者身份 = **回信地址** = **真实登记方**（审计用）；终态通知的投递不由它推导（收件面 = `reaper`） |
-| `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧恒写（缺省推导 = `creator`）、非法 id 拒绝登记；运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
+| `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法 id 拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法 id 拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
 | `host` | string | ➖ | **路由扩展**（§15）：目标机器——仅该机 runner 可认领；协议缺省语义 = `createdByHost`，登记实现一律登记时物化写入；**缺失/空 = 无机器认领**（§15.1） |
 | `createdByHost` | string | ➖ | **路由扩展**（§15）：创建方所在机器，回信/审计用；缺省 = 创建者本机 |
 | `subscribes` | array of string | ➖ | **消息域扩展字段**：登记期订阅意图——每项为 `topic/<id>`，该会话的 receiver 把对应 topic 全量日志信箱纳入监视面（共享式多订阅，ack 两态 §4.6）。**只承载登记期意图**：运行期增删订阅走 topic 的 `watcher/<裸名>` 条目，不改本不可变档。非 `topic/` 族与非法 id 一律忽略并留降级日志（`task/`、`bot/` 信箱**不得**被第三方会话绑定，防抢收）。写入口与硬校验 = `@agentd#usage`；主持人口径 = `@topic-design#moderator-carrier` |
