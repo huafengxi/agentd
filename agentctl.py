@@ -8,7 +8,7 @@
   bot register  登记进程型 bot spec：`--subscribes topic/<id>[,…]`（通道 B，§4.1）
                 + `--description`（→ spec `name`）/`--reaper`（→ spec `reaper`）
   topic init    创建 topic 标准布局（topic.md 骨架 + inbox/ + watcher/ 订阅登记，
-                设计稿 assistant/docs/topic-design.md §7/§8）
+                设计稿 dispatch/docs/design/topic-design.md §7/§8）
   send          向参与方 inbox 写消息：ask|inform|reply 信封（§6）；`--deliver` 投递方式（§6.6）、
                 `--body-file -` 走 stdin（长正文不经 shell 断词）；type=ask 自动带 via 标记（§4.5）
   ack           收件方写传输层确认 inbox/ack/<id>（§3.1/§6.4）
@@ -340,7 +340,7 @@ when: "（占位：何时该来读本主题文档——一句话；入册后由 
 
 > topic = `{tid}`（协作容器：本文策展 + `inbox/` 全量日志 + `watcher/` 订阅注册表）。
 > **单写者** = owner/主持人；日志由机制自动过账（`agentctl send` 投递即落盘），绝不手工双写。
-> 机制权威：`assistant/docs/topic-design.md`（§5.1 主持人载体、§7 双件套）；消息与收件口径：`assistant/DISPATCH.md` §4/§8。
+> 机制权威：`dispatch/docs/design/topic-design.md`（§5.1 主持人载体、§7 双件套）；消息与收件口径：`assistant/DISPATCH.md` §4/§8。
 > 删除/归档本主题一律走 `agents-sync/gc.py add topic/{tid}/` 通道（铁律：不得直接 rm）。
 
 ## 议题
@@ -823,7 +823,7 @@ def main():
                         % (", ".join(proto.FAMILIES), proto.POSITION_PID))
     p.set_defaults(fn=cmd_bot_register)
 
-    # topic 组：协作容器脚手架（设计稿 assistant/docs/topic-design.md §7/§8）
+    # topic 组：协作容器脚手架（设计稿 dispatch/docs/design/topic-design.md §7/§8）
     pt = sub.add_parser(
         "topic", help="topic 协作容器（子命令：init）——只创建；删除/归档铁律走 "
                       "agents-sync/gc.py add topic/<id>/ 通道，绝不直接 rm")

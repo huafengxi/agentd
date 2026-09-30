@@ -68,7 +68,7 @@ pid.json 有 sock）的 bot 名与用途名同样给链；脚本型 bot/转发�
 删除（表头/分隔行/行渲染同步收窄）——其余三表（最近完成/终态/bot）本就无
 独立「会话/观测」列，口径天然统一。
 
-主题节「主持人」列（设计稿 assistant/docs/topic-design.md §5.1/§8.1）：主题
+主题节「主持人」列（设计稿 dispatch/docs/design/topic-design.md §5.1/§8.1）：主题
 表第 2 列给出主持人的 `?v=chat` 会话链接（同一套 chat_url/md_link，host 取该 bot 的
 spec.host → 跨机经反代路由到会话宿主机）。判据 = topic_hosts（宽口径：订阅该 topic 的
 会话型 bot；系统主题按设计无策展 owner → 恒 `-`）；已单列为主持人的裸名从 watcher/owner
@@ -550,7 +550,7 @@ def bot_state(b, now):
     return b["verdict_icon"] + " " + b["verdict"], "exitcode=%s" % b["exitcode"]
 
 
-# ---- topic 协作容器采集（设计稿 assistant/docs/topic-design.md） ----
+# ---- topic 协作容器采集（设计稿 dispatch/docs/design/topic-design.md） ----
 
 def topic_title(adir):
     """主题标题 = topic.md 首个非空正文行（剥 `#` 前缀）；缺失/不可读 → 空串。

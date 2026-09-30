@@ -46,7 +46,7 @@
   S38 control/clear（弃历史换代）：running → 杀+备份+截断+空白新代（新进程可正常
       收件）+ 备份落位可解 + one-shot 立即换新代 + final 拒绝 +
       spawn 前 noop；reload 正交语义由 restart 既有场景（S3/S4）覆盖
-  S39 topic 协作容器（设计稿 assistant/docs/topic-design.md）：寻址三族（文法/直落/
+  S39 topic 协作容器（设计稿 dispatch/docs/design/topic-design.md）：寻址三族（文法/直落/
       扫描面隔离）+ agentctl send 投递闭环（目录自动创建/信封字段/文件名格式）+
       GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律 2026-09-06 经用户拍板移除，；
       topic/dispatcher 仍受 PROTECTED_SYSTEM_PATHS 保护）
@@ -2170,7 +2170,7 @@ def s38():
 # ---------------------------------------------------------------- S39
 
 def s39():
-    """topic 协作容器（设计稿 assistant/docs/topic-design.md §8）：
+    """topic 协作容器（设计稿 dispatch/docs/design/topic-design.md §8）：
     寻址三族（文法/直落/扫描面隔离）+ agentctl send 投递闭环（目录自动创建、
     信封字段、文件名格式）+ GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律
     2026-09-06 经用户拍板移除，；topic/dispatcher 仍受保护）。"""

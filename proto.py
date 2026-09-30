@@ -129,7 +129,7 @@ def pid_identity_ok(pid, expected_start):
 # ---- 目录布局（§3 + 2026-08-31 类型分层；bot 族） ----
 #
 # agents/ 按类型分层（设计计划 = agents/task/65ijbb/plan.md，用户 2026-09-03 批准；
-# topic 族，设计稿 = assistant/docs/topic-design.md）：
+# topic 族，设计稿 = dispatch/docs/design/topic-design.md）：
 #   agents/task/<id>/     临时任务族（自动名 <rand6>，自定义名如 heartbeat-* 同落此处）
 #   agents/bot/<名字>/     稳定名长驻体族（吸收原 participant + channel；信箱型 =
 #                         inbox-only，分发型/进程型 = 另含 watcher/ + spec.json 等）
