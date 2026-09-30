@@ -187,7 +187,7 @@ agents/<participantId>/
 |---|---|---|---|
 | `command` | string | ✅ | **完整启动命令**：裸 bash 命令串（写方不加 `bash -c`，运行方显式以 `bash -c` 执行）；可引用自家目录内任何应用层文件。**路径可移植**：不得内嵌登记机 `$HOME` 绝对前缀——自家目录/工作区根引用 runner 注入的 `$AGENT_HOME`/`$AGENT_ROOT`，执行机运行时展开 |
 | `workdir` | string | ✅ | **外部工作目标目录**（agent 的 cwd）：**协议不管理其中任何文件**。**路径可移植**：`$HOME` 内路径登记侧归一化为 `~/...` 落盘、非 home 路径保持绝对，运行方以 `expanduser` 展开 |
-| `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual`（缺省）崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 终止即 final（第一代终止时生命周期即终结） |
+| `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual` 崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 终止即 final（第一代终止时生命周期即终结）。**分两档**：① **运行时语义** = 字段缺失 ⇒ 不自动重启（行为等同 `manual`；判据逐字 = `runner.py` 的 `spec.get("restartPolicy") == "auto"`）；② **登记侧** = dispatch 登记路径恒写 `one-shot`（任务形态）、CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给 ⇒ 键不在场 + 登记当场一行 WARN 点名缺省的后果与补法） |
 | `creator` | string | ✅ | 创建者身份 = **回信地址** = **真实登记方**（审计用）；终态通知的投递不由它推导（收件面 = `reaper`） |
 | `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法 id 拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法 id 拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
 | `host` | string | ➖ | **路由扩展**（§15）：目标机器——仅该机 runner 可认领；协议缺省语义 = `createdByHost`，登记实现一律登记时物化写入；**缺失/空 = 无机器认领**（§15.1） |
@@ -627,7 +627,9 @@ rpc 封装形态任务自带只读直播观测与人驾介入能力。协议侧�
 
 本章为对照参考，供将来实施（吸收/重构现有系统）时使用；所引现状文档只读，不因本协议而修改。
 
-### 12.1 与 `~/m/dispatch/DISPATCH.md`（现行调度系统）的概念映射
+### 12.1 与调用方工作区的调度权威文档的概念映射
+
+> 本文的 `` `@<名>#<锚点>` `` 是**调用方工作区**的按名引用记号，本仓不含解析器（解析法住那个工作区）⇒ 在本仓单独阅读时按「另一册的节名」理解即可。
 
 > **整表已移出本文**（旧表全文 = git 历史）；现行实现口径逐条对照 = `@agentd`（`usage`/`report`/`scheduler`/`conventions`/`routing`）与 `@dispatch`。按号引用本节的两个结论：**取消 = `control/` 的 `stop`**（§5.2/§5.4 规则 4，exitcode 约定 = `@agentd#conventions`）；**资源锁 / 依赖调度属调度方策略层**（协议只承载门禁结果 `enable.json`，§14）。
 

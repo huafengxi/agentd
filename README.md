@@ -49,12 +49,12 @@ anchors:
 | `proto.py` | 公共库：原子落盘、时间戳/自动名、两层判定谓词、机身份匹配、杀纪律原语（procStart 读取、(pid,procStart) 校验）、**信封读写与 ask 扫描面**（`list_messages`/`write_message`；`ask_scan_inboxes` = 职位信箱 ∪ `spec.reaper` 自家信箱、`find_pending_ask` = 最早一条未答 ask、`ask_summary`；以及三个跨语言常量 `MSG_TYPES`/`DELIVER_MODES`/`ASK_VIA_SEND_MESSAGE`，与 TS 收件侧逐字相等由 e2e S58⑤ 钉桩） |
 | `runner.py` | 每机中央守护形态 runner（只含运行半边：spawn/监控/判挂死）；enable.json 门禁内置无开关（调度方 = 独立服务 `scheduler.py`，见下） |
 | `scheduler.py` | 调度半边（自 runner.py 拆出，独立常驻）：DAG 调度（resources/provides/needs + 全局占位上限），无参数任务 = FIFO 串行；`--all-hosts` 全局视图（为所有机器放行） |
-| `agentctl.py` | CLI（**动词分两档**，判据 = `require_live_participant`：协议动词只负责把布局与信封落盘，对不存在的收件方与已终态的参与方同样合法（目录即队列 §11.4、收尾清理也要能写 stop）；用例动词代表一个**意图**，带前置门（存在 / 非生命周期终态 / 意图可成立），意图落空当场报错而不静默写无人消费的件；写信封与写控制请求的 `from` 归属一律走 `resolve_sender` 单点，不按动词分叉）：create / create-bot / **bot register**（进程型 bot spec + `--subscribes` 通道 B + `--description`（→ spec `name`，人类可读描述）/`--reaper`（→ spec `reaper`，终态通知收件面，文法 = `proto.is_valid_participant_id`，非法即拒且零落盘；两 flag 缺省时不写该键，spec 与既有行为逐字一致；spec 已在场分支只改 subscribes、两 flag 不生效））/ **topic init**（topic 标准布局脚手架）/ send / ack / control / enable / status / list（以上 = 协议动词）+ **answer**（用例动词：自动找最早一条未答 ask → 写 reply、ref 回引、**继承 ask 的 `via`**（丢了该标记 = 收件侧 drain 不放行、答复静默悬空，§4.5）、回执点名所答条目与阻塞态）/ **cancel**（= control stop + 存活前置门）/ **update**（改未放行排队任务的 resources/provides/needs，五道硬校验含「已放行即拒」）。`send` 的 `--type` 缺省 inform、`--deliver` 显式才落盘（缺省 = followUp，§6.6）、`type=ask` 自动带 `via`；长正文走 `--body-file <路径|->`（`-` = stdin，不经 shell 断词与展开）。**只创建不删除**：`agents/` 清理一律走 `agents-sync/gc.py` 通道 |
+| `agentctl.py` | CLI（**动词分两档**，判据 = `require_live_participant`：协议动词只负责把布局与信封落盘，对不存在的收件方与已终态的参与方同样合法（目录即队列 §11.4、收尾清理也要能写 stop）；用例动词代表一个**意图**，带前置门（存在 / 非生命周期终态 / 意图可成立），意图落空当场报错而不静默写无人消费的件；写信封与写控制请求的 `from` 归属一律走 `resolve_sender` 单点，不按动词分叉）：create / create-bot / **bot register**（进程型 bot spec + `--subscribes` 通道 B + `--description`（→ spec `name`，人类可读描述）/`--reaper`（→ spec `reaper`，终态通知收件面，文法 = `proto.is_valid_participant_id`，非法即拒且零落盘；两 flag 缺省时不写该键，spec 与既有行为逐字一致，但未声明 `--reaper` ∨ `--restart-policy` 时**各打一行 WARN 到 stderr**（`create` 与 `bot register` 的新建 spec 分支同款；登记照常成功 = 退出码与校验不变、spec 仍不写该键；WARN 两段 = 缺省的后果 + 怎么给；`--description` 缺省只不写 `name`、不打 WARN）；spec 已在场分支只改 subscribes、两 flag 不生效））/ **topic init**（topic 标准布局脚手架）/ send / ack / control / enable / status / list（以上 = 协议动词）+ **answer**（用例动词：自动找最早一条未答 ask → 写 reply、ref 回引、**继承 ask 的 `via`**（丢了该标记 = 收件侧 drain 不放行、答复静默悬空，§4.5）、回执点名所答条目与阻塞态）/ **cancel**（= control stop + 存活前置门）/ **update**（改未放行排队任务的 resources/provides/needs，五道硬校验含「已放行即拒」）。`send` 的 `--type` 缺省 inform、`--deliver` 显式才落盘（缺省 = followUp，§6.6）、`type=ask` 自动带 `via`；长正文走 `--body-file <路径|->`（`-` = stdin，不经 shell 断词与展开）。**只创建不删除**：`agents/` 清理一律走 `agents-sync/gc.py` 通道 |
 | `report.py` | 只读 markdown 报表：`agents/` 全链路状态（系统小节/统计头/异常区/活跃表；终态表缺省隐藏，`--finalized`/`--all` 显示），为反复刷新观察设计 |
 | `needscheck.py` | 只读判定 CLI（JSON）：「needs 不可满足（dead-ended）」任务清单，供 `task_status` 工具面取信号。判定/文案全部 import 复用（`scheduler._scan` 的 provider 五态 + `scheduler.eval_needs` 三态 + `report._provider_states_zh`），本文件零自实现；判定范围与 `report.py` 异常区「🚨 needs 不可满足」逐条对齐（同源断言钉在扩展单测）。仅呈现：不放行、不取消、不改调度语义 |
 | `pi-rpc-wrap.py` | 会话封装（任务/常驻两形态）：拉 `pi --mode rpc` + 观测 socket 透传 + 完成收敛 + 失败诊断；**人格面只做两件事**（装配**不住本文件**：解析层 = `pi-wrap/persona.py`，注入层 = pi 扩展 `pi-core/agent/extensions/profile-loader.ts`；口径 `@dispatch#params`）：① `-e` 注入层扩展——该文件本就在自动发现面（`~/.pi/agent/extensions/`），显式 `-e` 是为**钉装载序**（pi 的 CLI `-e` 先于自动发现，`before_agent_start` 按装载序跑 ⇒ 人格正文落在其它全局扩展〔如 host-info 身份行〕的追加之前；pi 按realpath 去重 ⇒ 同文件两路只装载一次）；② 透传注入层要读的输入 env（`DISPATCH_PROFILE` = profile 名、`AGENTD_RESIDENT` = 形态、`AGENT_ROOT` = 找解析层）。**人格数据一律不走 argv**：正文/知识清单/skill 路径/工具面/模型/压缩策略全部在会话内注入（发射契约由 `test_wrap` T48 钉）。注入层缺失 ⇒ WARN 点名「人格面缺席」+ 会话照起（fail-soft，`test_wrap` T48 钉四面）。profile 级 `contextCompaction`（字段规范 = `@bots#persona-assets`）的 **env 写者与执行体装载同归注入层**⇒ 本文件只**恒洗掉**从宿主继承的 `AGENTD_CONTEXT_COMPACTION`（「无策略 = env 不在场」是硬语义，不靠调用方环境干净）；执行体自建触发 + 对 pi 内建 `threshold` 触发做 cancel 以后移触发点（`overflow`/`manual` 一律放行；只读取证命令 `/compaction-policy`）。**排障面位置随之搬家**：逐能力注入日志（`人格装配（会话内注入）：…`）与解析层告警写在 **pi 的 stderr** ⇒ `run/agentd/<id>.stderr.log`（与诊断引用的 stderr 尾同源），不再在本文件自己的日志里；会话内取证 = `/persona`（生效面全集：caps 与逐能力字符数 / skills / 工具面 / model /压缩策略 / 告警）。**子端扩展注入单点** = `CHILD_EXTS`（只任务形态；resident 不注入，其主端扩展由 workdir 的 `.pi` 自动发现）：反问 / **自家信箱推送收件**（`receiver-child.ts`，收件面锁死自家 `task/<id>/inbox`，口径 `@dispatch#lifecycle`/`@dispatch#notify`）。文件缺失只 WARN 跳过不拖垮会话（→ 收件面会静默失效，test_wrap T29 断言注入路径均在场）。**就绪握手**（🔴0）：初始投递收口后写 `run/agentd/<id>.init-ok`（单点 `proto.task_ready_path`）→ 子端据此开「就绪门」才开始 drain 自家 inbox；子端首次补扫后回写 `<id>.recv-armed`，wrap **有界**（缺省 3s）等它之后才进收敛监督。缺这道握手 = 子端在 `session_start` 抢跑注入，两种形态：pi 拒收初始 prompt（`stage=prompt_rejected`、exit 1 秒死）或注入轮先跑完被当任务收敛（**exit 0 假成功**、`session/session.jsonl` 永不落盘）。两枚标记 spawn 前清陈旧、退出即清；resident 不参与（主端 receiver 行为不变）。**两枚信号 env（`AGENTD_WRAP_INIT_OK`/`AGENTD_WRAP_RECV_ARMED`）是身份/信号类，不得继承**（🔴1）：已收进 `envscrub.ENV_SCRUB_EXACT`（否则被任务内每个孙进程继承 → 经 bash 工具 → `make` → `serviced/serviced.py` 带进被启动的服务），且子端按**自家身份自校**（单点 `core.ownReadyMarks`/`taskReadyPath` 镜像 `proto.task_ready_path`；基名不符 = 视为无标记 → 门保持闭、走有界超时后强制开门 + WARN，绝不用别人的标记开门、也不写别人的 arm）。排障判据（订正，🟡3）：**exit 0 不足以证明任务执行过**，且「`session/session.jsonl` 在场（含 user+assistant 事件）」**也不足以**——抢跑形态下注入轮先起，文件在场且含 user+assistant，但初始 prompt 从未进会话树（真 pi 反例§二）；硬判据 = **会话树含初始 prompt 的 user 事件**（或 `report.md` 在场）。**末轮模型错误档（agentd v92 起）**：会话末条 assistant 的 `stopReason=error` ∧ `report.md` **非空不**在场 ⇒ `diagnosis.md` stage `model_error_stopreason` + **exit 1**（不再假成功）；非空在场 ⇒ stage `model_error_stopreason_delivered` + exit 0（信息性、不参与完成判定；例外已记在 `dispatch/docs/task-layout.md` 的 diagnosis 行）。triage 口径 = 按**上游瞬时错误**处置（重派前先核是否已实质交付，见 skill `task-incident-triage` A 节 2b）。**已知缺口（诊断面；提案与方案本体 = agentfw 域 backlog「诊断 `stage` 记收口形态、不记根因族」节）**：`stage` 记的是**收口形态**（进程怎么被收口的），**不记根因族** ⇒ 模型侧错误若走到看门狗收口路径就会被按 `stage` 分族的统计**漏计**（实例 = 任务 ``：树内末 4 条 assistant 全 `stopReason=error`〔`Request timed out.` / `Connection error.` / `terminated`〕，而 `stage` 记的是 `converge_timeout_killed`、`exitcode: 143`；同族的 `` 走 pi 自行退出路径 ⇒ 记 `model_error_stopreason`）。**拟修 = 增并存字段 `rootCauseFamily`**（`stage` 语义不动 ⇒ 纯增量、不破坏既有消费者），判据复用「末轮模型错误档」的**尾窗读法** ⇒ **同款假阴性形态**（尾窗内无 assistant 条目 ⇒ 记 `unknown`，不猜）。**一条 WARN 的语义**：日志里 `WARN 会话尾窗（末 262144B / 文件 …B）内无 assistant 条目` = 该档**拿不到证据、按 fail-soft 未判失败**（假阴性方向、**不是 bug**）；成因 = 末条 assistant 之后又有合计 >256KiB 的条目把它挤出尾窗（现网多数会话文件已超该上界 ⇒「丢弃尾窗首行」是常态路径；而「窗内无 assistant」按 2026-09-15 全量 310 个会话的回放实测 = 0 例） |
 | `fakeagent.py` / `fakepi_rpc.py` | 伪 agent / 伪 `pi --mode rpc` 测试负载（仅测试用） |
-| `e2e.py` | 端到端测试：50 项 = S1–S59（无 S13/S28/S35/S36/S46/S47/S48/S51/S52；S9 = 收尾「无遗留测试进程」检查）——基础生命周期/判死接手/FIFO/DAG 调度/路由与 host/封装收敛/常驻能力/control 三动作（S3/S4：枚举外动作 agentctl 拒绝 + runner rejected 零写入）/topic 容器与脚手架（S39/S40）/退役地址护栏（S41）/取消不误报无报告（S42）/空跑 provider 不算成功（S43）/终态通知重放护栏（S44）/终态通知收件面与回落面（S45：reaper 单收件方直投 + 缺字段/文法非法/不活回落职位信箱带 note + notified.json 标记唯一判重事实源）/子任务自家信箱推送收件面含 0828 回归（S49；以子进程调 node 驱动真 TS 扩展）/子端收件面 P0 spawn 竞态两形态与就绪门（S50；fake pi 逐字复现 pi 的拒收串与 no-assistant guard）/**真 pi live 覆盖**（S53：localhost 桩供应商 + `PI_CODING_AGENT_DIR` 合成配置驱动真 `pi --mode rpc`，验真 inotify（fs.watch）认领、真 steer/followUp 队列注入落会话树、真落盘确认（注入文本进 jsonl → 写终态 ack）；pi 不在 PATH → 显式 skip），/终态通知 **reaper 主模型**（S54：收件面 = {reaper}、载荷无 role/reaperPid、spec 残留 watchers 字段零作用、reaper 缺失/不存在回落职位信箱带 note、(taskId,收件方) 判重）/bot 族自身终态同规则（S55：进程型 bot `control stop` → 通知落其 reaper 信箱；无 reaper 字段 → 回落职位信箱带 note）/子端 ask 写侧收件面=该任务 reaper（S56：runner spawn 复用 `resolve_reaper` 单点经 env 注入 `AGENTD_ASK_INBOX`/`NOTE`——reaper 活→指其自家信箱且无 note、reaper 不存在→回落职位信箱+note 且不建僵尸目录）/控制信封 `from` 归属单点化（S57：`agentctl control` 的 `from` 与文件名前缀走显式 `--from` ＞ 环境 `AGENT_SELF` ＞ 职位信箱的同源优先级，非法 `--from` 拒绝且零副作用，与扩展侧 `core.resolveCreatorPid` 同口径）/**写侧动词两档**（S58：send 的 type 缺省·`--deliver` 显式才落盘·`--body-file -` 逐字保真·`type=ask` 自动带 via·from 三档归属·六种拒分支零落盘；answer 在扫描面并集里找最早未答 ask + reply 继承 via + 三种意图落空全拒；cancel 带存活门而 control 不过门（对照）；update 五道硬校验 + 只覆盖传入字段；**跨语言钉桩** = TS 收件侧 core.ts 的 via/deliver/消息型枚举与本仓 proto 常量逐字相等；夹具期间停 runner/scheduler，否则真 runner 会消费夹具的 stop 请求把未启动夹具收成 final）/`--root` 前置校验的自我击穿回归（S59：错 root = agents 树本身时，即使嵌套残骸在场——残骸恰好满足「`<root>/agents` 在场」这条硬前置——仍 die、rc=2、零新建目录/文件；正常工作区根只读动词零回归且残骸在场也放行；`env/host-id` 软前置未升硬），逐项清单见文件头 docstring（可带 argv 子串只跑部分场景，如 `e2e.py S44 S45`；**部分场景有前置依赖**：S15 读 S14 的通知产物、S37 会清场前序遗留的非终态参与方，S44/S45/S54/S55/S56/S57/S58/S59 自建夹具可单跑） |
+| `e2e.py` | 端到端测试：50 项 = S1–S59（无 S13/S28/S35/S36/S46/S47/S48/S51/S52；S9 = 收尾「无遗留测试进程」检查）——基础生命周期/判死接手/FIFO/DAG 调度/路由与 host/封装收敛/常驻能力/control 三动作（S3/S4：枚举外动作 agentctl 拒绝 + runner rejected 零写入）/topic 容器与脚手架（S39/S40）/退役地址护栏（S41）/取消不误报无报告（S42）/空跑 provider 不算成功（S43）/终态通知重放护栏（S44）/终态通知收件面与回落面（S45：reaper 单收件方直投 + 缺字段/文法非法/不活回落职位信箱带 note + notified.json 标记唯一判重事实源）/子任务自家信箱推送收件面含 0828 回归（S49；以子进程调 node 驱动真 TS 扩展）/子端收件面 P0 spawn 竞态两形态与就绪门（S50；fake pi 逐字复现 pi 的拒收串与 no-assistant guard）/**真 pi live 覆盖**（S53：localhost 桩供应商 + `PI_CODING_AGENT_DIR` 合成配置驱动真 `pi --mode rpc`，验真 inotify（fs.watch）认领、真 steer/followUp 队列注入落会话树、真落盘确认（注入文本进 jsonl → 写终态 ack）；pi 不在 PATH → 显式 skip），/终态通知 **reaper 主模型**（S54：收件面 = {reaper}、载荷无 role/reaperPid、spec 残留 watchers 字段零作用、reaper 缺失/不存在回落职位信箱带 note、(taskId,收件方) 判重）/bot 族自身终态同规则（S55：进程型 bot `control stop` → 通知落其 reaper 信箱；无 reaper 字段 → 回落职位信箱带 note）/子端 ask 写侧收件面=该任务 reaper（S56：runner spawn 复用 `resolve_reaper` 单点经 env 注入 `AGENTD_ASK_INBOX`/`NOTE`——reaper 活→指其自家信箱且无 note、reaper 不存在→回落职位信箱+note 且不建僵尸目录）/控制信封 `from` 归属单点化（S57：`agentctl control` 的 `from` 与文件名前缀走显式 `--from` ＞ 环境 `AGENT_SELF` ＞ 职位信箱的同源优先级，非法 `--from` 拒绝且零副作用，与扩展侧 `core.resolveCreatorPid` 同口径）/**写侧动词两档**（S58：send 的 type 缺省·`--deliver` 显式才落盘·`--body-file -` 逐字保真·`type=ask` 自动带 via·from 三档归属·六种拒分支零落盘；answer 在扫描面并集里找最早未答 ask + reply 继承 via + `--deliver` 与 send 同形：steer 逐字落盘 / 缺省 = 信封不写该键（⛔ 非 followUp）/ 枚举外值 argparse 拒 rc=2；无未答 ask/已 final/无 spec 三种意图落空全拒；cancel 带存活门而 control 不过门（对照）；update 五道硬校验 + 只覆盖传入字段；**跨语言钉桩** = TS 收件侧 core.ts 的 via/deliver/消息型枚举与本仓 proto 常量逐字相等；夹具期间停 runner/scheduler，否则真 runner 会消费夹具的 stop 请求把未启动夹具收成 final）/`--root` 前置校验的自我击穿回归（S59：错 root = agents 树本身时，即使嵌套残骸在场——残骸恰好满足「`<root>/agents` 在场」这条硬前置——仍 die、rc=2、零新建目录/文件；正常工作区根只读动词零回归且残骸在场也放行；`env/host-id` 软前置未升硬），逐项清单见文件头 docstring（可带 argv 子串只跑部分场景，如 `e2e.py S44 S45`；**部分场景有前置依赖**：S15 读 S14 的通知产物、S37 会清场前序遗留的非终态参与方，S44/S45/S54/S55/S56/S57/S58/S59 自建夹具可单跑） |
 | `test_wrap.py` | 封装单测（编号 `T<n>`，**上界一律取现场值**，不写死 = `grep -oE 'T[0-9]+' pi-wrap/test_wrap.py | sort -uV | tail -1`）：socket 生命周期/透传/收敛/resident/**人格面发射契约**（T48：恰一个 `-e` 指向注入层、**零**人格 flag、输入 env 原样透传、宿主陈旧`AGENTD_CONTEXT_COMPACTION` 被洗掉、注入层缺失 ⇒ WARN + 会话照常 exit 0 无诊断、resident 形态同样注入且不注入`CHILD_EXTS`）——人格面的**内容**判据（caps 展开序 / 任务形态基线前置与回落 / 工具面并集 / knowledge 三档 /model→provider 派生 / `contextCompaction` 归一 / 降级矩阵 / 输出契约键集）不在本套件，归`pi-wrap/test_persona.py`（P 系列，钉解析层）/子端扩展注入面（T29：任务形态按 `CHILD_EXTS` 顺序注入×2、缺失静默跳过不拖垮、resident 零注入）/就绪握手（T30：env 传两枚标记路径、prompt 接受早于开门、陈旧标记 spawn 前必清、失败路径不写标记、resume 幂等路径也写、resident 不参与、子端不 arm 时有界等待 + WARN 不假活、扩展缺失即不传不等）/**就绪门信号 env 的洗刷面**（T31：名单含两枚 + `scrub_env` 真洗掉 + 三调用方同源不复制名单 + `spawn_pi()` 洗刷后显式赋值 ⇒ 握手不受影响）/**`spec.command` env 前缀键的洗刷覆盖钉桩**（T47：扫 `bots/daemon/*/spec.json`、`heartbeats/register.py`、`w/ext/sessiond/proc.py` 的命令前缀键，逐枚断言 `scrub_env` 真洗掉 ⇒ 新增身份标记漏进洗刷名单在**提交前**就红，不靠运行时守卫） |
 | `test_runner_notify.py` | runner 终态通知面单测（H9/H13/H14，编号沿用历史命名）：终态通知判重（notified.json 标记唯一事实源，信箱信封不判重）/ 收件面解析（`resolve_reaper` 两档 + 活性代理三判据 + 回落 note 文案）/ 子端 ask 写侧收件面 env（`_ask_inbox_env` 复用 `resolve_reaper` 单点——reaper 活→指其自家信箱无 note、不存在/无消费者→回落职位信箱+note 点名成因、同源自证、值恒为 str） |
 
@@ -63,20 +63,24 @@ anchors:
 ## 用法
 
 ```bash
-# 起 runner（前台；生产由 loop.sh 监督，日志约定 ~/m/run/logs/agentd.log；
+# 占位符取值法：<workspace-root> = 本仓的父目录（调用方工作区根）；日志落点由调用方约定，
+# 形如 <workspace-root>/run/logs/。--root 缺省即按本仓位置现场发现（不依赖 cwd 与 env），
+# 下面显式写出只为「另一棵树」的形态。
+# 起 runner（前台；生产由 loop.sh 监督，日志约定 <workspace-root>/run/logs/agentd.log；
 # 机器身份 = 规范名（env/host-id 映射文件按 $(hostname) 查表）+ 本机 hostname 别名，见下「路由字段」；
 # 生产由 loop.sh 内联查表，下方命令为手工等价形态）
-python3 runner.py --root ~/m --host "$(awk -v h="$(hostname)" '!/^[[:space:]]*#/ && $1==h {print $2; exit}' ~/m/env/host-id)" --aliases "$(hostname)" \
+python3 runner.py --root <workspace-root> --host "$(awk -v h="$(hostname)" '!/^[[:space:]]*#/ && $1==h {print $2; exit}' <workspace-root>/env/host-id)" --aliases "$(hostname)" \
     --interval 0.5 \
-    --log-file ~/m/run/logs/agentd.log --log-level INFO
+    --log-file <workspace-root>/run/logs/agentd.log --log-level INFO
 
 # 起调度方（独立服务；生产由 scheduler-loop.sh 监督，make scheduler.start/stop/status，
-# 日志 ~/m/run/logs/scheduler.log；--all-hosts 全局视图 = 为所有机器放行）
-python3 scheduler.py --root ~/m --all-hosts --interval 0.5 \
-    --log-file ~/m/run/logs/scheduler.log --log-level INFO
+# 日志 <workspace-root>/run/logs/scheduler.log；--all-hosts 全局视图 = 为所有机器放行）
+python3 scheduler.py --root <workspace-root> --all-hosts --interval 0.5 \
+    --log-file <workspace-root>/run/logs/scheduler.log --log-level INFO
 
 # CLI（--root 缺省 = 本仓父目录，现场发现 ⇒ 工作区内任何 cwd 直接调；另一棵树才显式 --root）
-A="python3 ~/m/agentd/agentctl.py"
+# 下行用相对脚本路径 ⇒ 在本仓父目录（= 工作区根）下执行；换别的 cwd 就写本仓的绝对路径（--root 仍缺省）
+A="python3 agentd/agentctl.py"
 $A list                                    # 全参与方与状态摘要
 $A status task/<id>                        # 代终态/生命周期终态判定（§10）
 $A create --command 'sleep 10' --workdir /tmp --creator topic/dispatcher  # 自动名；--name 自定义
@@ -144,7 +148,7 @@ rc=0 退出（三个句柄任一处 `unref` 回退即红）、H0 = 主端装配�
 必须用快照隔离——`mkdir -p /tmp/<taskId>-snap && git archive HEAD | tar -x -C /tmp/<taskId>-snap`
 后在快照里跑（e2e 全程按 `HERE` 相对路径取 `runner.py`/`fakepi_rpc.py`/`agentctl.py` 与
 调用方扩展目录〔`EXT_REL` 的现场值〕，故整树快照即可）。否则被测文件会在跑到一半时被换掉 →
-假失败且临时树里的证据与 HEAD 不一致、无从复现。跑前一律用干净环境：
+假失败且临时树里的证据与 HEAD 不一致、无从复现。跑前一律用干净环境（`e2e.py` 例外：它入口自洗同一份名单 ⇒ 单独跑它无需下面这段前缀，其余套件仍需）：
 `env $(python3 -c "import sys;sys.path.insert(0,'agentd');import envscrub;print(' '.join('-u '+k for k in sorted(envscrub.ENV_SCRUB_EXACT)))") <命令>`
 （**名单不在此复述枚名**：单一事实源 = `agentd/envscrub.py` 的 `ENV_SCRUB_EXACT`，取现值用上面这段。本节曾长期只列 10 枚、而事实源是 14 枚 ⇒ **复述即滞后，按旧清单跑会得出假失败**）
 （子任务/服务进程内继承的调度身份变量会污染 guard 与登记方判据；`AGENTD_WRAP_*` 两枚 = 就绪门信号路径 补入——它们是 `pi-rpc-wrap.py` 显式传给本次会话的**身份/信号类** env，继承来的副本会让子端就绪门
@@ -167,7 +171,7 @@ status` 两层判定一致（排队/已放行待拉起、运行中（⚠️心�
 → verdict 判「🚫 取消」而非「· 无报告」（即使 exitcode=0：stop 请求与子进程自然退出的竞态），
 与 core.ts 任务列表的 ` [已取消]` 标记、runner 终态通知不发 `warn=no_report` 三处同判据；
 顶部「## 系统」小节（先看调度基础设施是否正常，再看任务）：
-生成时间行之后、统计之前，展示① 各 host（nv1/nv2/dev/mac）runner 存活——读 `agents/run/agentd.<host>.lock`
+生成时间行之后、统计之前，展示① 各 host（机器清单属调用方部署面、本仓不枚举）runner 存活——读 `agents/run/agentd.<host>.lock`
 的 updatedAt 新鲜度（复用 `scheduler.HOST_ALIVE_THRESHOLD` 60s 阈值与解析口径，零漂移），
 ≤60s ✅，否则 ⚠️ stale，锁缺失 ⚠️；② scheduler 存活——dev 本地 `pgrep -f 'agentd/scheduler.py'`，✅/🚨；
 ③ agents-sync 链路间接口径——远端锁由远端 runner 写、经同步链路到达 dev，内容新鲜即同时证明
@@ -220,7 +224,7 @@ python3 agentd/report.py --root ~/m --all     # --root 指定工作区根（扫�
 python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs 不可满足）任务清单
 ```
 
-仪表板（`~/m/dash.itab` tasks tab）经 8080 实时 API 消费本报表：
+**调用方的仪表板页**（8080 的 tasks tab）经实时 API 消费本报表：
 `GET /agentd/agentd4web.py?refresh=15`（同目录 `agentd4web.py` type=script rpc
 脚本，按需 subprocess 现算本脚本；refresh 由 itab 容器视图统一重载）。
 
@@ -341,8 +345,8 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 - **控制与消息跨机自动获得**：`control/`（stop/cancel 等）与 `inbox/`（inform/ask/reply）都写在
   `agents/` 树内，随同步通道到达目标机，runner 按既有规则消费；终态通知回流登记机同理——
   控制面与消息面无新机制，跨机同步通道一并承载。
-- **`--root` 前置校验**（`agentctl.py::require_workspace_root`）：`--root` 是**工作区根**（如 `~/m`）、
-  不是 `~/m/agents`。硬前置两条（任一命中即 die、rc=2，且**不静默建目录**）= ① root 的 basename
+- **`--root` 前置校验**（`agentctl.py::require_workspace_root`）：`--root` 是**工作区根**
+  `<workspace-root>`（⛔ 不是 `<workspace-root>/agents`）。硬前置两条（任一命中即 die、rc=2，且**不静默建目录**）= ① root 的 basename
   为 `agents`（root 传成了 agents 树本身）∨ ② `<root>/agents` 不在场。① **不依赖残骸是否在场**：
   误用建出的 `<工作区根>/agents/agents/` 残骸恰好满足 ②，只留 ② 会被它自我击穿（只报软 WARN
   就放行、写侧 `makedirs` 继续往嵌套树里建目录）。错 root 的代价：建出一棵无人消费的嵌套树
@@ -360,9 +364,10 @@ python3 agentd/needscheck.py --root ~/m       # 只读 JSON：dead-ended（needs
 ## 跨机同步通道
 
 终态拓扑（星型，hub = 中立目录
-`dev:/data/shared/agents`，零原件：一切落盘打 replica 组）：
-watch 进程跑在**四机全部**（dev/nv1/nv2/mac，含 dev）上指向中立目录（`ssh-sync.py watch ~/m/agents
-dev:/data/shared/agents`，dev 上 ssh 自连；无 `--delete`），四机对等。
+`<hub-host>:<中立目录>`——端点由调用方声明，本仓不钉，零原件：一切落盘打 replica 组）：
+watch 进程跑在**所有部署机**（清单由调用方的 `env/host-id` 决定，本仓不枚举；含 hub 机自身）
+上指向中立目录（`ssh-sync.py watch <workspace-root>/agents <hub-host>:<中立目录>`，
+hub 机上 ssh 自连；无 `--delete`），各机对等。
 **同步面排除当前为空**（receiver 的在飞态已移进进程内存 ⇒ 盘上不再有「只属写者本机」的短命账本；
 排除管道保留，重加一条 = 改 `agents-sync/ssh-sync.py::WATCH_EXCLUDES` 一个常量）**+ gc delete-list 路径拒收**；
 除此之外属组闸门后**整棵树都在同步面内**
