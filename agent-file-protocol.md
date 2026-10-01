@@ -643,7 +643,7 @@ rpc 封装形态任务自带只读直播观测与人驾介入能力。协议侧�
 | 崩溃自愈 | `restartPolicy=auto` 只对崩溃三态且未 `final` 者重拉（§4.1、§9.1） |
 | drift 检测 | 期望态（desired，属部署层服务清单）对比 `pid.json` 读值（协议只提供读值一侧）：期望 online ∧ 读到崩溃三态 = drift；期望 offline ∧ 读到 `running` = drift |
 
-drift 的修复动作复用控制三动作：期望 online 读到代终态 → `restart`；期望 offline 读到 `running` → `stop`。**本通道只承载「需要 agentd 崩溃自愈的常驻脚本守护」**：崩溃自愈 = `auto`、下线 = `stop`（恢复 = 重新登记/seed）；**名单不在本仓复述**（住调用方的声明面 `bots/daemon/`）。**定时触发类的脚本守护不走本通道**——它们住服务注册表 + 定时注册表（本工作区 = `services/` 与 `heartbeats/`，执行层 `heartbeatd/`），由服务层监督 ⇒ 有 drift 面与常驻纠偏。启停、观测与日志落点 = 根 `AGENTS.md`「服务与后台进程（make）」与 `@dispatch#daemon-bots`。
+drift 的修复动作复用控制三动作：期望 online 读到代终态 → `restart`；期望 offline 读到 `running` → `stop`。**本通道只承载「需要 agentd 崩溃自愈的常驻脚本守护」**：崩溃自愈 = `auto`、下线 = `stop`（恢复 = 重新登记/seed）；**名单不在本仓复述**（住调用方的声明面 `bots/daemon/`）。**定时触发类的脚本守护不走本通道**——它们住服务注册表 + 定时注册表（本工作区 = `services/` 与 `heartbeats/`，执行层 `heartbeatd/`），由服务层监督 ⇒ 有 drift 面与常驻纠偏。启停、观测与日志落点 = 调用方工作区服务注册表的运维政策（本工作区 = `services/README.md`「启停与重启纪律」）与 `@dispatch#daemon-bots`。
 
 ---
 
