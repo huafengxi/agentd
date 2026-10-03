@@ -399,6 +399,9 @@ def warn_unwritten_spec_keys(reaper, restart_policy):
     政策不钉进代码缺省值（CLI 不代填 `reaper`/`restartPolicy`）⇒ 缺省的**后果**必须在
     登记当场可见：两键都是「给了才写」，不写键即落到运行时的回落/不自愈语义
     （`runner.resolve_reaper` 三档 ② ∨ 自愈判据 `spec.get("restartPolicy")=="auto"`）。
+    **不自愈是缺该键的唯一后果**：收口与终态通知不依赖它（`final` = 生命周期吸收态，
+    非常驻参与方到代终态即置，判据见 README「约定赋值与实现口径」首条）⇒ 文案必须把
+    「仍会 final、仍会发终态通知」写出来，否则读者会以为缺键还有别的后果。
     适用面 = `create` 与 `bot register` 的**新建 spec** 分支（resolve_reaper 对 task 与
     bot 两族同规则，两条 CLI 路径的不对称是同一个）；bot register 的「spec 已在场」
     分支两 flag 本就不生效 ⇒ 不打。文案两段（后果 + 怎么给）缺一不可。"""
@@ -407,8 +410,9 @@ def warn_unwritten_spec_keys(reaper, restart_policy):
               "要指定收尾方就带 --reaper <两段路径式 id>（如 bot/<名> ∨ task/<id> ∨ "
               "topic/<id>）" % proto.POSITION_PID, file=sys.stderr)
     if not restart_policy:
-        print('WARN: 未声明 --restart-policy ⇒ spec 不写该键 ⇒ 崩溃不自愈（runner 的自愈'
-              '判据是 spec.get("restartPolicy")=="auto"）；常驻体要自愈必须显式 '
+        print('WARN: 未声明 --restart-policy ⇒ spec 不写该键 ⇒ 崩溃不自愈，但仍会 final、'
+              '仍会发终态通知（final 与该键无关：非常驻参与方到代终态即收口；runner 的'
+              '自愈判据是 spec.get("restartPolicy")=="auto"）；常驻体要自愈必须显式 '
               '--restart-policy auto', file=sys.stderr)
 
 
@@ -810,8 +814,10 @@ def main():
                         % (", ".join(proto.FAMILIES), proto.POSITION_PID))
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default="",
-                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈'
-                        '（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"）；'
+                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈，'
+                        '但仍会 final、仍会发终态通知（final = 生命周期吸收态：非常驻'
+                        '参与方到代终态即置，与该键无关；runner 的自愈判据逐字 = '
+                        'spec.get("restartPolicy")=="auto"）；'
                         '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
                         'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
     p.add_argument("--host")
@@ -846,8 +852,10 @@ def main():
     p.add_argument("--creator", help="新建 spec 必备：登记方（路径式 id 或任务名）")
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default="",
-                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈'
-                        '（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"）；'
+                   help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈，'
+                        '但仍会 final、仍会发终态通知（final = 生命周期吸收态：非常驻'
+                        '参与方到代终态即置，与该键无关；runner 的自愈判据逐字 = '
+                        'spec.get("restartPolicy")=="auto"）；'
                         '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
                         'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
     p.add_argument("--host")

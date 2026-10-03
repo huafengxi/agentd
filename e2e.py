@@ -530,9 +530,13 @@ def s1():
     wait_until(lambda: (pdoc(a) or {}).get("status") == "running", "S1 running")
     ctl("send", a, "--type", "inform", "--body", "CMD:exit", "--from", "task/tester")
     wait_until(lambda: (pdoc(a) or {}).get("status") == "exited", "S1 exited")
-    doc = pdoc(a)
+    # 两层谓词的新口径：`create` 缺省不写 `restartPolicy` 键 ⇒ 不自愈，但**非常驻参与方到
+    # 代终态即收口**（final 与 restartPolicy 无关；判据 = README「约定赋值与实现口径」，
+    # 单测 agentd/test_runner_final.py F1/F4）。中间态「代终态 ∧ 生命周期开放」仍存在，
+    # 载体 = 常驻体与 auto（F5/F6 钉）。
+    doc = wait_until(lambda: pdoc(a) if (pdoc(a) or {}).get("final") is True else None,
+                     "S1 非常驻到代终态即 final")
     assert doc["exitcode"] == 0, doc
-    assert doc["final"] is False, "manual 策略退出不应 final"
     if IS_LINUX:
         assert isinstance(doc.get("procStart"), int), \
             "spawn 应记录进程内核启动时刻 procStart（§4.2 杀纪律）：%r" % doc
@@ -544,13 +548,17 @@ def s1():
     sys.path.insert(0, HERE)
     import proto
     assert proto.gen_terminal(doc) is True, "代终态应为真"
-    assert proto.life_terminal(doc) is False, "生命周期终态应为假（死人≠销户）"
+    assert proto.life_terminal(doc) is True, "生命周期终态应为真（缺键 = 不自愈但仍收口）"
     st = ctl("status", a).stdout
-    assert "代终态=真" in st and "生命周期终态=假" in st, st
-    ctl("control", a, "stop", "--from", "task/tester")
-    wait_until(lambda: (pdoc(a) or {}).get("final") is True, "S1 stop 收尾")
-    # （收尾必要：门禁内置后带 enable 的未 final 者会计占调度方全局占位上限，
-    # 泄漏将阻塞后续调度场景，如 S23）
+    assert "代终态=真" in st and "生命周期终态=真" in st, st
+    # 吸收态幂等：已 final 后再 stop → 回执 noop、不再写盘、不得有新代
+    #（收尾兼防泄漏：带 enable 的未 final 者会计占调度方全局占位上限，阻塞后续场景如 S23）
+    rid = ctl("control", a, "stop", "--from", "task/tester").stdout.strip()
+    wait_until(lambda: ack_of(a, rid), "S1 stop ack")
+    assert ack_json(a, rid)["outcome"] == "noop", ack_json(a, rid)
+    gen = pdoc(a)["gen"]
+    time.sleep(0.6)
+    assert pdoc(a)["gen"] == gen and pdoc(a)["final"] is True, "final 后不得有新代"
 
 
 # ---------------------------------------------------------------- S2
@@ -2886,15 +2894,22 @@ def _s44_dir(name):
     return os.path.join(S44ROOT, "agents", "task", name)
 
 
-def _s44_create(name, policy="one-shot", enable=True):
+def _s44_create(name, policy="one-shot", enable=True, resident=False):
     """隔离树登记夹具：直写 spec.json（本机认领）+ enable.json（放行）。
-    runner 对 enable.json 只判存在性（写入口在调度方/agentctl，§14.2），夹具直写等价。"""
+    runner 对 enable.json 只判存在性（写入口在调度方/agentctl，§14.2），夹具直写等价。
+    `policy` 为假值 ⇒ `restartPolicy` 键**整个不写**（CLI 缺省形态）；`resident=True` ⇒
+    命令前缀 `AGENTD_RESIDENT=1`（常驻体：不因代终态被收口，判据单点 = `scheduler.is_resident`）
+    ——⑦ 用它构造「代终态 ∧ 生命周期仍开放」的档案（非常驻者会被 runner 每轮幂等收口，
+    该形态只余常驻体与 auto 两类载体；auto 会被自愈换代 ⇒ 只有常驻体可用）。"""
     d = _s44_dir(name)
     os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
-    proto.atomic_write_json(os.path.join(d, "spec.json"), {
-        "command": FAKE_CMD % (os.path.join(HERE, "fakeagent.py"), S44ROOT),
-        "workdir": S44ROOT, "creator": "tester", "restartPolicy": policy,
-        "host": "e2ehost", "createdByHost": "e2ehost"})
+    cmd = FAKE_CMD % (os.path.join(HERE, "fakeagent.py"), S44ROOT)
+    spec = {"command": ("AGENTD_RESIDENT=1 " + cmd) if resident else cmd,
+            "workdir": S44ROOT, "creator": "tester",
+            "host": "e2ehost", "createdByHost": "e2ehost"}
+    if policy:
+        spec["restartPolicy"] = policy
+    proto.atomic_write_json(os.path.join(d, "spec.json"), spec)
     if enable:
         proto.atomic_write_json(os.path.join(d, "enable.json"),
                                 {"ts": proto.now_ts(), "by": "e2e", "note": "S44 夹具"})
@@ -3096,11 +3111,13 @@ def s44():
                 [p["taskId"] for _e, p in _s44_notifs()][before:],)
         assert not [t for t in late if _s44_notifs(t)], "迟到档案不得有通知"
 
-        # ---- ⑦ 条件①（见证集）的直证：旧代终态未收口档案（endedAt 3 天前、killed 未
-        #      final）在本次运行内被 stop 收口 —— do_stop 的「进程已终态：只置 final」分支
+        # ---- ⑦ 条件①（见证集）的直证：旧代终态未收口档案（常驻体、endedAt 3 天前、
+        #      killed 未 final）在本次运行内被 stop 收口 —— do_stop 的「进程已终态：只置 final」分支
         #      **不刷新 endedAt**，只看 endedAt 的门槛会把这条真取消通知当历史档案吞掉。----
         killed_old = _s44_ago(3 * 86400)
-        pt = _s44_create("s44-killed-old", enable=False)   # 无 enable：避开 spawn 竞态
+        # 常驻体 + 不写 restartPolicy 键：无 enable 避开 spawn 竞态，且 runner 不因代终态收口
+        # 它（非常驻者会被每轮幂等 finalize ⇒ 「未收口的代终态档案」前提不再可达）。
+        pt = _s44_create("s44-killed-old", enable=False, policy=None, resident=True)
         proto.atomic_write_json(os.path.join(_s44_dir("s44-killed-old"), "pid.json"), {
             "gen": 1, "pid": 424243, "procStart": 1, "status": "killed",
             "exitcode": proto.EXITCODE_KILLED, "restarts": 0, "startedAt": killed_old,

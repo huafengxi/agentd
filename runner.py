@@ -82,6 +82,17 @@ def lock_path(root, host):
     return proto.agentd_lock_path(root, host)
 
 
+def spec_is_resident(spec):
+    """常驻参与方判定（口径单点 = `scheduler.is_resident`：spec.command 内嵌
+    `AGENTD_RESIDENT=1` 前缀）。
+
+    **函数内延迟 import**：`scheduler.py` 在模块级 `import runner`（复用探活锁心跳周期口径），
+    runner 反向在模块级 import 它会成环 ⇒ 只在调用点取（首次之后是 sys.modules 查表）。
+    ⛔ 不在本文件复制第二份字面判据（spawn 里那处内联字面属存量，不扩大）。"""
+    import scheduler
+    return scheduler.is_resident(spec)
+
+
 def _lock_doc(host, started_at):
     return {"host": host, "pid": os.getpid(),
             "procStart": proto.proc_starttime(os.getpid()),
@@ -952,9 +963,26 @@ class Runner:
             if doc.get("status") != "running":
                 log.info("%s gen %d %s exitcode %s", pid_, doc["gen"],
                          doc["status"], doc.get("exitcode"))
-                if spec.get("restartPolicy") == "one-shot":
-                    doc["final"] = True  # one-shot：终止即 final（§4.1）
-                    self.write_pid(pid_, doc)
+
+        # finalize（生命周期吸收态，§4.1）：**非常驻参与方到代终态即 final，与 restartPolicy
+        # 无关**——该字段只管自愈（判据逐字 == "auto"，下面那块），不管收口。缺键（`agentctl
+        # create`/`bot register` 不代填政策）与 `manual` 都走本支：不自愈，但仍 final、仍发终态
+        # 通知、其 provides 仍被调度面解析。
+        # **每轮幂等评估**（⛔ 只在状态迁移那一 tick 赋值）：存量「代终态 ∧ 未 final」档案
+        # （含守护重启接手的、其它 spec 写者留下的）在下一轮就被收口 ⇒ 自愈，不需人工补 pid.json。
+        # 三个排除项各有理由：`final is True` = 吸收态（上面已早退，此处再判一次是为幂等）；
+        # `auto` = 生命周期仍开放（等着自愈换新代，先置 final 会掐死下面那块）；
+        # 常驻体 = 不因代终态收口（其收口路径 = stop/散会，语义不变），但显式 `one-shot`
+        # 的常驻体照收口（保留既有行为）。
+        policy = spec.get("restartPolicy")
+        if (doc.get("final") is not True
+                and doc.get("status") in proto.CRASH_STATUSES):
+            resident = spec_is_resident(spec)
+            if policy == "one-shot" or (policy != "auto" and not resident):
+                doc["final"] = True
+                self.write_pid(pid_, doc)
+                log.info("%s final（代终态即收口：resident=%s restartPolicy=%r"
+                         " ——该字段只管自愈）", pid_, resident, policy)
 
         # 消费控制请求（顺序幂等，§5.4）
         doc = self.handle_controls(pid_, spec, doc)
