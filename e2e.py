@@ -46,7 +46,7 @@
   S38 control/clear（弃历史换代）：running → 杀+备份+截断+空白新代（新进程可正常
       收件）+ 备份落位可解 + one-shot 立即换新代 + final 拒绝 +
       spawn 前 noop；reload 正交语义由 restart 既有场景（S3/S4）覆盖
-  S39 topic 协作容器（设计稿 dispatch/docs/design/topic-design.md）：寻址三族（文法/直落/
+  S39 topic 协作容器（设计稿 dispatch/docs/design/topic-design.md）：寻址四族（文法/直落/
       扫描面隔离）+ agentctl send 投递闭环（目录自动创建/信封字段/文件名格式）+
       GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律 2026-09-06 经用户拍板移除，；
       topic/dispatcher 仍受 PROTECTED_SYSTEM_PATHS 保护）
@@ -2194,7 +2194,7 @@ def s38():
 
 def s39():
     """topic 协作容器（设计稿 dispatch/docs/design/topic-design.md §8）：
-    寻址三族（文法/直落/扫描面隔离）+ agentctl send 投递闭环（目录自动创建、
+    寻址四族（文法/直落/扫描面隔离）+ agentctl send 投递闭环（目录自动创建、
     信封字段、文件名格式）+ GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律
     2026-09-06 经用户拍板移除，；topic/dispatcher 仍受保护）。"""
     import proto
@@ -2210,6 +2210,20 @@ def s39():
     # b) 扫描面隔离：topic 族不入 runner/调度监督面
     os.makedirs(adir, exist_ok=True)
     assert not any(p.startswith("topic/") for p in proto.list_participants(ROOT))
+    # b2) queue 族（无状态请求处理站：信箱与处理进程同目录）——寻址同款直落，
+    #     但**入扫描面**（进程型 ⇒ runner 靠 list_participants 枚举才会拉起/自愈）。
+    assert proto.is_valid_participant_id("queue/q1")
+    assert proto.parse_participant_id("queue/q1") == ("queue", "q1")
+    qdir = proto.agent_dir(ROOT, "queue/q1")
+    assert qdir == os.path.join(ROOT, "agents", "queue", "q1"), qdir
+    assert proto.queue_inbox(ROOT, "q1") == os.path.join(qdir, "inbox")
+    for bad in ("queue/../x", "queue/a/b", "queue/", "queue", "queue/."):
+        assert not proto.is_valid_participant_id(bad), bad
+    os.makedirs(qdir, exist_ok=True)
+    assert "queue/q1" in proto.list_participants(ROOT), \
+        "queue 族必须入进程型扫描面（否则 runner 永不拉起它）"
+    # 无 spec 的 queue 目录对报表/调度天然无事可做（与信箱型 bot 同机制）
+    assert proto.read_json(os.path.join(qdir, "spec.json")) is None
     # c) 投递闭环：agentctl send 直投 topic/<id>/inbox/，目录不存在自动创建
     t2 = "topic/s39-auto"
     mid = ctl("send", t2, "--type", "inform", "--body", "hello topic",
@@ -2511,6 +2525,12 @@ def s41():
     assert _proto.PROTECTED_SYSTEM_TOPICS == (_proto.POSITION_TOPIC,), \
         "系统主题名单须由 POSITION_TOPIC 派生（不另立魔数）：%r" % (
             _proto.PROTECTED_SYSTEM_TOPICS,)
+    # ①c 裸族容器护栅同源：gc.py 的 BARE_FAMILY_ENTRIES 必须覆盖 proto.LAYOUT_DIRS 全集
+    #    （+ 树根同形的 agents 与工作区级的 run）。漏改一侧的后果 = 新族的一行裸容器
+    #    条目能删掉整族（列表累计且 append-only ⇒ 同名子树一出现就被删）。
+    assert set(_gc.BARE_FAMILY_ENTRIES) == set(_proto.LAYOUT_DIRS) | {"agents", "run"}, \
+        "gc.py 裸族容器护栅须覆盖 proto.LAYOUT_DIRS 全集：%r vs %r" % (
+            _gc.BARE_FAMILY_ENTRIES, _proto.LAYOUT_DIRS)
     assert _proto.retired_move("bot/dispatcher") == "topic/dispatcher"
     for live in ("topic/dispatcher", "task/x1", "bot/dev-dispatcher", "bot/dispatcher2"):
         assert _proto.retired_move(live) is None, "在用地址不得命中退役表：%s" % live
@@ -4557,6 +4577,21 @@ def s58():
             assert m, "core.ts 未找到 PARTICIPANT_MESSAGE_TYPES 声明"
             assert set(re.findall(r'"([^"]+)"', m.group(1))) == set(_proto.MSG_TYPES), \
                 "消息型枚举跨语言不一致"
+            # 族白名单同源（TS 侧用常量名而非字面量 ⇒ 先取 *_DIR 字面量表再映射）：
+            # 漏改一侧的后果 = 一侧拒投/一侧收不到（未知族无回退）。
+            ts_dirs = dict(re.findall(r'export const (\w+_DIR) = "([^"]+)"', src))
+            for key, pyval in (("TASK_DIR", _proto.TASK_DIR), ("BOT_DIR", _proto.BOT_DIR),
+                               ("TOPIC_DIR", _proto.TOPIC_DIR),
+                               ("QUEUE_DIR", _proto.QUEUE_DIR)):
+                assert ts_dirs.get(key) == pyval, \
+                    "族目录名跨语言不一致：%s TS=%r proto=%r" % (key, ts_dirs.get(key), pyval)
+            for const in ("LAYOUT_DIRS", "FAMILIES"):
+                m = re.search(r"export const %s = \[([^\]]*)\]" % const, src)
+                assert m, "core.ts 未找到 %s 声明（钉桩面漂移）" % const
+                ts_val = [ts_dirs[i.strip()] for i in m.group(1).split(",") if i.strip()]
+                py_val = list(getattr(_proto, const))
+                assert ts_val == py_val, \
+                    "%s 跨语言不一致：TS=%r proto=%r" % (const, ts_val, py_val)
 
         # ---- ⑥ --root 缺省 = 现场发现（不依赖 cwd/env）----
         # 读真工作区树（只读动词 list）：本仓单独 checkout 时无树可读 → 显式 skip。
@@ -4744,7 +4779,7 @@ def main():
     check("S34 runner 重启不杀任务：wrap 自持管道存活 + 孤儿接管心跳续刷 + stop 组杀收敛", s34)
     check("S37 常驻能力：无 AGENTD_TASK 注入 + 调度槽位/资源豁免", s37)
     check("S38 control/clear：杀+备份+截断+空白新代 + one-shot/final/spawn 前边界", s38)
-    check("S39 topic 协作容器：寻址三族/扫描面隔离 + send 投递闭环（自动建目录/信封/文件名）+ GC 接受 topic/", s39)
+    check("S39 topic 协作容器：寻址四族/扫描面隔离 + send 投递闭环（自动建目录/信封/文件名）+ GC 接受 topic/", s39)
     check("S40 agentctl 脚手架：topic init 布局/骨架/watcher 登记/拒绝面 + bot register --subscribes（通道 B 写入口、只改一字段、清空）+ --description/--reaper（：两键写入/缺省不写/非法 reaper 零落盘/既在场不生效）+ 标题跳 frontmatter+ 主题节主持人列（宽口径判据/跨机链接/剔重/系统主题豁免）", s40)
     check("S41 退役地址护栏：proto.RETIRED_MAILBOXES 与 core.ts 同源 + send/ack/control/enable 拒绝并回执 topic/dispatcher + 拒后零副作用 + 独立于目录在场性 + 正常地址零回归", s41)
     check("S42 取消任务不再误报无报告：取消（stop 请求/exit 0 竞态/125）不发 no_report warn + 非取消缺报告仍发 warn + report.py verdict 同判据", s42)

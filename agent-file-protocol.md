@@ -89,11 +89,11 @@ anchors:
 
 协议层对二者不做区分，只差有没有进程在跑：人与 agent 都能被 ask、都能 reply、都能发 inform；人不需要 `spec.json`/`pid`/`runner`，其「运行」就是人自己去读目录、写文件（含代写 `reply`）。
 
-**布局 = 类型分层 + 三族（两层封顶，单布局）**：`task/<id>/`（自动名 `<rand6>`，自定义名如心跳任务同落此处；进程型）、`bot/<名字>/`（**会话载体** ∨ **进程载体** = 分发地址：`inbox/` + `watcher/<participant名>` 订阅注册表 + 转发进程 `spec.json`/`pid.json`，语义 `@dispatch#channel`；信箱型 bot 无 `spec.json`）、`topic/<id>/`（`topic.md` + `inbox/` 全量日志 + `watcher/` + 可选 `minutes/`，创建入口 `agentctl topic init`；非进程型；含**系统主题** `topic/dispatcher` = 调度员职位信箱，语义 `@topic-design`）。
+**布局 = 类型分层 + 四族（两层封顶，单布局）**：`task/<id>/`（自动名 `<rand6>`，自定义名如心跳任务同落此处；进程型）、`bot/<名字>/`（**会话载体** ∨ **进程载体** = 分发地址：`inbox/` + `watcher/<participant名>` 订阅注册表 + 转发进程 `spec.json`/`pid.json`，语义 `@dispatch#channel`；信箱型 bot 无 `spec.json`）、`topic/<id>/`（`topic.md` + `inbox/` 全量日志 + `watcher/` + 可选 `minutes/`，创建入口 `agentctl topic init`；非进程型；含**系统主题** `topic/dispatcher` = 调度员职位信箱，语义 `@topic-design`）、`queue/<名字>/`（**无状态请求处理站** = 信箱 `inbox/`（+`ack/`）与处理进程档案 `spec.json`/`pid.json`/`enable.json` **同目录**；⛔ 非 LLM 会话载体、⛔ 无 `watcher/` 订阅注册表（活性由其进程档案直供）、⛔ 不得被第三方会话绑定；创建入口 = 被追踪声明源 + `make bots.seed`，⛔ 无 ad-hoc 登记动词）。
 
 - **寻址 = 路径式 id 按第一段直落**（§2.2）：无存在性探测、无回退；类型容器目录本身不是参与方；层数固定两层、**不支持任意嵌套**——两层封顶使「哪一层是参与方」零歧义（类型容器下的一级子目录即参与方），层次需求用命名分层与关系字段表达（§2.2）；
-- **GC**：三族同等可经 gc 通道删除（删除传播实现单点 `agents-sync/gc.py`）；**系统保护** = 该文件的 `PROTECTED_SYSTEM_PATHS`（现含 `topic/dispatcher`，连 `--force` 也拒）；审计旁路 `add --force` 供豁免族使用；
-- **进程型扫描面**只含进程型参与方：分发型 bot 入；信箱型 bot 与 topic 族不入。
+- **GC**：四族同等可经 gc 通道删除（删除传播实现单点 `agents-sync/gc.py`）；**系统保护** = 该文件的 `PROTECTED_SYSTEM_PATHS`（现含职位信箱的两个载体地址 `topic/dispatcher` + `queue/dispatcher`，连 `--force` 也拒）；审计旁路 `add --force` 供豁免族使用；
+- **进程型扫描面**只含进程型参与方：分发型 bot 与 queue 族全入（监督与自愈靠该枚举）；信箱型 bot 与 topic 族不入。
 
 ### 2.2 参与方标识（路径式两段 id）：文法 与 名字获取
 
@@ -101,7 +101,7 @@ anchors:
 
 ```
 participantId := <family> "/" <name>
-family        := "task" | "bot" | "topic"   # 白名单封闭集（代码常量，加族 = 改常量）
+family        := "task" | "bot" | "topic" | "queue"   # 白名单封闭集（代码常量，加族 = 改常量）
 name          := [A-Za-z0-9._-]+    # 段白名单；每段单独拒 "."/".."/空，防路径穿越
 ```
 
@@ -110,7 +110,7 @@ name          := [A-Za-z0-9._-]+    # 段白名单；每段单独拒 "."/".."/�
 - **`/` 不进文件名**：文件名中的身份段一律经 `fsSafeId` 转写（`/`→`.`，如 `task/65ijbb`→`task.65ijbb`）。文件名只负责唯一性与 ack 对齐、**不需要反解出原 id**（信封/事件 JSON 内字段为权威；`ack/<id>` 的 id = 转写后文件名去后缀，两侧同口径）；段内含 `.` 造成的不可逆不影响任何判定（判重按整串相等）；
 - 身份字段（`from`、`spec.creator` 等）填路径式 id；**`agentd` 系统发送方保留裸名特例**（无目录的进程身份）。
 
-**名字获取 = 两种并列方式**：**a) 自动生成名**（临时任务 / ad-hoc agent，仅 `task/` 族）= `<时间戳>-<随机后缀>`（如 `<YYYY-MM-DD-HH-MM-SS>-v5sy`；时间戳取创建方本机本地时间），唯一性由协议自带——随机后缀吸收机器间时钟偏移的撞名 ⇒ **全局无需协调**（无注册表、无发号器、无跨机查重）；**b) 自定义名**（服务 / 长期参与者，`bot/` 族，如 `agents/bot/web/`）= 创建方自选（段白名单内即可；服务名直接作名字段，§12.3），唯一性是**创建方的义务**（协议没有全局注册表）。
+**名字获取 = 两种并列方式**：**a) 自动生成名**（临时任务 / ad-hoc agent，仅 `task/` 族）= `<时间戳>-<随机后缀>`（如 `<YYYY-MM-DD-HH-MM-SS>-v5sy`；时间戳取创建方本机本地时间），唯一性由协议自带——随机后缀吸收机器间时钟偏移的撞名 ⇒ **全局无需协调**（无注册表、无发号器、无跨机查重）；**b) 自定义名**（服务 / 长期参与者，`bot/` 与 `queue/` 族，如 `agents/bot/web/`、`agents/queue/<处理站名>/`）= 创建方自选（段白名单内即可；服务名直接作名字段，§12.3），唯一性是**创建方的义务**（协议没有全局注册表）。
 
 - **创建前必须检查存在性，已存在即拒绝创建**（两种方式同款）；
 - **自定义名必须有命名权威**（如服务注册表统一分派）；**无权威来源一律用自动生成名**——同名目录在文件同步下**会合并**，两个不相干参与方的文件混入同一目录、互相污染且无从分辨；
@@ -194,7 +194,7 @@ agents/<participantId>/
 | `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法 id 拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法 id 拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
 | `host` | string | ➖ | **路由扩展**（§15）：目标机器——仅该机 runner 可认领；协议缺省语义 = `createdByHost`，登记实现一律登记时物化写入；**缺失/空 = 无机器认领**（§15.1） |
 | `createdByHost` | string | ➖ | **路由扩展**（§15）：创建方所在机器，回信/审计用；缺省 = 创建者本机 |
-| `subscribes` | array of string | ➖ | **消息域扩展字段**：登记期订阅意图——每项为 `topic/<id>`，该会话的 receiver 把对应 topic 全量日志信箱纳入监视面（共享式多订阅，ack 两态 §4.6）。**只承载登记期意图**：运行期增删订阅走 topic 的 `watcher/<裸名>` 条目，不改本不可变档。非 `topic/` 族与非法 id 一律忽略并留降级日志（`task/`、`bot/` 信箱**不得**被第三方会话绑定，防抢收）。写入口与硬校验 = `@agentd#usage`；主持人口径 = `@topic-design#moderator-carrier` |
+| `subscribes` | array of string | ➖ | **消息域扩展字段**：登记期订阅意图——每项为 `topic/<id>`，该会话的 receiver 把对应 topic 全量日志信箱纳入监视面（共享式多订阅，ack 两态 §4.6）。**只承载登记期意图**：运行期增删订阅走 topic 的 `watcher/<裸名>` 条目，不改本不可变档。非 `topic/` 族与非法 id 一律忽略并留降级日志（`task/`、`bot/`、`queue/` 信箱**不得**被第三方会话绑定，防抢收）。写入口与硬校验 = `@agentd#usage`；主持人口径 = `@topic-design#moderator-carrier` |
 
 - **两个目录模型**：① `workdir` 属外部世界，协议不管理其中任何文件；② 应用层产物**没有独立目录概念**——agent 自家目录一身二任（协议文件容器 + 报告等产物的默认家园），协议对其中非协议文件一律无视（单写者：报告由 agent 自己写，§10.1）。
 - **协议与启动内容的边界**：提示词、权限、工具清单等启动内容文件（如 `prompt.md`）是**应用层普通文件，与报告同等地位**；`spec.json` 只保留进程管理必需的结构化字段（`command`/`workdir`/`restartPolicy`/`creator`），启动载荷组装归实现。➖ 的**可选扩展字段**（`host`/`createdByHost`/`subscribes`/`reaper`）不属这个最小集：它们是叠加层的结构化声明，缺失即零感知。

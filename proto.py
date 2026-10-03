@@ -135,15 +135,18 @@ def pid_identity_ok(pid, expected_start):
 #                         inbox-only，分发型/进程型 = 另含 watcher/ + spec.json 等）
 #   agents/topic/<id>/    协作容器族（topic.md 策展文档 + inbox/ 全量日志 +
 #                         watcher/ owner 登记；非进程型，不入扫描面/不被监督）
-# 寻址 = 路径式 id 直落（§2.2）：id = <family>/<name>，family ∈ {task, bot, topic}
+#   agents/queue/<名字>/  无状态请求处理站族（信箱 inbox/ 与处理进程档案同目录；
+#                         ⛔ 非 LLM 会话载体，无 watcher/ 订阅注册表——活性由其进程档案直供）
+# 寻址 = 路径式 id 直落（§2.2）：id = <family>/<name>，family ∈ {task, bot, topic, queue}
 # 白名单封闭集，按第一段直落 agents/<family>/<name>/，不做存在性试探、无回退。
-# 落盘一律由写侧显式走 task_dir()/bot_dir() 创建入口。
+# 落盘一律由写侧显式走 task_dir()/bot_dir()/queue_dir() 创建入口。
 
 TASK_DIR = "task"
 BOT_DIR = "bot"
 TOPIC_DIR = "topic"
-LAYOUT_DIRS = (TASK_DIR, BOT_DIR, TOPIC_DIR)  # 布局容器目录名（非参与方）
-FAMILIES = (TASK_DIR, BOT_DIR, TOPIC_DIR)      # 参与方族白名单（封闭集，加族 = 改常量）
+QUEUE_DIR = "queue"
+LAYOUT_DIRS = (TASK_DIR, BOT_DIR, TOPIC_DIR, QUEUE_DIR)  # 布局容器目录名（非参与方）
+FAMILIES = (TASK_DIR, BOT_DIR, TOPIC_DIR, QUEUE_DIR)      # 参与方族白名单（封闭集，加族 = 改常量）
 
 # 段白名单（协议 §2.1）：字母数字与 `._-`；`.`/`..`/空段单独拒（相对路径分量）。
 NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -217,6 +220,17 @@ def topic_inbox(root: str, name: str) -> str:
     return os.path.join(topic_dir(root, name), "inbox")
 
 
+def queue_dir(root: str, name: str) -> str:
+    """queue 目录（写侧创建用）：agents/queue/<名字>/（无状态请求处理站族：
+    信箱与处理进程档案同目录，⛔ 非 LLM 会话载体）。"""
+    return os.path.join(root, "agents", QUEUE_DIR, name)
+
+
+def queue_inbox(root: str, name: str) -> str:
+    """queue 收件目录：agents/queue/<名字>/inbox/（写侧创建用）。"""
+    return os.path.join(queue_dir(root, name), "inbox")
+
+
 # ---- 职位信箱（系统主题：自 bot/dispatcher/ 移族） ----
 # 调度通知流（runner 终态通知 + 子端 ask + 人机/服务传话）的写入口 = 系统主题
 # agents/topic/dispatcher/inbox/；消费 = 该 position 的 watcher（进程型 bot，轮询并派一次性 handler）
@@ -229,7 +243,10 @@ POSITION_PID = TOPIC_DIR + "/" + POSITION_TOPIC
 # 名单的 hub 侧副本（该脚本刻意保持 stdlib-only、不 import 本模块），两侧由 e2e S41 的
 # 同源断言钉住——将来新增系统主题只改一侧即变红。
 PROTECTED_SYSTEM_TOPICS = (POSITION_TOPIC,)
-PROTECTED_SYSTEM_PATHS = tuple(TOPIC_DIR + "/" + t for t in PROTECTED_SYSTEM_TOPICS)
+# 职位信箱的两个载体地址（同一信箱在两个族里的落点）：任一都是全系统的 reaper
+# 回落兜底 ⇒ 两个都不可删（回落面必须无条件可写）。gc.py 的 hub 侧副本同值（e2e S41 钉）。
+PROTECTED_SYSTEM_PATHS = tuple(TOPIC_DIR + "/" + t for t in PROTECTED_SYSTEM_TOPICS) + (
+    QUEUE_DIR + "/" + POSITION_TOPIC,)
 
 
 def position_inbox(root: str) -> str:
@@ -265,14 +282,14 @@ def agent_dir(root: str, pid_: str) -> str:
 
 
 def list_participants(root: str):
-    """参与方扫描面 = task/* ∪ bot/*（bot 族入扫描）。
-    返回**路径式 id**（`task/<id>`、`bot/<name>`）；无 spec 的信箱型目录对
+    """参与方扫描面 = task/* ∪ bot/* ∪ queue/*（进程型族入扫描：监督与自愈靠它枚举）。
+    返回**路径式 id**（`task/<id>`、`bot/<name>`、`queue/<name>`）；无 spec 的信箱型目录对
     runner/调度器天然无事可做（与「无 spec 不入任务列表」同机制，零新增过滤）。
     topic 族**不入扫描面**：协作容器是文件参与方、无进程语义，
     寻址可直落（agent_dir），但不需要 runner/调度器监督。"""
     base = os.path.join(root, "agents")
     out = []
-    for family in (TASK_DIR, BOT_DIR):
+    for family in (TASK_DIR, BOT_DIR, QUEUE_DIR):
         fdir = os.path.join(base, family)
         if not os.path.isdir(fdir):
             continue
