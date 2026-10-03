@@ -86,8 +86,8 @@ def spec_is_resident(spec):
     """常驻参与方判定（口径单点 = `scheduler.is_resident`：spec.command 内嵌
     `AGENTD_RESIDENT=1` 前缀）。
 
-    **函数内延迟 import**：`scheduler.py` 在模块级 `import runner`（复用探活锁心跳周期口径），
-    runner 反向在模块级 import 它会成环 ⇒ 只在调用点取（首次之后是 sys.modules 查表）。
+    **函数内延迟 import**：只在调用点取（首次之后是 sys.modules 查表），使调度半边不因为
+    本模块而进本文件的模块级依赖面。
     ⛔ 不在本文件复制第二份字面判据（spawn 里那处内联字面属存量，不扩大）。"""
     import scheduler
     return scheduler.is_resident(spec)
@@ -525,7 +525,9 @@ class Runner:
         窗口 → 重发一条重复 inform，接受）**∩ 重放护栏**（replay_suppressed：本次运行
         未见证其终态迁移的历史档案不当新事件重放，判据见 REPLAY_GRACE_DEFAULT；
         顺序不变 = 判重在前、护栏在后）。
-        一期任务均 one-shot，代终态同 tick 置 final；auto 重启服务只在收口（final）后通知一次。"""
+        **非常驻参与方到代终态即 `final`**（与 `restartPolicy` 无关，该字段只管自愈；判据 =
+        service() 的 finalize 块）⇒ 代终态同 tick 即可通知；`auto` 与常驻体不收口（前者自愈换代、
+        后者等 stop/散会）⇒ 只在收口（final）后通知一次。"""
         active = {}   # {参与方 id: 活性判定}：本轮活性备忘录（含 "*" = 订阅声明全集）
         for pid_ in proto.list_participants(self.root):
             spec = self.read_spec(pid_)
@@ -561,15 +563,16 @@ class Runner:
             stop_reqs = self.stop_requests(pid_)
             is_canceled = self.canceled(doc, stop_reqs)
             # 终态缺 report 检测（周复盘 2026-08-31 提案 P5）：
-            # exit 0 ∧ 无 report.md ∧ one-shot → 通知载荷加 warn（不改成功判定——
+            # exit 0 ∧ 无 report.md ∧ 非取消 → 通知载荷加 warn（不改成功判定——
             # 完成判定仍为 final+report.md，交付判定归应用层；通知只是多发一个信号，
             # 供调度员/心跳优先怀疑空跑）。exitcode==0 只可能来自 exited（stale 记 127）。
+            # **不看 `restartPolicy`**：该字段只管自愈、不管收口，空跑与它无关；常驻体与 `auto`
+            # 不因代终态置 final ⇒ 根本进不到本函数（life_terminal 前置），不会被误报。
             # 排除调度员主动取消（自评 R2）：stop 请求与子进程自然 exit 0
             # 竞态时 event 仍为 task_done（exited/0 优先），但缺报告是取消的预期结果而非空跑
             # ——发 warn 只会制造假告警（与 core.ts [已取消]、report.py verdict 取消同判据）。
             if event == "task_done" and doc.get("exitcode") == 0 \
                     and "report" not in payload \
-                    and spec.get("restartPolicy") == "one-shot" \
                     and not is_canceled:
                 payload["warn"] = "no_report"
             if event == "task_done" and doc.get("status") == "stale":

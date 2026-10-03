@@ -63,7 +63,6 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proto  # noqa: E402
-import runner  # noqa: E402  # 复用探活锁心跳周期口径（LOCK_REFRESH_INTERVAL）
 
 log = logging.getLogger("agentd.scheduler")
 
@@ -76,7 +75,8 @@ DEFAULT_MAX_CONCURRENT = 4             # 全局占位上限（缺省，拍板 20
 # DESIGN-multimachine §4.4：runner 心跳式定期刷新 updatedAt，别机按新鲜度判存活，
 # 停更即自然判死；锁经星型同步汇聚到全局树，允许 ≤1 周期滞后）。
 # 阈值推导（复用现网既有口径，不新造标准）：
-#   心跳周期 = runner.LOCK_REFRESH_INTERVAL（5s）；
+#   心跳周期 = runner.py 的 LOCK_REFRESH_INTERVAL（现值 5s；⛔ 为取该常量 import runner——
+#   模块级 import 会执行它的模块体，把本不相关的运行半边拉成本服务的运行时依赖）；
 #   同步滞后 ≤1 周期 = 轮询兜底 interval 15s（ssh-sync 缺省）+ rsync 耗时（DESIGN §2.3）；
 #   DESIGN §4.4 口径「判活阈值（以分钟计）」；
 #   60s ≥ 数个心跳周期 + 一整同步周期 + rsync 耗时，另吸收中等跨机时钟偏差

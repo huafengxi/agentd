@@ -32,7 +32,7 @@ anchors:
 # Agent 文件通信协议（Agent File Communication Protocol）
 
 > **章节号冻结**：全仓以 `协议 §N.M` 引用本文（含代码注释），章节号是稳定锚点——只增不改：新内容追加为末尾新节或 `N.Mbis`；**删节不留墓碑标题，其编号永久空缺、绝不重排**（frontmatter `anchors` 声明的节标题不得删）。调用方侧的文档一致性 lint 校验全仓引用可解析（该工具属调用方部署面，本仓不钉其路径）。
-> **收录面**：本文只住协议本体的 require（文法、字段与写者归属、语义、判定谓词、边界处置）。**不进本文**：实测与事故实例、机制推导与设计理由、实现单点（函数/行号）、命令序列与报文原文、任务 id 与拍板日期。落点：实现面与实测 = `@agentd`、`agentd/RACE-NOTES.md`、`pi-wrap/`、`w/ext/sessiond/`；应用层机制 = `@dispatch`/`@notify-and-delivery`/`@topic-design`；消费侧裁定与指标 = `lore/library/dispatch/facts/delivery-protocol.md`、`lore/library/agentfw/facts/{inbox-receiver,evidence-collection}.md`。
+> **收录面**：本文只住协议本体的 require（文法、字段与写者归属、语义、判定谓词、边界处置）。**不进本文**：实测与事故实例、机制推导与设计理由、实现单点（函数/行号；**例外 = 跨语言/跨仓对偶的同源单点**：点名函数名而不抄其正文——两侧同判靠这个 pin 维持）、命令序列与报文原文、任务 id 与拍板日期。落点：实现面与实测 = `@agentd`、`agentd/RACE-NOTES.md`、`pi-wrap/`、`w/ext/sessiond/`；应用层机制 = `@dispatch`/`@notify-and-delivery`/`@topic-design`；消费侧裁定与指标 = `lore/library/dispatch/facts/delivery-protocol.md`、`lore/library/agentfw/facts/{inbox-receiver,evidence-collection}.md`。
 
 > **按名引用记号**：全文的 `` `@<名>#<锚点>` `` 是**调用方工作区**的按名引用记号 = 被引方在它自己 frontmatter 里自声明的稳定外名（⛔ 不是路径）；解析 = 那个工作区的 `bots/kb_index.py resolve <名>[#<锚点>]`（→ 路径 + 节标题）。本仓不含解析器（解析法住那个工作区）⇒ 在本仓单独阅读时按「另一册的节名」理解即可。
 
@@ -162,7 +162,7 @@ agents/<participantId>/
 
 ### 3.3 `pid.json`（仅进程型）
 
-进程档案，全协议**唯一可变档**，**runner 独占、反复更新**。写入时序：① spawn 时写 `gen`/`pid`/`procStart`/`startedAt`（status=running）；② 每轮心跳更新 `lastAliveAt`；③ 终止时写 `status`/`exitcode`/`endedAt`；④ 处理 stop 或 one-shot 终结时置 `final=true`——**此后 runner 停写**（行为性停写，非物理冻结）。restart 后直接重写本文件进入新一代（`gen` 递增）。字段表 §4.2；代际历史 §11.7；两层状态与谓词 §10。
+进程档案，全协议**唯一可变档**，**runner 独占、反复更新**。写入时序：① spawn 时写 `gen`/`pid`/`procStart`/`startedAt`（status=running）；② 每轮心跳更新 `lastAliveAt`；③ 终止时写 `status`/`exitcode`/`endedAt`；④ 处理 stop、或**非常驻参与方到代终态**时置 `final=true`（与 `restartPolicy` 无关，该字段只管自愈；收口判据 = `@agentd#conventions`）——**此后 runner 停写**（行为性停写，非物理冻结）。restart 后直接重写本文件进入新一代（`gen` 递增）。字段表 §4.2；代际历史 §11.7；两层状态与谓词 §10。
 
 ### 3.4 `session/`（仅进程型）
 
@@ -189,7 +189,7 @@ agents/<participantId>/
 |---|---|---|---|
 | `command` | string | ✅ | **完整启动命令**：裸 bash 命令串（写方不加 `bash -c`，运行方显式以 `bash -c` 执行）；可引用自家目录内任何应用层文件。**路径可移植**：不得内嵌登记机 `$HOME` 绝对前缀——自家目录/工作区根引用 runner 注入的 `$AGENT_HOME`/`$AGENT_ROOT`，执行机运行时展开 |
 | `workdir` | string | ✅ | **外部工作目标目录**（agent 的 cwd）：**协议不管理其中任何文件**。**路径可移植**：`$HOME` 内路径登记侧归一化为 `~/...` 落盘、非 home 路径保持绝对，运行方以 `expanduser` 展开 |
-| `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual` 崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 终止即 final（第一代终止时生命周期即终结）。**分两档**：① **运行时语义** = 字段缺失 ⇒ 不自动重启（行为等同 `manual`；判据逐字 = `runner.py` 的 `spec.get("restartPolicy") == "auto"`）；② **登记侧** = dispatch 登记路径恒写 `one-shot`（任务形态）、CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给 ⇒ 键不在场 + 登记当场一行 WARN 点名缺省的后果与补法） |
+| `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual` 崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 第一代终止即 final（常驻体亦然）。**本字段只管自愈、不管收口**：非常驻参与方到代终态一律 `final`（判据 = `@agentd#conventions`）。**分两档**：① **运行时语义** = 字段缺失 ⇒ 不自动重启（行为等同 `manual`；判据逐字 = `runner.py` 的 `spec.get("restartPolicy") == "auto"`），但**缺键与 `manual` 仍 `final`、仍发终态通知**；② **登记侧** = dispatch 登记路径恒写 `one-shot`（任务形态）、CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给 ⇒ 键不在场 + 登记当场一行 WARN 点名缺省的后果与补法） |
 | `creator` | string | ✅ | 创建者身份 = **回信地址** = **真实登记方**（审计用）；终态通知的投递不由它推导（收件面 = `reaper`） |
 | `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法 id 拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法 id 拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
 | `host` | string | ➖ | **路由扩展**（§15）：目标机器——仅该机 runner 可认领；协议缺省语义 = `createdByHost`，登记实现一律登记时物化写入；**缺失/空 = 无机器认领**（§15.1） |
@@ -214,7 +214,7 @@ agents/<participantId>/
 | `lastAliveAt` | string | ✅ | 最近一次心跳时刻；运行期每轮心跳更新 |
 | `resumed` | integer | ➖ | 当前代由 restart 续跑而来时记**续跑自的 gen**；首次启动不填 |
 | `restarts` | integer | ✅ | 累计重启次数（首代 0；`gen` = `restarts` + 1）= 逐代历史的字段级摘要。**不是熔断计数**：人工 restart/clear 与崩溃自愈换代也递增它 |
-| `final` | boolean | ✅ | **生命周期终结标记**：`true` = 不再产生新代。初始 `false`；runner 处理 stop 或 one-shot 终结时置 `true`，此后停写 |
+| `final` | boolean | ✅ | **生命周期终结标记**：`true` = 不再产生新代。初始 `false`；runner 处理 stop、或**非常驻参与方到代终态**时置 `true`（与 `restartPolicy` 无关，该字段只管自愈；判据 = `@agentd#conventions`），此后停写 |
 | `sock` | string | ➖ | 观测 socket 端点绝对路径：仅封装形态由 runner 在 spawn 时写入（写者仍仅 runner）；路径由 taskId 单点推导，存活判定归消费方（web）连接时。非封装形态不写（§11.12） |
 
 **单文件，两层状态**：`status` 回答当代生死（代终态），`final` 回答生命周期是否收口（谓词 §10）。逐代详史不在协议文件中——所有判定只读当代（§11.7）。
@@ -448,7 +448,7 @@ runner 作为系统发送方（`from` = 保留裸名 `agentd`，§2.2）写的 i
 1. **不新增 type**：系统事件是「告知，不要答复」→ `type=inform`（§6.2 按会话语用切分，不按内容切分）；事件语义全在 `body` 载荷内；
 2. **幂等判据 = 自家 `notified.json` 标记**（唯一事实源，只在终态通知投递后写），信箱内信封在场与否不参与判重（§8 部署层记账件）；
 3. **缺省不写 `deliver`**（= `followUp`）：系统事件绝不打断收件会话当前轮（§6.6 规则 2）；
-4. **空跑不发独立事件**：`exit 0` 而 `report.md` 缺失/零字节的 one-shot 任务仍以 `event=task_done` 呈现，载荷多带 `warn: "no_report"`（取消与 stop 竞态下缺报告属预期结果 ⇒ 不带该字段；完成判定不变 = `final` + 非空 `report.md`）。该信号只供收件方优先怀疑空跑；**下游放行不由通知面承担**——调度器把这类 provider 记为 `idle`、不满足 `needs`（判据 = `@agentd#release-rules`）。
+4. **空跑不发独立事件**：`exit 0` 而 `report.md` 缺失/零字节的任务仍以 `event=task_done` 呈现，载荷多带 `warn: "no_report"`（判据只看 `exitcode==0` ∧ 无 `report.md` ∧ 非取消，**不看 `restartPolicy`**；取消与 stop 竞态下缺报告属预期结果 ⇒ 不带该字段；完成判定不变 = `final` + 非空 `report.md`）。该信号只供收件方优先怀疑空跑；**下游放行不由通知面承担**——调度器把这类 provider 记为 `idle`、不满足 `needs`（判据 = `@agentd#release-rules`）。
 
 ---
 
@@ -513,7 +513,7 @@ runner 作为系统发送方（`from` = 保留裸名 `agentd`，§2.2）写的 i
 - **已创建 → 已终结**：spawn 前收到 stop（取消未启动任务，§5.4 规则 4）；
 - **运行中 → 代终态**：该代进程以 `exited`/`killed`/`stale` 收尾——代终态 ∧ 无 `final` = 「生命周期开放」（**死人 ≠ 销户**）；
 - **代终态 → 运行中（新一代）**：收到 `restart` 且 `final` 仍为 `false`——生命周期开放时随时可救活（恢复上线 = 无 `inject` 的 restart，§5.3）；runner 重写 `pid.json`（换血：gen+1）；
-- **任意 → 已终结**：`stop` 被执行，或 `restartPolicy=one-shot` 的第一代终止——runner 置 `final=true`；
+- **任意 → 已终结**：`stop` 被执行，或**非常驻参与方到代终态**（与 `restartPolicy` 无关；显式 `one-shot` 的常驻体亦收口）——runner 置 `final=true`；
 - **已终结是吸收态**：`final` 一旦置 `true`，后续 `restart` 一律 `ack(rejected)`，不可逆（由 runner 行为保证：置 final 后不再重写、不再 spawn）。
 
 ### 9.3 排队节点（调度扩展：有调度部署时）
