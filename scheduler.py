@@ -515,7 +515,7 @@ class Scheduler:
 
     def _warn_idle(self, pid_, cap):
         """空跑 provider 首次发现打一次 WARNING（内存去重 = 非调度状态，重启重打无害）。
-        通知面既有信号 = runner 终态通知载荷 warn=no_report（投职位信箱 topic/dispatcher）。"""
+        通知面既有信号 = runner 终态通知载荷 warn=no_report（投职位信箱 = proto.POSITION_PID）。"""
         if pid_ in self._idle_warned:
             return
         self._idle_warned.add(pid_)

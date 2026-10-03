@@ -365,7 +365,7 @@ def check_reaper(raw, what="reaper"):
     单点 `proto.is_valid_participant_id`（两段路径式 `<family>/<name>`，family ∈
     proto.FAMILIES，name 过段白名单），非法即 `die`——与 `resolve_sender`/`require_pid`
     同一口径，不新增 proto 逻辑。缺失（None）= 不写该键 → 运行时 `runner.resolve_reaper`
-    回落职位信箱 `topic/dispatcher` 并带 note，属既有语义，此处不代填。"""
+    回落职位信箱（`proto.POSITION_PID`）并带 note，属既有语义，此处不代填。"""
     if raw is None:
         return None
     s = str(raw).strip()
@@ -944,7 +944,7 @@ def main():
     p.add_argument("--reason")
     p.add_argument("--from", dest="sender",
                    help="控制方身份（两段路径式 id，如 bot/<名>、task/<id>）；缺省取环境"
-                        " AGENT_SELF，再缺省回落职位信箱 topic/dispatcher（不接受裸名）")
+                        " AGENT_SELF，再缺省回落职位信箱 %s（不接受裸名）" % proto.POSITION_PID)
     p.set_defaults(fn=cmd_control)
 
     p = sub.add_parser("enable", help="写 enable.json 放行（正常由调度方写；手工兑底）")

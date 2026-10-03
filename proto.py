@@ -231,27 +231,31 @@ def queue_inbox(root: str, name: str) -> str:
     return os.path.join(queue_dir(root, name), "inbox")
 
 
-# ---- 职位信箱（系统主题：自 bot/dispatcher/ 移族） ----
-# 调度通知流（runner 终态通知 + 子端 ask + 人机/服务传话）的写入口 = 系统主题
-# agents/topic/dispatcher/inbox/；消费 = 该 position 的 watcher（进程型 bot，轮询并派一次性 handler）
-# 直订（共享式多订阅，ack 按订阅者命名空间隔离），拷贝式转发进程已退役。
+# ---- 职位信箱（queue 族参与方：信箱与 watcher 处理进程同目录）----
+# 调度通知流（runner 终态通知 + 子端 ask + 人机/服务传话）的写入口 =
+# agents/queue/dispatcher/inbox/；消费 = 同目录的 watcher 进程（轮询并派一次性 handler），
+# 单消费者 ⇒ ack 扁平（⛔ 命名空间）。
 # 应用层语义权威 = dispatch/DISPATCH.md §1/§8；与 TS 侧 core.ts positionInbox 同源。
+# 常量名沿用 POSITION_TOPIC（历史：职位信箱曾是系统主题）；现值语义 = position 名，
+# 它同时是遗留 topic tombstone 的名字段（两族同名、同号保护）。
 POSITION_TOPIC = "dispatcher"
-POSITION_PID = TOPIC_DIR + "/" + POSITION_TOPIC
+POSITION_PID = QUEUE_DIR + "/" + POSITION_TOPIC
 # 系统主题豁免名单（单一事实源 攒批 5）：按设计无策展 owner 的系统主题
 # （报表侧不出主持人链接；gc 侧不可删）。agents-sync/gc.py 的 PROTECTED_SYSTEM_PATHS 是同一
 # 名单的 hub 侧副本（该脚本刻意保持 stdlib-only、不 import 本模块），两侧由 e2e S41 的
 # 同源断言钉住——将来新增系统主题只改一侧即变红。
 PROTECTED_SYSTEM_TOPICS = (POSITION_TOPIC,)
-# 职位信箱的两个载体地址（同一信箱在两个族里的落点）：任一都是全系统的 reaper
-# 回落兜底 ⇒ 两个都不可删（回落面必须无条件可写）。gc.py 的 hub 侧副本同值（e2e S41 钉）。
+# 职位信箱的两个载体地址（同一信箱在两个族里的落点：现役 queue 参与方 + 遗留 topic
+# tombstone）：两个都不可删——回落面必须无条件可写，而 tombstone 一旦删除会被冻结节点
+# （老代码仍把它当回落目标）的 send 侧 ensure-inbox 复活并经网状同步推回。
+# gc.py 与 ssh-sync.py 的 hub/消费侧副本同值（e2e S41 + test_gc.py 钉）。
 PROTECTED_SYSTEM_PATHS = tuple(TOPIC_DIR + "/" + t for t in PROTECTED_SYSTEM_TOPICS) + (
-    QUEUE_DIR + "/" + POSITION_TOPIC,)
+    POSITION_PID,)
 
 
 def position_inbox(root: str) -> str:
-    """职位信箱（系统主题全量日志）：agents/topic/dispatcher/inbox/。"""
-    return topic_inbox(root, POSITION_TOPIC)
+    """职位信箱：agents/queue/dispatcher/inbox/。"""
+    return queue_inbox(root, POSITION_TOPIC)
 
 
 # ---- 已退役信箱地址表（移族；Python 侧护栏 = 建议修 2） ----
@@ -268,6 +272,7 @@ def position_inbox(root: str) -> str:
 # 加条目沿用同款形态（两语言同批 + e2e S41 钉相等）。
 RETIRED_MAILBOXES = {
     BOT_DIR + "/" + POSITION_TOPIC: POSITION_PID,
+    TOPIC_DIR + "/" + POSITION_TOPIC: POSITION_PID,
     BOT_DIR + "/notify-user": QUEUE_DIR + "/notify-user",
     # position 信箱与其 watcher 进程合并成单一 queue 参与方（信箱与处理进程同目录）
     # ⇒ 两类旧地址都进表：前者有存量投递方，后者只防陈旧文档驱动的写侧重建僵尸信箱。

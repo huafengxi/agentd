@@ -118,7 +118,7 @@
   S57 控制信封 `from` 归属单点化：`agentctl control` 的 `from` 与文件名前缀
       不再硬编码一个裸名缺省值，改走与 TS 侧 `core.resolveCreatorPid` 同源的优先级——
       显式 `--from`（非法即拒 + 零落盘副作用）＞ 环境 `AGENT_SELF`（过 §2.2 文法白名单，
-      非法/缺失静默落下一档）＞ 回落职位信箱 `topic/dispatcher`；非调度员会话（领域会话/
+      非法/缺失静默落下一档）＞ 回落职位信箱 `queue/dispatcher`；非调度员会话（领域会话/
       主持人）的取消因此记成它自己（审计与权威归属不再失真）
   S58 写侧动词两档（协议动词 send/ack/control/enable vs 用例动词 answer/cancel/update）：
       send 的 type 缺省 inform、`--deliver` 显式才落盘、`--body-file -` 逐字保真、
@@ -192,6 +192,7 @@ EXT_DIR = os.path.abspath(os.path.join(HERE, "..", *EXT_PARTS))
 # 取（幂等：入口洗过后再洗零增量），⛔ 不再直接 dict(os.environ) 继承宿主身份族。
 # 放在 PI_WRAP_DIR/EXT_REL 取值之后 ⇒ 那两个注入口（PI_ 前缀族）不受洗刷影响。
 sys.path.insert(0, HERE)
+import proto  # noqa: E402  地址单点（职位信箱等）在夹具里按常量派生，⛔ 硬编码族/名字
 from envscrub import scrub_env  # noqa: E402
 
 TMPBASE = tempfile.mkdtemp(prefix="agentd-e2e.%d." % os.getpid())
@@ -414,7 +415,7 @@ def create(name_args, policy=None, host=None, command=None, gate=True):
     pid_ = "task/" + name  # 路径式参与方 id
     # 登记侧恒写 reaper（core.ts resolveReaper 缺省推导面）；agentctl 夹具侧等价补写：
     # reaper=职位信箱 → resolve_reaper 直落回落面、不带 note（终态载荷与生产同构）
-    set_sched_fields(pid_, reaper="topic/dispatcher")
+    set_sched_fields(pid_, reaper="queue/dispatcher")
     if gate:
         # enable.json 门禁内置无开关（--scheduled 已移除）：非调度场景手工放行，
         # 语义等价旧无门禁模式的登记即拉起；调度侧场景传 gate=False 由调度方放行。
@@ -508,9 +509,9 @@ def notifs_in(inbox_dir, taskid=None):
 
 
 def disp_notifs(taskid=None):
-    """职位信箱 agents/topic/dispatcher/inbox/（系统主题 自 bot/dispatcher/
+    """职位信箱 agents/queue/dispatcher/inbox/（系统主题 自 bot/dispatcher/
     移族）的终态通知 = 分流后的**回落收件面**（登记方非 bot 型时落此处）。"""
-    return notifs_in(os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox"), taskid)
+    return notifs_in(proto.position_inbox(ROOT), taskid)
 
 
 def bot_notifs(name, taskid=None):
@@ -914,7 +915,7 @@ def s12():
 # ---------------------------------------------------------------- S14（新增，T1-5）
 
 def s14():
-    """终态通知通道（T1-5）：生命周期终态 → 职位信箱 topic/dispatcher/inbox/ 一条 inform。
+    """终态通知通道（T1-5）：生命周期终态 → 职位信箱 queue/dispatcher/inbox/ 一条 inform。
     三态文案区分（done/failed/canceled）+ 字段齐备 + 幂等（多轮扫描只发一次）。"""
     # ① 正常完成 → task_done
     a = create(["--name", "s14-done"], policy="one-shot")
@@ -937,8 +938,7 @@ def s14():
         "exit 0 无 report 的 one-shot 任务终态通知应含 no_report warn（P5）：%r" % payload
     time.sleep(1.0)  # 多轮扫描观察窗：不得重复发
     assert len(disp_notifs(a)) == 1, "幂等失效：同一终态多次通知"
-    msg_file = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox",
-                            env["id"] + ".msg")
+    msg_file = os.path.join(proto.position_inbox(ROOT), env["id"] + ".msg")
     assert os.path.exists(msg_file), "文件名应为 <id>.msg"
 
     # ② 崩溃（exitcode≠0）→ task_failed，report.md 在场则带路径
@@ -2268,11 +2268,13 @@ def s39():
     assert "bot/tester/" in body and any(
         ln == "bot/tester/" for ln in body.splitlines()), \
         "bot/ 条目无标记入清单（非旁路，无需审计标记）：" + body
-    rp = subprocess.run([sys.executable, gc, "add", "topic/dispatcher/",
-                         "--force", "--force-by", "s39"],
-                        capture_output=True, text=True, env=gcenv)
-    assert rp.returncode != 0, \
-        "topic/dispatcher 保护不动：含 --force 拒绝：%s%s" % (rp.stdout, rp.stderr)
+    for prot in ("topic/dispatcher/", "queue/dispatcher/"):
+        rp = subprocess.run([sys.executable, gc, "add", prot,
+                             "--force", "--force-by", "s39"],
+                            capture_output=True, text=True, env=gcenv)
+        assert rp.returncode != 0, \
+            "%s 保护不动（职位信箱的两个载体地址）：含 --force 拒绝：%s%s" % (
+                prot, rp.stdout, rp.stderr)
     # 清理：临时树内直接 rmtree（非生产 agents/ 网格，e2e 收尾整体删除）
     shutil.rmtree(os.path.join(ROOT, "agents", "topic"), ignore_errors=True)
     shutil.rmtree(os.path.join(ROOT, "agents", "gc"), ignore_errors=True)
@@ -2449,7 +2451,7 @@ def s40():
     ctl("topic", "init", "s40-solo", "--title", "无主持人议题")   # 零订阅 → `-`
     ctl("topic", "init", "s40-onlyhost", "--title", "仅主持人订阅",
         "--watcher", "s40-wonly")   # watcher 唯一条目即主持人 → 剔重后 `-`
-    # 系统主题现网真实形态：topic/dispatcher 的 watcher 条目绑定会话型调度员 bot
+    # 合成形态（机制面仍支持）：系统主题的 watcher 条目绑定一枚会话型 bot ⇒ 报表判出主持人
     sysdir = os.path.join(ROOT, "agents", "topic", _proto.POSITION_TOPIC)
     os.makedirs(os.path.join(sysdir, "watcher"), exist_ok=True)
     open(os.path.join(sysdir, "watcher", "dev-dispatcher"), "w").close()
@@ -2502,7 +2504,7 @@ def s41():
     `core.RETIRED_MAILBOXES`（core.ts）同源同口径——agentctl **接受路径式地址且会写盘**
     的四个子命令（send/ack/control/enable）命中退役地址一律拒绝 + 回执新址，且拒绝发生在
     任何路径计算/落盘**之前**（不重建无人消费的僵尸信箱）；护栏纯查表、独立于目录是否在
-    场（旧目录 gc 删除后仍拦得住）；正常地址（topic/dispatcher、task/<id>、bot/<名>）与
+    场（旧目录 gc 删除后仍拦得住）；正常地址（queue/dispatcher、task/<id>、bot/<名>）与
     `require_pid` 的文法校验语义零回归。"""
     import proto as _proto
     bdir = os.path.join(ROOT, "agents", "bot", "dispatcher")
@@ -2510,6 +2512,7 @@ def s41():
     # ① 退役表同源（键 = 退役的路径式地址，值 = 新地址；单点声明见 proto.py 注释）
     assert _proto.RETIRED_MAILBOXES == {
         _proto.BOT_DIR + "/" + _proto.POSITION_TOPIC: _proto.POSITION_PID,
+        _proto.TOPIC_DIR + "/" + _proto.POSITION_TOPIC: _proto.POSITION_PID,
         _proto.BOT_DIR + "/notify-user": _proto.QUEUE_DIR + "/notify-user",
         _proto.BOT_DIR + "/work-lead": _proto.QUEUE_DIR + "/work-lead",
         _proto.BOT_DIR + "/agentfw-lead": _proto.QUEUE_DIR + "/agentfw-lead",
@@ -2536,7 +2539,7 @@ def s41():
     assert set(_gc.BARE_FAMILY_ENTRIES) == set(_proto.LAYOUT_DIRS) | {"agents", "run"}, \
         "gc.py 裸族容器护栅须覆盖 proto.LAYOUT_DIRS 全集：%r vs %r" % (
             _gc.BARE_FAMILY_ENTRIES, _proto.LAYOUT_DIRS)
-    assert _proto.retired_move("bot/dispatcher") == "topic/dispatcher"
+    assert _proto.retired_move("bot/dispatcher") == "queue/dispatcher"
     assert _proto.retired_move("bot/notify-user") == "queue/notify-user", \
         "迁族地址必须命中退役表（否则投旧址会静默重建无人消费的僵尸信箱）"
     for old, new in (("bot/work-lead", "queue/work-lead"),
@@ -2546,7 +2549,9 @@ def s41():
         assert _proto.retired_move(old) == new, \
             "position 信箱与其 watcher 合并后两类旧地址都要进退役表：%s → %r" % (
                 old, _proto.retired_move(old))
-    for live in ("topic/dispatcher", "queue/dispatcher", "queue/notify-user",
+    assert _proto.retired_move("topic/dispatcher") == "queue/dispatcher", \
+        "职位信箱移族后旧址必须进退役表（否则在飞件的旧 reaper 值会落进 tombstone）"
+    for live in ("queue/dispatcher", "queue/notify-user",
                  "queue/work-lead", "queue/agentfw-lead",
                  "task/x1", "bot/dev-dispatcher", "bot/dispatcher2"):
         assert _proto.retired_move(live) is None, "在用地址不得命中退役表：%s" % live
@@ -2562,7 +2567,7 @@ def s41():
     for c in cmds:
         r = ctl(*c, expect_rc=2)
         assert "已退役" in r.stderr, r.stderr
-        assert "topic/dispatcher" in r.stderr, "回执必须含新地址：%r" % r.stderr
+        assert "queue/dispatcher" in r.stderr, "回执必须含新地址：%r" % r.stderr
         assert "未写任何文件" in r.stderr, "须明说本次零副作用：%r" % r.stderr
     # ③ 拒后零副作用：无新增信封、无 ack/、无 control/、无 enable.json
     assert os.listdir(inbox) == [], "退役地址不得落信封：%r" % os.listdir(inbox)
@@ -2579,16 +2584,25 @@ def s41():
     shutil.rmtree(bdir, ignore_errors=True)
     for c in cmds:
         r = ctl(*c, expect_rc=2)
-        assert "已退役" in r.stderr and "topic/dispatcher" in r.stderr, r.stderr
+        assert "已退役" in r.stderr and "queue/dispatcher" in r.stderr, r.stderr
     assert not os.path.exists(bdir), \
         "护栏独立于目录在场性：拒后不得重建 agents/bot/dispatcher/"
-    # ⑥ 正常地址零回归：新址（系统主题）+ task/ + bot/ 三类照旧可投
-    mid = ctl("send", "topic/dispatcher", "--type", "inform", "--body", "to new address",
+    # ⑥ 正常地址零回归：新址（职位信箱）+ task/ + bot/ 三类照旧可投
+    mid = ctl("send", "queue/dispatcher", "--type", "inform", "--body", "to new address",
               "--from", "task/s41").stdout.strip()
-    pinbox = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox")
+    pinbox = proto.position_inbox(ROOT)
     assert os.path.exists(os.path.join(pinbox, mid + ".msg")), "新址应正常收信"
-    ctl("ack", "topic/dispatcher", mid)
-    assert os.path.exists(os.path.join(pinbox, "ack", mid))
+    # ack 动词的零回归 **⛔ 拿职位信箱当靶**：共享 ROOT 的职位信箱必须对 S49 的 0828 回归
+    # 断言（「职位信箱零 ack 条目」= 子任务抢 ack 事故面）保持洁净 ⇒ 用一枚 bot 族信箱
+    # 验同款扁平 ack 落盘（queue 与 bot 同为单消费者信箱，ack 形态一致）。
+    os.makedirs(os.path.join(ROOT, "agents", "bot", "s41-box", "inbox"), exist_ok=True)
+    midb = ctl("send", "bot/s41-box", "--type", "inform", "--body", "ack target",
+               "--from", "task/s41").stdout.strip()
+    ctl("ack", "bot/s41-box", midb)
+    assert os.path.exists(os.path.join(
+        ROOT, "agents", "bot", "s41-box", "inbox", "ack", midb)), "单消费者信箱的扁平 ack 应落盘"
+    assert not os.path.exists(os.path.join(pinbox, "ack", mid)), \
+        "S41 ⛔ 不得在职位信箱留 ack（S49 的 0828 回归断言要求它零 ack 条目）"
     mid2 = ctl("send", "task/s41-peer", "--type", "inform", "--body", "normal task",
                "--from", "task/s41").stdout.strip()
     assert os.path.exists(os.path.join(
@@ -2616,7 +2630,7 @@ def _write_stop_req(pid_, reason):
     os.makedirs(cdir, exist_ok=True)
     mid = "2026-09-06-10-00-00.000-dispatcher-%s" % (pid_.split("/", 1)[1][:8])
     with open(os.path.join(cdir, mid + ".req"), "w") as f:
-        json.dump({"id": mid, "from": "topic/dispatcher",
+        json.dump({"id": mid, "from": "queue/dispatcher",
                    "ts": "2026-09-06T10:00:00+08:00",
                    "action": "stop", "reason": reason}, f, ensure_ascii=False)
 
@@ -2994,7 +3008,7 @@ def _s44_pid(name):
 
 def _s44_notifs(taskid=None):
     """隔离树职位信箱里 from=agentd 的终态通知（同主树 disp_notifs 口径）。"""
-    d = os.path.join(S44ROOT, "agents", "topic", "dispatcher", "inbox")
+    d = proto.position_inbox(S44ROOT)
     out = []
     for fn in sorted(glob.glob(os.path.join(d, "*.msg"))):
         try:
@@ -3077,7 +3091,7 @@ def s44():
     r = None
     try:
         os.makedirs(os.path.join(S44ROOT, "agents", "task"), exist_ok=True)
-        inbox_dir = os.path.join(S44ROOT, "agents", "topic", "dispatcher", "inbox")
+        inbox_dir = proto.position_inbox(S44ROOT)
         assert not os.path.exists(inbox_dir), "S44 前置：隔离树不得已有职位信箱"
 
         # ---- ①/⑥ 历史档案（endedAt 分散在 1–7 天前，混合 exited/0、exited/1、
@@ -3413,7 +3427,7 @@ def s45():
     set_sched_fields(a, reaper="bot/s45-mod", name="s45-parity")
     # ② 回落/直落形态
     b = create(["--name", "s45-reaper-pos"], policy="one-shot", gate=False)
-    set_sched_fields(b, reaper="topic/dispatcher", name="s45-parity")
+    set_sched_fields(b, reaper="queue/dispatcher", name="s45-parity")
     c = create(["--name", "s45-no-reaper"], policy="one-shot", gate=False)
     _drop_spec_field(c, "reaper")               # 缺字段（存量/人工档案形态）
     d = create(["--name", "s45-bad-reaper"], policy="one-shot", gate=False)
@@ -3467,7 +3481,7 @@ def s45():
     strip = lambda p_: {k: v for k, v in p_.items() if k not in _per_task}
     assert strip(pay_b) == strip(pay_a), \
         "两路载荷除任务自身字段外须逐字一致：%r vs %r" % (pay_a, pay_b)
-    assert (_notify_mark(b) or {}).get("to") == ["topic/dispatcher"], _notify_mark(b)
+    assert (_notify_mark(b) or {}).get("to") == ["queue/dispatcher"], _notify_mark(b)
 
     # ②′ reaper 缺失 / 文法非法 → 回落职位信箱 + note 点名成因
     for t, why in ((c, "reaper 字段缺失"), (d, "reaper 文法非法")):
@@ -3477,12 +3491,12 @@ def s45():
         assert "缺 reaper 字段" in (pay.get("note") or ""), \
             "%s → note 应点名缺字段成因：%r" % (why, pay)
         assert not bot_notifs("s45-mod", t), "%s 不得投 bot 信箱：%r" % (why, pay)
-        assert (_notify_mark(t) or {}).get("to") == ["topic/dispatcher"], (why, _notify_mark(t))
+        assert (_notify_mark(t) or {}).get("to") == ["queue/dispatcher"], (why, _notify_mark(t))
     # reaper 目录不在场 → 回落 + note 点名「不存在」
     pay_f = wait_until(lambda: disp_notifs(f)[0] if disp_notifs(f) else None,
                        "S45② 回落职位信箱（reaper 目录不在场）")[1]
     assert pay_f["note"] == "reaper bot/s45-ghost 不存在，回落职位信箱", pay_f
-    assert (_notify_mark(f) or {}).get("to") == ["topic/dispatcher"], _notify_mark(f)
+    assert (_notify_mark(f) or {}).get("to") == ["queue/dispatcher"], _notify_mark(f)
 
     # ③ 活性代理：目录在场但无消费者（两形）→ 回落 + note 含「无消费者」，自家信箱零信封
     for t, botname, why in ((i_, "s45-dead", "只有 inbox/"), (j, "s45-final", "pid.json 已 final")):
@@ -3493,7 +3507,7 @@ def s45():
         assert pay["note"].startswith("reaper bot/%s " % botname), pay
         assert notifs_in(os.path.join(ROOT, "agents", "bot", botname, "inbox")) == [], \
             "不活的收件方自家信箱不得落信封（%s）" % why
-        assert (_notify_mark(t) or {}).get("to") == ["topic/dispatcher"], (why, _notify_mark(t))
+        assert (_notify_mark(t) or {}).get("to") == ["queue/dispatcher"], (why, _notify_mark(t))
 
     # ④ 信箱存量信封不参与判重：g 无标记 → 重发一条（1 存量 + 1 重发 = 2），随后标记落位
     hits_g = wait_until(lambda: bot_notifs("s45-mod", g) if len(bot_notifs("s45-mod", g)) >= 2
@@ -3536,7 +3550,7 @@ const { default: factory } = await import(path.join(extDir, "receiver-child.ts")
 const selfInbox = path.join(root, "agents", ...self.split("/"), "inbox");
 fs.mkdirSync(selfInbox, { recursive: true });
 const ackOf = (id) => path.join(selfInbox, "ack", id);
-const posInbox = path.join(root, "agents", "topic", "dispatcher", "inbox");
+const posInbox = path.join(root, "agents", "queue", "dispatcher", "inbox");
 const entries = [];
 const sink = [];
 const handlers = {};
@@ -3610,7 +3624,7 @@ def s49():
         notifs = wait_until(lambda: [e for e, _p in disp_notifs(victim)] or None,
                             "S49 职位信箱终态通知到达", timeout=8.0)
         assert len(notifs) == 1, notifs
-        pos_inbox = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox")
+        pos_inbox = proto.position_inbox(ROOT)
         pos_msgs_before = sorted(glob.glob(os.path.join(pos_inbox, "*.msg")))
         assert pos_msgs_before, "职位信箱应有 runner 写的终态通知原件"
 
@@ -4155,7 +4169,7 @@ def s54():
     assert p5["note"] == "reaper bot/s54-ghost 不存在，回落职位信箱", p5
     assert not os.path.exists(os.path.join(ROOT, "agents", "bot", "s54-ghost")), \
         "回落面不得为不存在的 reaper 建目录"
-    assert (_notify_mark(t5) or {}).get("to") == ["topic/dispatcher"], _notify_mark(t5)
+    assert (_notify_mark(t5) or {}).get("to") == ["queue/dispatcher"], _notify_mark(t5)
 
     # ④ (taskId,收件方) 判重：多轮 tick + 杀重启后只一份
     time.sleep(1.0)
@@ -4210,7 +4224,7 @@ def s55():
     assert "缺 reaper 字段" in (p2.get("note") or ""), \
         "回落应带 note 点名缺字段成因（creator 回落档已裁）：%r" % p2
     assert not bot_notifs("s55-mod", b2), "creator 不再是收件面：其信箱零份"
-    assert (_notify_mark(b2) or {}).get("to") == ["topic/dispatcher"], _notify_mark(b2)
+    assert (_notify_mark(b2) or {}).get("to") == ["queue/dispatcher"], _notify_mark(b2)
 
 
 # ---------------------------------------------------------------- S56（项 1：ask 写侧收件面）
@@ -4244,7 +4258,7 @@ def s56():
                     d[k] = v[1:-1] if v.startswith("[") and v.endswith("]") else v
         return d.get("INBOX", ""), d.get("NOTE", "")
 
-    pos = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox")
+    pos = proto.position_inbox(ROOT)
     inbox1, note1 = readenv(t1)
     assert inbox1 == os.path.join(ROOT, "agents", "bot", "s56-reaper", "inbox"), inbox1
     assert note1 == "", "reaper 活 → 不带回落 note：%r" % note1
@@ -4263,7 +4277,7 @@ def s57():
     非调度员会话（领域会话/主持人）的取消一律记成调度员职位 = 审计与权威归属双失真。
     本场景钉住与 TS 侧 `core.resolveCreatorPid` **同源的优先级**：
     ① 显式 `--from`（非法即拒、零副作用）＞ ② 环境 `AGENT_SELF`（过文法白名单，
-    非法/缺失静默落下一档，同 TS 侧）＞ ③ 回落职位信箱 `topic/dispatcher`；
+    非法/缺失静默落下一档，同 TS 侧）＞ ③ 回落职位信箱 `queue/dispatcher`；
     信封 `from` 与文件名前缀（§2.2 fs_safe_id 转写）同源。
     只写控制请求、不起进程（夹具无 enable.json ⇒ 不会被拉起），收尾自清。"""
     import proto as _proto
@@ -4313,8 +4327,8 @@ def s57():
         r = ctl_env(["control", pid_, "stop", "--reason", "s57②"])
         assert r.returncode == 0, r.stderr
         doc, fn = latest()
-        assert doc["from"] == _proto.POSITION_PID == "topic/dispatcher", doc
-        assert "-topic.dispatcher-" in fn, fn
+        assert doc["from"] == _proto.POSITION_PID == "queue/dispatcher", doc
+        assert "-queue.dispatcher-" in fn, fn   # 回落 from 的 fsSafeId 前缀随职位信箱移族
         assert "operator" not in fn and "operator" not in json.dumps(doc), (fn, doc)
 
         # ③ 显式 --from 优先于环境（三族均可，文法白名单同一把尺）
@@ -4340,7 +4354,7 @@ def s57():
             r = ctl_env(["control", pid_, "stop"], {"AGENT_SELF": bad_env})
             assert r.returncode == 0, (bad_env, r.stderr)
             doc, _fn = latest()
-            assert doc["from"] == "topic/dispatcher", (bad_env, doc)
+            assert doc["from"] == "queue/dispatcher", (bad_env, doc)
 
         # ⑥ 文法单点复用（不新增 proto 逻辑）：解析用的就是 proto.is_valid_participant_id
         src = open(os.path.join(HERE, "agentctl.py")).read()
@@ -4380,7 +4394,7 @@ def s58():
     # 不污染 ② 的「最早未答 ask」判定面。
     other = "bot/s58-other"
     tadir, ladir, oadir = adir_of(t), adir_of(lead), adir_of(other)
-    pos_inbox = os.path.join(ROOT, "agents", "topic", "dispatcher", "inbox")
+    pos_inbox = proto.position_inbox(ROOT)
     for d in (tadir, ladir, oadir):
         shutil.rmtree(d, ignore_errors=True)
     for d in (tadir, ladir, oadir):
@@ -4439,9 +4453,9 @@ def s58():
         run(["send", lead, "--body", "x", "--from", "bot/s58-lead"], expect_rc=0)
         assert last_env(linbox)["from"] == "bot/s58-lead"
         run(["send", lead, "--body", "x"], expect_rc=0)
-        assert last_env(linbox)["from"] == "topic/dispatcher", "无 AGENT_SELF → 回落职位信箱"
+        assert last_env(linbox)["from"] == "queue/dispatcher", "无 AGENT_SELF → 回落职位信箱"
         run(["send", lead, "--body", "x"], {"AGENT_SELF": "裸名"}, expect_rc=0)
-        assert last_env(linbox)["from"] == "topic/dispatcher", "非法 AGENT_SELF 静默落下一档"
+        assert last_env(linbox)["from"] == "queue/dispatcher", "非法 AGENT_SELF 静默落下一档"
         # 拒路径：零落盘副作用
         for bad_args, kw in ((["send", lead, "--body", "   "], "正文为空"),
                              (["send", lead, "--body", "a", "--body-file", "-"], "二选一"),
@@ -4465,7 +4479,7 @@ def s58():
             "id": pos_ask_id, "from": t, "ts": _proto.now_ts(), "type": "ask",
             "body": json.dumps({"question": "阻塞征询：要不要继续？"}, ensure_ascii=False)})
         time.sleep(0.01)
-        run(["send", "topic/dispatcher", "--type", "ask",
+        run(["send", "queue/dispatcher", "--type", "ask",
              "--body", json.dumps({"question": "第二条（也在职位信箱）"},
                                   ensure_ascii=False)], {"AGENT_SELF": t}, expect_rc=0)
         time.sleep(0.01)
@@ -4797,7 +4811,7 @@ def main():
     check("S38 control/clear：杀+备份+截断+空白新代 + one-shot/final/spawn 前边界", s38)
     check("S39 topic 协作容器：寻址四族/扫描面隔离 + send 投递闭环（自动建目录/信封/文件名）+ GC 接受 topic/", s39)
     check("S40 agentctl 脚手架：topic init 布局/骨架/watcher 登记/拒绝面 + bot register --subscribes（通道 B 写入口、只改一字段、清空）+ --description/--reaper（：两键写入/缺省不写/非法 reaper 零落盘/既在场不生效）+ 标题跳 frontmatter+ 主题节主持人列（宽口径判据/跨机链接/剔重/系统主题豁免）", s40)
-    check("S41 退役地址护栏：proto.RETIRED_MAILBOXES 与 core.ts 同源 + send/ack/control/enable 拒绝并回执 topic/dispatcher + 拒后零副作用 + 独立于目录在场性 + 正常地址零回归", s41)
+    check("S41 退役地址护栏：proto.RETIRED_MAILBOXES 与 core.ts 同源 + send/ack/control/enable 拒绝并回执 queue/dispatcher + 拒后零副作用 + 独立于目录在场性 + 正常地址零回归", s41)
     check("S42 取消任务不再误报无报告：取消（stop 请求/exit 0 竞态/125）不发 no_report warn + 非取消缺报告仍发 warn + report.py verdict 同判据", s42)
     check("S43 空跑 provider 不算成功：exit0 无报告不放行/有报告放行 + 取消豁免（两判据）不判失败不发告警 + pending 优先于旧 success（含取消恢复路径）+ 零字节/纯空白 report.md 不算交付（🟡3）+ 报表面跟随裁决（需:列点名在途 provider、异常区 ⚠️ pending 压旧 success 含恢复路径，🟡2）+ 夹具未被拉起真验（⚪5）", s43)
     check("S44 终态通知重放护栏：冷启动零重放（空信箱 + 25 历史档案）+ 迟到档案不重放 + 新终态通知一次且载荷齐备 + 孤儿接管 stale/127+report 仍通知 + 取消不回归（两判据）+ 旧代终态档案本次 stop 收口仍通知 + 宽限窗可调+ 畸形 endedAt（键缺失/空串/垃圾串）降级抑制且不瘫痪整轮、排序在后的真终态照常通知", s44)
@@ -4818,7 +4832,7 @@ def main():
     check("S55 bot 族自身终态（两族同规则）：进程型 bot（spec.reaper、restartPolicy=auto）真跑 → control stop → 通知落 reaper 信箱（event=task_canceled、载荷无 role）+ 标记落位 + 职位信箱零份 / 对照无 reaper 字段 → 回落职位信箱带 note", s55)
     check("S56 子端 ask 写侧收件面=该 （项 1）：runner spawn 复用 resolve_reaper 单点经 env 注入 AGENTD_ASK_INBOX/NOTE——reaper 活→指其自家信箱且无 note / reaper 不存在→回落职位信箱+note 点名成因且不建僵尸目录", s56)
     check("S57 控制信封 from 归属单点化：显式 --from（非法即拒+零副作用）＞环境"
-          " AGENT_SELF（过文法白名单，非法/缺失静默落档）＞回落职位信箱 topic/dispatcher；"
+          " AGENT_SELF（过文法白名单，非法/缺失静默落档）＞回落职位信箱 queue/dispatcher；"
           "裸名缺省值（\"operator\"）退场；信封 from 与文件名前缀同源（与 TS 侧"
           " core.resolveCreatorPid 同优先级）", s57)
     check("S58 写侧动词两档：send（协议动词：type 缺省 inform / --deliver 显式才落盘 / "

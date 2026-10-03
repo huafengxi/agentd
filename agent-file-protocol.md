@@ -89,7 +89,7 @@ anchors:
 
 协议层对二者不做区分，只差有没有进程在跑：人与 agent 都能被 ask、都能 reply、都能发 inform；人不需要 `spec.json`/`pid`/`runner`，其「运行」就是人自己去读目录、写文件（含代写 `reply`）。
 
-**布局 = 类型分层 + 四族（两层封顶，单布局）**：`task/<id>/`（自动名 `<rand6>`，自定义名如心跳任务同落此处；进程型）、`bot/<名字>/`（**会话载体** ∨ **进程载体** = 分发地址：`inbox/` + `watcher/<participant名>` 订阅注册表 + 转发进程 `spec.json`/`pid.json`，语义 `@dispatch#channel`；信箱型 bot 无 `spec.json`）、`topic/<id>/`（`topic.md` + `inbox/` 全量日志 + `watcher/` + 可选 `minutes/`，创建入口 `agentctl topic init`；非进程型；含**系统主题** `topic/dispatcher` = 调度员职位信箱，语义 `@topic-design`）、`queue/<名字>/`（**无状态请求处理站** = 信箱 `inbox/`（+`ack/`）与处理进程档案 `spec.json`/`pid.json`/`enable.json` **同目录**；⛔ 非 LLM 会话载体、⛔ 无 `watcher/` 订阅注册表（活性由其进程档案直供）、⛔ 不得被第三方会话绑定；创建入口 = 被追踪声明源 + `make bots.seed`，⛔ 无 ad-hoc 登记动词）。
+**布局 = 类型分层 + 四族（两层封顶，单布局）**：`task/<id>/`（自动名 `<rand6>`，自定义名如心跳任务同落此处；进程型）、`bot/<名字>/`（**会话载体** ∨ **进程载体** = 分发地址：`inbox/` + `watcher/<participant名>` 订阅注册表 + 转发进程 `spec.json`/`pid.json`，语义 `@dispatch#channel`；信箱型 bot 无 `spec.json`）、`topic/<id>/`（`topic.md` + `inbox/` 全量日志 + `watcher/` + 可选 `minutes/`，创建入口 `agentctl topic init`；非进程型；含**系统主题**（无策展 owner、gc 受保护；现网唯一一枚 = 职位信箱的遗留载体 `topic/dispatcher`，现役载体在 `queue/dispatcher`，语义 `@topic-design`）、`queue/<名字>/`（**无状态请求处理站** = 信箱 `inbox/`（+`ack/`）与处理进程档案 `spec.json`/`pid.json`/`enable.json` **同目录**；⛔ 非 LLM 会话载体、⛔ 无 `watcher/` 订阅注册表（活性由其进程档案直供）、⛔ 不得被第三方会话绑定；创建入口 = 被追踪声明源 + `make bots.seed`，⛔ 无 ad-hoc 登记动词）。
 
 - **寻址 = 路径式 id 按第一段直落**（§2.2）：无存在性探测、无回退；类型容器目录本身不是参与方；层数固定两层、**不支持任意嵌套**——两层封顶使「哪一层是参与方」零歧义（类型容器下的一级子目录即参与方），层次需求用命名分层与关系字段表达（§2.2）；
 - **GC**：四族同等可经 gc 通道删除（删除传播实现单点 `agents-sync/gc.py`）；**系统保护** = 该文件的 `PROTECTED_SYSTEM_PATHS`（现含职位信箱的两个载体地址 `topic/dispatcher` + `queue/dispatcher`，连 `--force` 也拒）；审计旁路 `add --force` 供豁免族使用；
@@ -140,7 +140,7 @@ agents/<participantId>/
 ├── inbox/                      # 所有参与方（唯一消息通道）
 │   ├── <ts>-<from>-<rand>.msg  #   消息（发送方写，不可变）
 │   └── ack/<id>                #   消息送达确认（收件方写）
-│       └── <订阅者>/<id>       #   共享式多订阅信箱（topic/，含职位信箱系统主题）：判重按订阅者隔离（§4.6）
+│       └── <订阅者>/<id>       #   共享式多订阅信箱（topic/）：判重按订阅者隔离（§4.6）
 │                               #   （在飞态 = 已认领未确认送达：只在收件方进程内存，盘上无中间形态，§4.6）
 │
 │   # —— 以下仅进程型参与方 ——
@@ -296,7 +296,7 @@ agents/<participantId>/
 | 信箱形态 | ack 路径 | 判重范围 |
 |---|---|---|
 | 单订阅（`task/`、`bot/` 自家信箱；channel 转发器对自家信箱） | `ack/<id>`（扁平） | 全局：先到先得，多会话并存时只一个认领成功 |
-| 共享式多订阅（`topic/` 全量日志信箱，含系统主题 `topic/dispatcher`） | `ack/<订阅者>/<id>`，订阅者段 = 订阅者 participantId 经 `fsSafeId` 转写（如 `bot.dispatcher-watcher`） | 按订阅者隔离：同一信封每个订阅者各认领一次（广播），互不抢收；各写各的命名空间 ⇒ 跨机亦无写冲突 |
+| 共享式多订阅（`topic/` 全量日志信箱） | `ack/<订阅者>/<id>`，订阅者段 = 订阅者 participantId 经 `fsSafeId` 转写（如 `bot.<订阅者名>`） | 按订阅者隔离：同一信封每个订阅者各认领一次（广播），互不抢收；各写各的命名空间 ⇒ 跨机亦无写冲突 |
 
 两态共存不互干扰（路径不同）。**命名空间段安全性**：段含 `/`、`\` 或 `..`（如订阅者名含连续点——名白名单只拒整名 `.`/`..`）时，实现层**拒绝该订阅者的整个绑定面**并留降级日志——**共享信箱绝不落扁平 ack**（扁平 = 全局先到先得，两个同样降级的订阅者会互抢/互挡）；自家信箱不受影响（单订阅即既有语义），改名去掉连续点即恢复。
 
@@ -382,7 +382,7 @@ agents/<participantId>/
 
 `inbox/` 是参与方之间**唯一的消息通道**。信封：`{ id(= 文件名 <ts>-<from>-<rand>.msg), from, ts, type: ask|inform|reply, ref, body, deliver?, via? }`。
 
-**`from` 的写侧口径 = 真实发送方**（两段路径式 id，§2.2）：会话身份取自身参与方 id（过文法白名单），缺失/非法回落职位信箱 `topic/dispatcher`；CLI 侧优先级 = 显式 `--from` ＞ 环境 `AGENT_SELF` ＞ 回落职位信箱，**不接受裸名**。控制请求信封（§4.3）与 `reply`（§4.5）同此口径——reply 是收件方眼里「答复来自谁」，写死职位会把领域会话/主持人的裁定呈现为调度员职位的裁定。**历史存量信封有归因错误留痕** ⇒ 存量 `from` **不可作发送方归因依据**；归因另核消费与产物面（`inbox/ack/<id>`、`report.md`、`pid.json`）。解析单点 = `@agentd#conventions` 与扩展侧实现。
+**`from` 的写侧口径 = 真实发送方**（两段路径式 id，§2.2）：会话身份取自身参与方 id（过文法白名单），缺失/非法回落职位信箱 `queue/dispatcher`；CLI 侧优先级 = 显式 `--from` ＞ 环境 `AGENT_SELF` ＞ 回落职位信箱，**不接受裸名**。控制请求信封（§4.3）与 `reply`（§4.5）同此口径——reply 是收件方眼里「答复来自谁」，写死职位会把领域会话/主持人的裁定呈现为调度员职位的裁定。**历史存量信封有归因错误留痕** ⇒ 存量 `from` **不可作发送方归因依据**；归因另核消费与产物面（`inbox/ack/<id>`、`report.md`、`pid.json`）。解析单点 = `@agentd#conventions` 与扩展侧实现。
 
 ### 6.2 type 三分法（按会话语用切分）
 
@@ -726,7 +726,7 @@ agent 目录内的运行期文件（`pid.json`、`control/ack/`、`inbox/ack/`�
 
 > **在飞态无盘上载体 ⇒ 跨机同步面无排除项**：会话型收件方的在飞态只在进程内存（§4.6），盘上没有「只属写者本机」的短命账本 ⇒ 同步面排除清单当前为空（管道保留：重加一条 = 改一个常量）。**推送侧盘上没有 ack 可撤销**（撤销面与 hub 回灌残留缺口 = `lore/library/agentfw/facts/inbox-receiver.md`）。**对账不变量照旧**：一信封一终态 `ack/<id>`；统计某订阅者的 ack 条数直接数精确名即可（无需过滤在飞形态）。
 
-> **职位信箱系统主题 `topic/dispatcher`**：信封写者 = 任意宿主（各机 runner 写本机终态通知的**回落份**、子端写 ask 的**回落份**、人机/服务写 inform）——仍是「每个消息文件恰一个写者」；ack 写者 = 各订阅者会话的宿主。默认收件面与回落判据 = §4.1 `reaper`，分流与判重口径属应用层（`@dispatch#lifecycle`）；删除保护在 hub 侧 GC 工具（`agents-sync/gc.py PROTECTED_SYSTEM_PATHS`，连 `--force` 也拒），不属协议层。
+> **职位信箱 `queue/dispatcher`**（queue 族参与方：信箱与 watcher 处理进程同目录）：信封写者 = 任意宿主（各机 runner 写本机终态通知的**回落份**、子端写 ask 的**回落份**、人机/服务写 inform）——仍是「每个消息文件恰一个写者」；ack 写者 = 单一消费者（同目录 watcher 进程）所在的宿主 ⇒ 扁平 ack 无跨机写冲突。默认收件面与回落判据 = §4.1 `reaper`，分流与判重口径属应用层（`@dispatch#lifecycle`）；删除保护在 hub 侧 GC 工具（`agents-sync/gc.py PROTECTED_SYSTEM_PATHS`，连 `--force` 也拒），不属协议层。
 
 > **所有权由 `spec.host` 声明、由写隔离执行**：第一定律在多机场景的自然延伸——「每个文件恰有一个写入方」依旧成立，只是写者的机器归属变得显式可声明、可验证。
 

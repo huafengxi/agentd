@@ -84,21 +84,21 @@ def h9():
 
     alarm("h9-alarm-1")
     ok("H9 停滞告警不算已终态通知（判重不拺位）",
-       r._already_notified(pid_, "topic/dispatcher") is False)
+       r._already_notified(pid_, proto.POSITION_PID) is False)
     alarm("h9-done", event="task_done")
     ok("H9 信箱里的终态信封也不参与判重（唯一事实源 = 标记；无标记即可投）",
-       r._already_notified(pid_, "topic/dispatcher") is False)
+       r._already_notified(pid_, proto.POSITION_PID) is False)
     # notified.json 标记（权威判重；粒度 = (taskId, 收件方)）
     proto.atomic_write_json(os.path.join(adir, R.NOTIFY_MARK),
-                            {"to": ["topic/dispatcher"], "ts": proto.now_ts(),
+                            {"to": [proto.POSITION_PID], "ts": proto.now_ts(),
                              "event": "task_failed", "complete": True})
     ok("H9 标记含该收件方 → 已通知（不重投）",
-       r._already_notified(pid_, "topic/dispatcher") is True)
+       r._already_notified(pid_, proto.POSITION_PID) is True)
     ok("H9 标记不含的新收件方 → 未通知（可投）",
        r._already_notified(pid_, "bot/w1") is False)
     ok("H9 标记缺失 → _mark_doc 返回 None、判未通知",
        r._mark_doc("task/h9-nothere") is None
-       and r._already_notified("task/h9-nothere", "topic/dispatcher") is False)
+       and r._already_notified("task/h9-nothere", proto.POSITION_PID) is False)
 
 
 
@@ -165,32 +165,36 @@ def h13():
        r._pid_active("bot/sub-only", cache) == r._pid_active("bot/sub-only") == (True, ""))
 
     # ---- resolve_reaper 两档 ----
-    got = r.resolve_reaper({"reaper": "bot/live-box", "creator": "topic/dispatcher"})
+    got = r.resolve_reaper({"reaper": "bot/live-box", "creator": proto.POSITION_PID})
     ok("H13 reaper 显式字段（creator 不参与推导）",
        got["pid"] == "bot/live-box"
        and got["inbox"] == os.path.join(root, "agents", "bot", "live-box", "inbox")
        and got["note"] is None, got)
     got = r.resolve_reaper({"creator": "bot/live-proc"})
     ok("H13 无 reaper 字段 → 回落职位信箱 + note（creator 回落档已裁）",
-       got["pid"] == "topic/dispatcher" and got["inbox"] == pos
+       got["pid"] == proto.POSITION_PID and got["inbox"] == pos
        and "缺 reaper 字段" in (got["note"] or ""), got)
     got = r.resolve_reaper({})
     ok("H13 spec 空 → 回落职位信箱 + note",
-       got["pid"] == "topic/dispatcher" and got["note"] is not None, got)
+       got["pid"] == proto.POSITION_PID and got["note"] is not None, got)
     got = r.resolve_reaper({"reaper": "bot/ghost"})
     ok("H13 reaper 目录不存在 → 回落职位信箱 + note「不存在，回落职位信箱」",
-       got["pid"] == "topic/dispatcher" and got["inbox"] == pos
+       got["pid"] == proto.POSITION_PID and got["inbox"] == pos
        and got["note"] == "reaper bot/ghost 不存在，回落职位信箱", got)
     got = r.resolve_reaper({"reaper": "bot/dead-final"})
     ok("H13 reaper 目录在场但无消费者 → 回落职位信箱 + note 点名成因",
-       got["pid"] == "topic/dispatcher" and "无消费者" in (got["note"] or "")
+       got["pid"] == proto.POSITION_PID and "无消费者" in (got["note"] or "")
        and got["note"].startswith("reaper bot/dead-final "), got)
-    got = r.resolve_reaper({"reaper": "topic/dispatcher"})
+    got = r.resolve_reaper({"reaper": proto.POSITION_PID})
     ok("H13 reaper = 职位信箱本身 → 直落回落面（不做活性判定、不带 note）",
-       got["pid"] == "topic/dispatcher" and got["note"] is None, got)
+       got["pid"] == proto.POSITION_PID and got["note"] is None, got)
+    got = r.resolve_reaper({"reaper": "topic/dispatcher"})
+    ok("H13 reaper = 已退役的旧职位信箱 → 改投新址（= 回落面）+ note 点名退役",
+       got["pid"] == proto.POSITION_PID and got["inbox"] == pos
+       and "已退役" in (got["note"] or ""), got)
     got = r.resolve_reaper({"reaper": "bot/a/b"})
     ok("H13 reaper 文法非法 → 回落职位信箱 + note（不抛）",
-       got["pid"] == "topic/dispatcher" and "缺 reaper 字段" in (got["note"] or ""), got)
+       got["pid"] == proto.POSITION_PID and "缺 reaper 字段" in (got["note"] or ""), got)
     # ---- ①b 退役地址改投（写侧 = 拒绝+回执；通知侧无交互发送方 ⇒ 改投 + note）----
     qd = os.path.join(root, "agents", "queue", "notify-user")
     os.makedirs(os.path.join(qd, "inbox"), exist_ok=True)
@@ -205,16 +209,16 @@ def h13():
        and "queue/notify-user" in (got["note"] or ""), got)
     got = r.resolve_reaper({"reaper": "bot/work-lead"})
     ok("H13 退役改投后新址不在场 → 回落职位信箱，note 含退役与不存在两段成因",
-       got["pid"] == "topic/dispatcher" and got["inbox"] == pos
+       got["pid"] == proto.POSITION_PID and got["inbox"] == pos
        and "已退役" in (got["note"] or "") and "不存在" in (got["note"] or ""), got)
     # ---- 判重标记 = 唯一事实源（集合语义；无信箱回落扫描/补写面） ----
     pid_, adir, _sp, _doc = mktask(root, "h13m")
     ok("H13 标记缺失 → _mark_doc 返回 None", r._mark_doc(pid_) is None)
     proto.atomic_write_json(os.path.join(adir, R.NOTIFY_MARK),
-                            {"to": ["topic/dispatcher"], "ts": proto.now_ts(),
+                            {"to": [proto.POSITION_PID], "ts": proto.now_ts(),
                              "event": "task_done", "complete": True})
     ok("H13 集合内收件方 → 已通知；集合外 → 未通知（可投）",
-       r._already_notified(pid_, "topic/dispatcher") is True
+       r._already_notified(pid_, proto.POSITION_PID) is True
        and r._already_notified(pid_, "bot/w9") is False)
     # 信箱里的存量终态信封不参与判重（回落扫描面已裁）：无标记即未通知
     pid2, _adir2, _sp2, _doc2 = mktask(root, "h13b")
@@ -223,7 +227,7 @@ def h13():
         "id": mid, "from": "agentd", "ts": "2026-09-06-00:00:00.000", "type": "inform",
         "body": json.dumps({"event": "task_done", "taskId": pid2}, ensure_ascii=False)})
     ok("H13 信箱信封不判重（历史档案的重放由重放护栏兜住，见 e2e S44）",
-       r._already_notified(pid2, "topic/dispatcher") is False
+       r._already_notified(pid2, proto.POSITION_PID) is False
        and r._mark_doc(pid2) is None, r._mark_doc(pid2))
 
 
@@ -238,7 +242,7 @@ def h14():
     _mk_bot(root, "dead-final", pid_final=True)     # 目录在场但无消费者
     live_inbox = os.path.join(root, "agents", "bot", "live-proc", "inbox")
 
-    env = r._ask_inbox_env({"reaper": "bot/live-proc", "creator": "topic/dispatcher"})
+    env = r._ask_inbox_env({"reaper": "bot/live-proc", "creator": proto.POSITION_PID})
     ok("H14 reaper 活 → AGENTD_ASK_INBOX = reaper 自家信箱、不带 AGENTD_ASK_NOTE",
        env.get("AGENTD_ASK_INBOX") == live_inbox and "AGENTD_ASK_NOTE" not in env, env)
     env = r._ask_inbox_env({"reaper": "bot/ghost"})
@@ -249,7 +253,7 @@ def h14():
     ok("H14 reaper 目录在场但无消费者 → 回落职位信箱 + AGENTD_ASK_NOTE 含「无消费者」",
        env.get("AGENTD_ASK_INBOX") == pos and "无消费者" in env.get("AGENTD_ASK_NOTE", "")
        and env["AGENTD_ASK_NOTE"].startswith("reaper bot/dead-final "), env)
-    env = r._ask_inbox_env({"creator": "topic/dispatcher"})
+    env = r._ask_inbox_env({"creator": proto.POSITION_PID})
     ok("H14 无 reaper 字段 → 回落职位信箱 + AGENTD_ASK_NOTE 点名成因",
        env.get("AGENTD_ASK_INBOX") == pos
        and "缺 reaper 字段" in env.get("AGENTD_ASK_NOTE", ""), env)

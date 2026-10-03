@@ -152,7 +152,7 @@ def acquire_single_instance_lock(root, host):
 # 登记侧对偶 = core.ts resolveReaper 写 spec.reaper：
 #   - `spec.reaper`（路径式 id）= 唯一负责收尾的收件方（读 report 验收、遗留事项进 todo、销账）。
 # 回落：reaper 缺失/文法非法/解析不到目录或目录在场但**无消费者**（活性代理 _pid_active）→
-# 回落职位信箱 agents/topic/dispatcher/inbox/（系统主题 自 bot/dispatcher/ 移族；
+# 回落职位信箱 agents/queue/dispatcher/inbox/（queue 族参与方：信箱与 watcher 进程同目录；
 # 订阅者会话的薄 receiver 直订认领注入）并在 body 加 `note` 说明回落原因。职位信箱已退出
 # 「任务终态通知」的默认收件面，只作回落面；它保留的写入口 = runner 停滞告警、子端 ask、
 # 服务告警、人机/agent 传话。
@@ -520,7 +520,7 @@ class Runner:
     def notify_tick(self):
         """每轮扫描：本机认领的 agent 到达生命周期终态（final+代终态）→ 向 **reaper**
         （唯一收件方，resolve_reaper 解析；解析不到/不活 → 回落职位信箱
-        topic/dispatcher/inbox/ 并带 note）写一条 inform 终态通知。幂等：判重 =
+        queue/dispatcher/inbox/ 并带 note）写一条 inform 终态通知。幂等：判重 =
         自家目录 notified.json 标记（多轮/重启均不重发；崩溃在「信封已写、标记未写」
         窗口 → 重发一条重复 inform，接受）**∩ 重放护栏**（replay_suppressed：本次运行
         未见证其终态迁移的历史档案不当新事件重放，判据见 REPLAY_GRACE_DEFAULT；

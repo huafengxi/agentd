@@ -84,7 +84,7 @@ python3 scheduler.py --root <workspace-root> --all-hosts --interval 0.5 \
 A="python3 agentd/agentctl.py"
 $A list                                    # 全参与方与状态摘要
 $A status task/<id>                        # 代终态/生命周期终态判定（§10）
-$A create --command 'sleep 10' --workdir /tmp --creator topic/dispatcher  # 自动名；--name 自定义
+$A create --command 'sleep 10' --workdir /tmp --creator queue/dispatcher  # 自动名；--name 自定义
 $A create … --resources '["gpu"]' --provides '["capA"]' --needs '["capB"]'  # DAG 调度字段（可选）
 # 消息：协议动词 send/ack（只落盘）、用例动词 answer（带前置门）。
 # `from` 缺省取环境 AGENT_SELF，再缺省回落职位信箱（不接受裸名；显式 --from 非法即拒）
@@ -109,7 +109,7 @@ $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
      # `restartPolicy`；两 flag 缺省时各打一行 WARN 到 stderr（登记照常成功）；已在场分支不生效
      # 两个可选 flag 的缺省后果（各一句，可独立抄）：
      # --restart-policy 缺省 = spec 不写该键 ⇒ 崩溃不自愈，但**仍会 final、仍会发终态通知**（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"；`final` 与该键无关，判据见下「约定赋值与实现口径」首条）；常驻体要自愈必须显式 --restart-policy auto（守护型的正规路径 = 被追踪声明源 bots/daemon/<名>/spec.json + make bots.seed，其 spec 自带该字段）。
-     # --reaper 缺省 = spec 不写该键 ⇒ 终态通知回落职位信箱 topic/dispatcher 并带 note；要指定收尾方就显式 --reaper <两段路径式 id>（bot/<名> ∨ task/<id> ∨ topic/<id>）。
+     # --reaper 缺省 = spec 不写该键 ⇒ 终态通知回落职位信箱 queue/dispatcher 并带 note；要指定收尾方就显式 --reaper <两段路径式 id>（bot/<名> ∨ task/<id> ∨ topic/<id>）。
 # 删除铁律：两者都只创建——agents/ 内任何清理走 `python3 agents-sync/gc.py add <路径>` + `reap`
 
 # lore 资产清单 + 全局名字索引（`knowledge` 名 → 清单；规范 `@bots#kb-spec`，
