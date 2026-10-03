@@ -219,7 +219,7 @@ def topic_inbox(root: str, name: str) -> str:
 
 # ---- 职位信箱（系统主题：自 bot/dispatcher/ 移族） ----
 # 调度通知流（runner 终态通知 + 子端 ask + 人机/服务传话）的写入口 = 系统主题
-# agents/topic/dispatcher/inbox/；消费 = 订阅者会话（现网 dev-dispatcher）的 receiver
+# agents/topic/dispatcher/inbox/；消费 = 该 position 的 watcher（进程型 bot，轮询并派一次性 handler）
 # 直订（共享式多订阅，ack 按订阅者命名空间隔离），拷贝式转发进程已退役。
 # 应用层语义权威 = dispatch/DISPATCH.md §1/§8；与 TS 侧 core.ts positionInbox 同源。
 POSITION_TOPIC = "dispatcher"
