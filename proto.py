@@ -264,7 +264,12 @@ def position_inbox(root: str) -> str:
 # 旧目录 gc 删除后尤其如此）。
 # 判定**纯查表、与目录是否在场无关**：旧目录在 gc 前仍在场且有 pid.json（能过
 # agentctl.require_pid 的文法/身份校验），只有查表能拦住它。
-RETIRED_MAILBOXES = {BOT_DIR + "/" + POSITION_TOPIC: POSITION_PID}
+# 键值是部署面的具体参与方名（与 POSITION_TOPIC 同类）：本仓收录判据的既有例外面，
+# 加条目沿用同款形态（两语言同批 + e2e S41 钉相等）。
+RETIRED_MAILBOXES = {
+    BOT_DIR + "/" + POSITION_TOPIC: POSITION_PID,
+    BOT_DIR + "/notify-user": QUEUE_DIR + "/notify-user",
+}
 
 
 def retired_move(pid_):

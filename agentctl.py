@@ -556,9 +556,10 @@ def require_not_retired(s, what="参与方"):
     status/list 不加（保留对退役目录的考古能力，零副作用）。"""
     moved = proto.retired_move(s)
     if moved:
-        die("%s %s 已退役（职位信箱移族，任务）——请改用 %s"
-            "（调度员职位信箱 = 系统主题，订阅者会话 receiver 直订注入）。"
-            "本次未写任何文件/目录。" % (what, s, moved), code=2)
+        # 回执只给可动作面（新址）：逐条目的退役理由不进报文——本表是多条目共用一条
+        # 报文模板，写死某一枚的理由会对其他条目作假陈述。
+        die("%s %s 已退役（地址移族）——请改用 %s。本次未写任何文件/目录。"
+            % (what, s, moved), code=2)
     return s
 
 

@@ -703,6 +703,7 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     # 统计/异常/活跃/终态各表只算 task 族，避免「任务数」被常驻进程稀释。
     tasks = [t for t in collected if t["id"].startswith(proto.TASK_DIR + "/")]
     bots = [t for t in collected if t["id"].startswith(proto.BOT_DIR + "/")]
+    queues = [t for t in collected if t["id"].startswith(proto.QUEUE_DIR + "/")]
 
     running = [t for t in tasks if not t["final"] and t["has_pid"]]
     queued = [t for t in tasks if not t["has_pid"]]
@@ -1035,15 +1036,19 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
         L.append("（无活跃任务）")
     L.append("")
 
-    # bot 族单独成节：常驻进程与任务混在一张表里会稀释任务口径；
+    # bot ∪ queue 两族单独成节：常驻进程与任务混在一张表里会稀释任务口径；
     # bot 状态语义见 bot_state（auto 策略 final=被停用/意外死亡，非完成）。
-    bots_sorted = sorted(bots, key=lambda b: b["id"])
-    L.append("## bot 常驻进程（%d）" % len(bots_sorted))
+    # queue 族（无状态请求处理站）同表：它也是常驻进程；⛔ 不给 ?v=chat 会话观测面
+    # （非 LLM 会话载体，判据在 chat_url 的族白名单）。
+    # ⚠ 主持人判据的数据源仍只给 bot 族（下方 collect_topics(bots=bots)）：_bot_view 独立
+    # 调用时只扫 agents/bot/*，传 bot ∪ queue 会让两条调用路口径分叉。
+    procs_sorted = sorted(bots + queues, key=lambda b: b["id"])
+    L.append("## 常驻进程（bot ∪ queue）（%d）" % len(procs_sorted))
     L.append("")
-    if bots_sorted:
-        L.append("| bot | 用途名 | 状态 | restartPolicy | restarts | gen | 已运行 | 最近心跳 | host | 备注 |")
+    if procs_sorted:
+        L.append("| 参与方 | 用途名 | 状态 | restartPolicy | restarts | gen | 已运行 | 最近心跳 | host | 备注 |")
         L.append("|---|---|---|---|---|---|---|---|---|---|")
-        for b in bots_sorted:
+        for b in procs_sorted:
             bstate, bnote = bot_state(b, now)
             runfor = fmt_dur(now - b["startedAt"]) if b["startedAt"] else "-"
             hb = fmt_ts(b["lastAliveAt"]) if b["lastAliveAt"] else "-"
@@ -1051,9 +1056,10 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             # 会话型 bot（`bot/<名>`，pid.json 有 sock）与 task 族同权，bot 名
             # 与用途名均可点击弹出 ?v=chat 观测窗；脚本型 bot 与 channel
             # 转发器无会话 → 保持纯文本（族别名单住调用方的声明面）。
+            # 第一列 = 路径式 id（含族）：同名参与方分属两族时（迁移窗常态）裸名不可区分。
             burl = chat_url(b["id"], b["host"]) if is_session_bot(b) else ""
             L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"
-                     % (md_link("`%s`" % b["id"].split("/", 1)[1], burl),
+                     % (md_link("`%s`" % b["id"], burl),
                         md_link(truncate(b["name"], 40), burl),
                         md_escape(bstate),
                         md_escape(b["restartPolicy"] or "-"),
@@ -1062,7 +1068,7 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
                         runfor, hb, md_escape(b["host"] or "-"),
                         md_escape(truncate(bnote, 40) or "-")))
     else:
-        L.append("（无 bot 族进程目录）")
+        L.append("（无 bot/queue 族进程目录）")
     L.append("")
 
     # topic 协作容器小节：直扫 agents/topic/*（非进程型、不入
@@ -1165,7 +1171,7 @@ SECTION_TITLES = {
     "stats": "## 统计",
     "abnormal": "## ⚠️ 异常区",
     "active": "## 活跃任务",
-    "bots": "## bot 常驻进程",
+    "bots": "## 常驻进程（bot ∪ queue）",
     "topics": "## 主题",
     "recent": "## 最近完成",
     "terminal": "## 终态任务",
