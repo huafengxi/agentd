@@ -2510,7 +2510,11 @@ def s41():
     # ① 退役表同源（键 = 退役的路径式地址，值 = 新地址；单点声明见 proto.py 注释）
     assert _proto.RETIRED_MAILBOXES == {
         _proto.BOT_DIR + "/" + _proto.POSITION_TOPIC: _proto.POSITION_PID,
-        _proto.BOT_DIR + "/notify-user": _proto.QUEUE_DIR + "/notify-user"}, \
+        _proto.BOT_DIR + "/notify-user": _proto.QUEUE_DIR + "/notify-user",
+        _proto.BOT_DIR + "/work-lead": _proto.QUEUE_DIR + "/work-lead",
+        _proto.BOT_DIR + "/agentfw-lead": _proto.QUEUE_DIR + "/agentfw-lead",
+        _proto.BOT_DIR + "/work-lead-watcher": _proto.QUEUE_DIR + "/work-lead",
+        _proto.BOT_DIR + "/agentfw-lead-watcher": _proto.QUEUE_DIR + "/agentfw-lead"}, \
         "退役表须与 core.ts RETIRED_MAILBOXES 同口径（TS 侧字面量钉在扩展单测）：%r" % _proto.RETIRED_MAILBOXES
     # ①b 系统主题豁免名单同源（攒批 5）：report.py 走 proto.PROTECTED_SYSTEM_*，
     #    agents-sync/gc.py 自带 hub 侧副本（刻意 stdlib-only 不 import proto）→ 漏改一侧的后果 =
@@ -2535,7 +2539,15 @@ def s41():
     assert _proto.retired_move("bot/dispatcher") == "topic/dispatcher"
     assert _proto.retired_move("bot/notify-user") == "queue/notify-user", \
         "迁族地址必须命中退役表（否则投旧址会静默重建无人消费的僵尸信箱）"
+    for old, new in (("bot/work-lead", "queue/work-lead"),
+                     ("bot/agentfw-lead", "queue/agentfw-lead"),
+                     ("bot/work-lead-watcher", "queue/work-lead"),
+                     ("bot/agentfw-lead-watcher", "queue/agentfw-lead")):
+        assert _proto.retired_move(old) == new, \
+            "position 信箱与其 watcher 合并后两类旧地址都要进退役表：%s → %r" % (
+                old, _proto.retired_move(old))
     for live in ("topic/dispatcher", "queue/dispatcher", "queue/notify-user",
+                 "queue/work-lead", "queue/agentfw-lead",
                  "task/x1", "bot/dev-dispatcher", "bot/dispatcher2"):
         assert _proto.retired_move(live) is None, "在用地址不得命中退役表：%s" % live
     cmds = [("send", "bot/dispatcher", "--type", "inform", "--body", "hi",

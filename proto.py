@@ -269,6 +269,12 @@ def position_inbox(root: str) -> str:
 RETIRED_MAILBOXES = {
     BOT_DIR + "/" + POSITION_TOPIC: POSITION_PID,
     BOT_DIR + "/notify-user": QUEUE_DIR + "/notify-user",
+    # position 信箱与其 watcher 进程合并成单一 queue 参与方（信箱与处理进程同目录）
+    # ⇒ 两类旧地址都进表：前者有存量投递方，后者只防陈旧文档驱动的写侧重建僵尸信箱。
+    BOT_DIR + "/work-lead": QUEUE_DIR + "/work-lead",
+    BOT_DIR + "/agentfw-lead": QUEUE_DIR + "/agentfw-lead",
+    BOT_DIR + "/work-lead-watcher": QUEUE_DIR + "/work-lead",
+    BOT_DIR + "/agentfw-lead-watcher": QUEUE_DIR + "/agentfw-lead",
 }
 
 

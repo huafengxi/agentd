@@ -124,8 +124,8 @@ def _mk_bot(root, name, pid_final=None, watcher=False, inbox=True):
 
 def h13():
     """终态通知收件面 = reaper 单收件方（纯判定面，不起 runner 进程）：
-    reaper 两档解析（显式字段 / 缺失或文法非法 → 回落职位信箱带 note）、活性代理、
-    判重标记 = 唯一事实源（无信箱回落扫描/补写面）。"""
+    reaper 两档解析（显式字段 / 缺失或文法非法 → 回落职位信箱带 note）+ 退役地址改投、
+    活性代理、判重标记 = 唯一事实源（无信箱回落扫描/补写面）。"""
     root = mkroot()
     r = mkrunner(root)
     pos = proto.position_inbox(root)
@@ -191,6 +191,22 @@ def h13():
     got = r.resolve_reaper({"reaper": "bot/a/b"})
     ok("H13 reaper 文法非法 → 回落职位信箱 + note（不抛）",
        got["pid"] == "topic/dispatcher" and "缺 reaper 字段" in (got["note"] or ""), got)
+    # ---- ①b 退役地址改投（写侧 = 拒绝+回执；通知侧无交互发送方 ⇒ 改投 + note）----
+    qd = os.path.join(root, "agents", "queue", "notify-user")
+    os.makedirs(os.path.join(qd, "inbox"), exist_ok=True)
+    proto.atomic_write_json(os.path.join(qd, "pid.json"),
+                            {"gen": 1, "pid": 424242, "status": "exited",
+                             "final": False, "exitcode": 0})
+    got = r.resolve_reaper({"reaper": "bot/notify-user"})
+    ok("H13 reaper 命中退役表 → 改投新址 + note 点名成因（⛔ 落旧址死信箱）",
+       got["pid"] == "queue/notify-user"
+       and got["inbox"] == os.path.join(qd, "inbox")
+       and "已退役" in (got["note"] or "")
+       and "queue/notify-user" in (got["note"] or ""), got)
+    got = r.resolve_reaper({"reaper": "bot/work-lead"})
+    ok("H13 退役改投后新址不在场 → 回落职位信箱，note 含退役与不存在两段成因",
+       got["pid"] == "topic/dispatcher" and got["inbox"] == pos
+       and "已退役" in (got["note"] or "") and "不存在" in (got["note"] or ""), got)
     # ---- 判重标记 = 唯一事实源（集合语义；无信箱回落扫描/补写面） ----
     pid_, adir, _sp, _doc = mktask(root, "h13m")
     ok("H13 标记缺失 → _mark_doc 返回 None", r._mark_doc(pid_) is None)

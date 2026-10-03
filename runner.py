@@ -354,9 +354,11 @@ class Runner:
 
     def resolve_reaper(self, spec, cache=None):
         """终态通知的**唯一收件方**解析（单点；登记侧对偶 = core.ts resolveReaper 写
-        spec.reaper）。两档：
+        spec.reaper）。两档 + 一道退役改投：
         ① `spec.reaper` 在场且过文法白名单 → 它（文法非法 → 视作缺字段走 ② + 一行 WARNING：
            登记侧已拒非法值，运行侧只可能是人工补录）；
+           ①b 命中退役表（`proto.RETIRED_MAILBOXES`）→ **改投新址 + note 点名成因**（写侧
+           是拒绝+回执，通知侧无交互发送方 ⇒ 改投；在飞件的 `spec.reaper` 是不可变档里的旧值）；
         ② reaper 不在场/文法非法 → 职位信箱 + note。缺字段的**形态按登记路径分档**：
            dispatch 登记路径（agentd 扩展 core.ts 的 resolveReaper）
            恒写 reaper（缺省推导 = creator）⇒ 那侧缺字段属异常；`agentctl create`/
@@ -381,15 +383,26 @@ class Runner:
         if target is None:
             return {"pid": NOTIFY_TO, "inbox": proto.position_inbox(self.root),
                     "note": "spec 缺 reaper 字段（或文法非法），回落职位信箱"}
+        # 退役地址改投：写侧（agentctl 四动词）是**拒绝 + 回执新址**，而通知侧无交互
+        # 发送方可回执 ⇒ 改投 + note 点名成因（⛔ 静默）。为何必要：地址移族后在飞件的
+        # `spec.reaper` 是不可变档里的旧值，不改投就会落进无人消费的旧址；尤其危险的是
+        # 旧址若还留着 `watcher/` 登记条目会被活性代理判活（判据②）⇒ 直投死信箱 = 静默丢。
+        retired_note = None
+        moved = proto.retired_move(target)
+        if moved:
+            retired_note = "reaper %s 已退役（地址移族），按退役表改投 %s" % (target, moved)
+            target = moved
         if target == NOTIFY_TO:
             return {"pid": NOTIFY_TO, "inbox": proto.position_inbox(self.root),
-                    "note": None}
+                    "note": retired_note}
         alive, why = self._pid_active(target, cache)
         if alive:
             return {"pid": target, "inbox": proto.inbox_path(self.root, target),
-                    "note": None}
+                    "note": retired_note}
         note = ("reaper %s 不存在，回落职位信箱" % target) if why == "目录不存在" \
             else ("reaper %s %s，回落职位信箱" % (target, why))
+        if retired_note:
+            note = retired_note + "；" + note
         return {"pid": NOTIFY_TO, "inbox": proto.position_inbox(self.root),
                 "note": note}
 
