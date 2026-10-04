@@ -626,7 +626,7 @@ def _bot_view(root, bots, now):
 
 
 def topic_hosts(topic_id, watchers, bots):
-    """主题的主持人集合（宽口径，设计稿 §5.1 主持人载体 + §8.1 tasks tab 口径）：
+    """主题的主持人集合（宽口径，设计稿 §5.1 主持人载体 + §8.1 task tab 口径）：
     满足 ①∧② 的 bot 族参与者 ——
       ① 订阅该 topic：通道 B = `spec.subscribes` 含 `topic/<id>`；**或** 通道 A =
         `topic/<id>/watcher/<裸名>` 条目在场且该 bot 目录在场（轻场景：调度员临时兼主持

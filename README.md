@@ -229,7 +229,7 @@ python3 agentd/report.py --root <workspace-root> --all   # --root 指定工作�
 python3 agentd/needscheck.py --root <workspace-root>     # 只读 JSON：dead-ended（needs 不可满足）任务清单
 ```
 
-**调用方的仪表板页**（8080 的 tasks tab）经实时 API 消费本报表：
+**调用方的仪表板页**（8080 的 task tab）经实时 API 消费本报表：
 `GET /agentd/agentd4web.py?refresh=15`（同目录 `agentd4web.py` type=script rpc
 脚本，按需 subprocess 现算本脚本；refresh 由 itab 容器视图统一重载）。
 

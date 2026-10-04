@@ -5,7 +5,7 @@
 Python 侧**的机器可读结果——TS 侧不重写 provider 状态分类与三态判定（否则与调度面口径漂移）。
 事故来源： （provides `cap:dingmsg-2026-09-08`，host=mac）连击熔断收口且无 report.md
 ⇒ 其唯一下游（needs 同能力）按调度语义永久留在 not-started；调度员靠人工扫 task_status
-全量列表才发现，而那一面当时**不评估 needs**（信号只活在 report.py 异常区与 dash tasks tab）。
+全量列表才发现，而那一面当时**不评估 needs**（信号只活在 report.py 异常区与 dash task tab）。
 
 判据（全部 import 复用，本文件零自实现）：
   - provider 五态分类（success/pending/failed/canceled/idle）= `scheduler.Scheduler._scan`

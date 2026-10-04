@@ -2288,7 +2288,7 @@ def s40():
     ② 拒绝面：已存在目录/非法段/保留名/跨布局撞名；
     ③ `bot register --subscribes`：通道 B 写入口——新建 spec（去重、只收 topic/ 族）与
        既在场 spec 只改 subscribes（其余字段逐字保留），空串 = 显式清空（删字段）；
-    ④ report.py 主题标题跳过 frontmatter（骨架不污染 tasks tab）；
+    ④ report.py 主题标题跳过 frontmatter（骨架不污染 task tab）；
     ⑤ report.py 主题节「主持人」列（判据 = report.topic_hosts）：宽口径
        通道 B（spec.subscribes）∨ 通道 A（watcher 条目 + bot 目录在场）∧ 会话型 bot；
        链接 host 取 spec.host（跨机前缀）；脚本型/信箱型 bot 不出链；主持人裸名从
@@ -2521,7 +2521,7 @@ def s41():
         "退役表须与 core.ts RETIRED_MAILBOXES 同口径（TS 侧字面量钉在扩展单测）：%r" % _proto.RETIRED_MAILBOXES
     # ①b 系统主题豁免名单同源（攒批 5）：report.py 走 proto.PROTECTED_SYSTEM_*，
     #    agents-sync/gc.py 自带 hub 侧副本（刻意 stdlib-only 不 import proto）→ 漏改一侧的后果 =
-    #    新系统主题在 tasks tab 被判出主持人链接、或被 gc 误删，故以断言钉住同值。
+    #    新系统主题在 task tab 被判出主持人链接、或被 gc 误删，故以断言钉住同值。
     import importlib.util as _ilu
     _gc_spec = _ilu.spec_from_file_location(
         "agents_sync_gc_s41", os.path.join(HERE, "..", "agents-sync", "gc.py"))
