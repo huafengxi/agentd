@@ -138,13 +138,21 @@
       **残骸在场也放行**（判据射程只到「root 是不是工作区根」，不收窄 `<root>/agents/` 下
       条目的形状 ⇒ 不得写成全称判据）；`env/host-id` 软前置未被升硬（缺该文件只 WARN、
       rc=0，登记回退 hostname 非空；S22④/S27③ 同族）
+  S60 `agentctl create --profile`（人格装载的登记侧写入口；消掉「手写 DISPATCH_PROFILE
+      前缀、漏写即静默回落缺省档」的绕行）四格：拼前缀（逐字 = 手写形态、spec 不长新键）/
+      非法名被拒（白名单 = 现场枚举 `<root>/bots/profiles/*.json`、枚举根按 `--root` 解析、
+      枚举根不在场也拒 ⇒ 反写死名单钉；rc=2 + 打印可选名单 + 零落盘）/ 前缀冲突被拒
+      （异值 rc=2 且两侧值都在报文里、同值幂等不重复拼）/ 缺省一行 WARN 且照建
+      （command 逐字原值；自带前缀不打 = 存量手写形态零回归）+ `create --help` 覆盖三格
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
 S45/S54/S55 自建合成收件方夹具（`_synth_bot`/`_synth_proc_bot`）→ **可单跑**；
 S57 自建控制信封夹具（不起进程、收尾自清）→ **可单跑**；
 S58 自建写信封夹具（不起进程；职位信箱只删本场景写的件）→ **可单跑**；
-S59 自建临时工作区根夹具（含残骸；不起进程、不读主树 ROOT，收尾自清）→ **可单跑**。
+S59 自建临时工作区根夹具（含残骸；不起进程、不读主树 ROOT，收尾自清）→ **可单跑**；
+S60 自建临时工作区根夹具（含 `bots/profiles/` 白名单枚举根；不起进程、不读主树 ROOT，
+收尾自清）→ **可单跑**。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -4655,8 +4663,8 @@ def s58():
 S59BASE = os.path.join(TMPBASE, "root-s59")   # 本场景自建根（专用临时目录，不用生产树）
 
 
-def _s59_rm_root(d):
-    """场景根清理（root 身份断言）：只删本套件临时基目录下自建的场景根。
+def _rm_scenario_root(d):
+    """场景根清理（root 身份断言；S59 起，自建根的场景共用）：只删本套件临时基目录下自建的场景根。
     拒两形态 —— 等于生产根（工作区根 ∨ 本仓根）与生产根在其内部；不传
     ignore_errors（吞错 = 把清理失败伪装成成功）。"""
     real = os.path.realpath(d)
@@ -4753,7 +4761,126 @@ def s59():
         assert s["host"] == socket.gethostname() and s["host"], \
             "回退 hostname 非空（S22④/S27③ 同口径）：%s" % s
     finally:
-        _s59_rm_root(S59BASE)
+        _rm_scenario_root(S59BASE)
+
+
+# ------------- S60（agentctl create --profile：人格装载的登记侧写入口）
+
+S60BASE = os.path.join(TMPBASE, "root-s60")   # 本场景自建根（专用临时目录，不用生产树）
+
+
+def s60():
+    """`agentctl create --profile`（消掉「手写 DISPATCH_PROFILE 前缀、漏写即静默回落」的绕行）四格：
+
+    ① **拼前缀**：`--profile <名>` ⇒ spec.command 逐字 = `DISPATCH_PROFILE=<名> ` + `--command`
+      原值（与手写前缀的存量档案不可区分），且 spec **不长 `profile` 键**（落地形态锁在
+      command 前缀 ⇒ ⛔ 不动 spec schema、⛔ 不动调度语义）；已声明人格 ⇒ 不打缺省 WARN。
+    ② **非法名被拒**：白名单 = 现场枚举 `<root>/bots/profiles/*.json`（⛔ 写死名单）⇒ 枚举外的
+      名字 rc=2 + stderr 打印可选名单 + 零落盘；**枚举根按 --root 解析**（真工作区里在场的
+      profile 名在本夹具根里不在场 ⇒ 同样拒）；枚举根整棵不在场 ⇒ 拒（⛔ 静默放行）。
+    ③ **前缀冲突被拒**：`--command` 已含**异值**前缀 + `--profile` ⇒ rc=2、stderr 同时含两侧值
+      （⛔ 静默覆盖）、零落盘；**同值** ⇒ 幂等（不重复拼、command 逐字不动）。
+    ④ **缺省 WARN 且照建**：不给 `--profile` 且 command 无前缀 ⇒ stderr 恰一行 profile WARN
+      （含可选名单 = 怎么修）、rc=0、spec 照建且 command 逐字 = `--command` 原值（⛔ 硬失败：
+      存量调用方与守护 bot 登记面依赖缺省行为）；command 自带前缀而不给 `--profile` ⇒
+      不打该行（存量手写形态零回归）。
+    另钉 `create --help` 的 `--profile` 文本覆盖三格（白名单来源 / 非法即拒 / 落地 = 前缀）。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    KEY = "DISPATCH_PROFILE"
+    WRAP = 'exec python3 "$AGENT_ROOT/pi-wrap/pi-rpc-wrap.py"'   # 现网 handler 登记的命令形态
+    AVAIL = ["s60-review", "s60-executor"]                     # 夹具专属名：白名单若被写死
+    #                                                            成现网名单，① 就红（反写死名单钉）
+    ws = os.path.join(S60BASE, "ws")
+    bare = os.path.join(S60BASE, "ws-noprofiles")   # ② 枚举根整棵不在场的对照根
+    for root in (ws, bare):
+        os.makedirs(os.path.join(root, "agents", "task"), exist_ok=True)
+        os.makedirs(os.path.join(root, "env"), exist_ok=True)
+        with open(os.path.join(root, "env", "host-id"), "w") as f:
+            f.write("%s s60-canonical\n" % socket.gethostname())
+    os.makedirs(os.path.join(ws, "bots", "profiles"), exist_ok=True)
+    for n in AVAIL:
+        with open(os.path.join(ws, "bots", "profiles", n + ".json"), "w") as f:
+            f.write("{}")
+    assert not os.path.isdir(os.path.join(bare, "bots")), "夹具前提：bare 根无枚举目录"
+
+    def run(root, *args):
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)
+        return subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
+                               "--root", root, *args], capture_output=True, text=True,
+                              env=env, timeout=60)
+
+    def create(root, name, command, *extra):
+        return run(root, "create", "--name", name, "--command", command,
+                   "--workdir", root, "--creator", "tester", *extra)
+
+    def spec_of(root, name):
+        p = os.path.join(root, "agents", "task", name, "spec.json")
+        assert os.path.exists(p), "spec 应在场：%s" % p
+        with open(p) as f:
+            return json.load(f)
+
+    def no_dir(root, name):
+        assert not os.path.exists(os.path.join(root, "agents", "task", name)), \
+            "拒后零落盘（不得建 task/%s）" % name
+
+    try:
+        # ---- ① 拼前缀（与手写形态逐字同款）+ spec 不长新键 ----
+        r = create(ws, "s60-a", WRAP, "--profile", AVAIL[0])
+        assert r.returncode == 0, r.stderr
+        doc = spec_of(ws, "s60-a")
+        assert doc["command"] == "%s=%s %s" % (KEY, AVAIL[0], WRAP), doc["command"]
+        assert doc["command"].startswith("%s=%s " % (KEY, AVAIL[0])), doc["command"]
+        assert "profile" not in doc, "落地形态 = command 前缀，⛔ 不给 spec 加键：%s" % sorted(doc)
+        assert "未指定 --profile" not in r.stderr, "已声明人格 ⇒ 不打缺省 WARN：%s" % r.stderr
+
+        # ---- ② 非法名被拒（枚举外 ∨ 本夹具根不在场的真工作区名）+ 零落盘 ----
+        for bad in ("s60-nosuch", "review", "executor"):
+            r = create(ws, "s60-b", WRAP, "--profile", bad)
+            assert r.returncode == 2, "%r 应拒（rc=2）：rc=%d %s" % (bad, r.returncode, r.stderr)
+            assert "非法 --profile" in r.stderr and bad in r.stderr, r.stderr
+            for n in AVAIL:
+                assert n in r.stderr, "stderr 须打印可选名单（缺 %s）：%s" % (n, r.stderr)
+            no_dir(ws, "s60-b")
+        r = create(bare, "s60-b2", WRAP, "--profile", AVAIL[0])
+        assert r.returncode == 2, "枚举根不在场 ⇒ 拒（⛔ 静默放行）：%s" % r.stderr
+        assert "无法校验 --profile" in r.stderr and "bots/profiles" in r.stderr, r.stderr
+        no_dir(bare, "s60-b2")
+
+        # ---- ③ 前缀冲突：异值拒（两侧值都在报文里）∧ 同值幂等 ----
+        r = create(ws, "s60-c", "%s=%s %s" % (KEY, AVAIL[1], WRAP), "--profile", AVAIL[0])
+        assert r.returncode == 2, r.stderr
+        assert "冲突" in r.stderr, r.stderr
+        assert "%s=%s" % (KEY, AVAIL[1]) in r.stderr and AVAIL[0] in r.stderr, \
+            "两侧值都要打印（--profile 侧 %s ∨ command 侧 %s）：%s" % (AVAIL[0], AVAIL[1], r.stderr)
+        no_dir(ws, "s60-c")
+        r = create(ws, "s60-d", "%s=%s %s" % (KEY, AVAIL[0], WRAP), "--profile", AVAIL[0])
+        assert r.returncode == 0, r.stderr
+        assert spec_of(ws, "s60-d")["command"] == "%s=%s %s" % (KEY, AVAIL[0], WRAP), \
+            "同值 ⇒ 幂等（不重复拼、逐字不动）"
+
+        # ---- ④ 缺省：一行 WARN + 照建（⛔ 硬失败）----
+        r = create(ws, "s60-e", WRAP)
+        assert r.returncode == 0, "缺省必须照建（⛔ 硬失败）：%s" % r.stderr
+        assert spec_of(ws, "s60-e")["command"] == WRAP, "缺省 ⇒ command 逐字原值"
+        assert len([x for x in r.stderr.splitlines() if "未指定 --profile" in x]) == 1, \
+            "恰一行 profile WARN：%s" % r.stderr
+        for n in AVAIL:
+            assert n in r.stderr, "WARN 须给可选名单（怎么修）：%s" % r.stderr
+        r = create(ws, "s60-f", "%s=%s %s" % (KEY, AVAIL[0], WRAP))
+        assert r.returncode == 0, r.stderr
+        assert "未指定 --profile" not in r.stderr, \
+            "command 自带前缀 = 已声明人格（存量手写形态零回归）：%s" % r.stderr
+        assert spec_of(ws, "s60-f")["command"] == "%s=%s %s" % (KEY, AVAIL[0], WRAP)
+
+        # ---- help 面：--profile 在 create --help 里且覆盖三格 ----
+        r = run(ws, "create", "--help")
+        assert r.returncode == 0, r.stderr
+        assert "--profile" in r.stdout, r.stdout
+        for tok in ("现场枚举", "非法即拒", "spec.command"):
+            assert tok in r.stdout, "help 须写明 %r（白名单来源/非法即拒/落地=前缀）" % tok
+    finally:
+        _rm_scenario_root(S60BASE)
 
 
 def _scrub_inherited_env():
@@ -4848,6 +4975,12 @@ def main():
           "・零回归：正常工作区根（自建临时根 + 真工作区根）只读动词 rc=0、残骸在场也放行"
           "（不收窄 <root>/agents/ 下条目形状）・env/host-id 软前置未升硬（只 WARN、rc=0、"
           "登记回退 hostname 非空）", s59)
+    check("S60 agentctl create --profile（人格装载的登记侧写入口）：拼 DISPATCH_PROFILE= 前缀"
+          "（与手写形态逐字同款、spec 不长新键）・非法名被拒（白名单 = 现场枚举"
+          " <root>/bots/profiles/*.json，枚举根按 --root 解析；枚举根不在场也拒）+ 打印可选名单"
+          " + 零落盘・前缀冲突被拒（异值 rc=2 且两侧值都在报文里；同值幂等不重复拼）"
+          "・缺省一行 WARN 且照建（command 逐字原值；自带前缀不打 = 存量手写形态零回归）"
+          "・create --help 覆盖三格", s60)
     stop_runner()
     stop_scheduler()
 

@@ -3,7 +3,9 @@
 
 子命令（对应协议章节）：
   create        写 spec.json 创建进程型参与方（§5.1/§2.2/§4.1；`--description` → spec `name`、
-                `--reaper` → spec `reaper`，恒写 `createdAt`，与 dispatch 登记面对齐）
+                `--reaper` → spec `reaper`，恒写 `createdAt`，与 dispatch 登记面对齐；
+                `--profile` → `spec.command` 的 `DISPATCH_PROFILE=<名> ` 前缀 = 人格装载的
+                唯一载入口，白名单现场枚举 `<root>/bots/profiles/*.json`，缺省只 WARN 不硬失败）
   create-bot    创建信箱型 bot（bot/<名字>/，只建 inbox/，无 spec）
   bot register  登记进程型 bot spec：`--subscribes topic/<id>[,…]`（通道 B，§4.1）
                 + `--description`（→ spec `name`）/`--reaper`（→ spec `reaper`）
@@ -41,6 +43,7 @@ AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 import argparse
 import json
 import os
+import re
 import socket
 import sys
 from datetime import datetime, timedelta, timezone
@@ -151,9 +154,12 @@ def beijing_iso():
 
 
 def cmd_create(a):
-    # 两个可选字段的校验先于任何 makedirs/落盘（拒后零副作用，口径同 cmd_bot_register）
+    # 可选字段的校验先于任何 makedirs/落盘（拒后零副作用，口径同 cmd_bot_register）
     reaper = check_reaper(getattr(a, "reaper", None))
     description = check_description(getattr(a, "description", None))
+    # --profile：白名单现场枚举 + 前缀冲突即拒（两者都在落盘前 ⇒ 拒后零副作用）
+    profile = check_profile(getattr(a, "profile", None), a.root)
+    command = apply_profile_prefix(a.command, profile)
     if a.name:
         if "/" in a.name or a.name.startswith("."):
             die("非法目录名：%r（作为路径组件合法即可，§2.2）" % a.name)
@@ -178,7 +184,7 @@ def cmd_create(a):
     os.makedirs(adir, exist_ok=True)
     os.makedirs(os.path.join(adir, "inbox"), exist_ok=True)
     # --workdir：先 expanduser（接受 ~/ 形式）再规范化，落盘时归一化为可移植形式
-    spec = {"command": a.command,
+    spec = {"command": command,
             "workdir": portable_path(os.path.abspath(os.path.expanduser(a.workdir))),
             "creator": a.creator}
     if a.restart_policy:
@@ -192,6 +198,7 @@ def cmd_create(a):
     if reaper:
         spec["reaper"] = reaper           # §4.1 终态通知唯一收件面（缺失 → 运行时回落职位信箱带 note）
     warn_unwritten_spec_keys(reaper, a.restart_policy)   # 只打 WARN，不改上面的键集
+    warn_missing_profile(command, a.root)                # 同上：人格声明缺席只 WARN、照建
     spec["createdAt"] = beijing_iso()
     # 路由字段（多机阶段 0，设计 §3.2）：「spec.host 缺省=
     # 登记机」在登记时刻物化落盘（B-2 修复）——不传 --host 自动写本机规范名，
@@ -414,6 +421,114 @@ def warn_unwritten_spec_keys(reaper, restart_policy):
               '仍会发终态通知（final 与该键无关：非常驻参与方到代终态即收口；runner 的'
               '自愈判据是 spec.get("restartPolicy")=="auto"）；常驻体要自愈必须显式 '
               '--restart-policy auto', file=sys.stderr)
+
+
+# ---------- profile（人格装载的登记侧写入口）----------
+#
+# 人格装载的唯一载入口 = `spec.command` 串首的 `DISPATCH_PROFILE=<名> ` env 前缀（消费方 =
+# 会话封装侧的人格解析层）。本仓 ⛔ 不给 spec 加 `profile` 键、⛔ 不动调度语义：那属常驻
+# 进程面（runner/scheduler 每轮读 spec）⇒ 会触发 version bump 与多机重启，而 `--profile`
+# 要消掉的缺陷只是「登记方手写前缀、漏写即静默回落缺省档」。故落地形态 = **登记侧拼那枚
+# 前缀**，与手写前缀的存量形态逐字同款（拼出来的 command 与既有档案不可区分）。
+PROFILE_ENV_KEY = "DISPATCH_PROFILE"     # 前缀键名（与解析层/洗刷名单同名字符串；⛔ 不跨仓 import）
+PROFILES_REL = "bots/profiles"           # profile 薄清单目录（相对**工作区根**）= 白名单的现场枚举根。
+                                         # 布局常量按 --root 解析，口径同 `env/host-id`（收录判据 ①：
+                                         # 现场发现 ⇒ 新增/改名 profile ⛔ 不产生本仓 diff）
+PROFILE_PREFIX_RE = re.compile(r"^\s*%s=(\S+)\s" % PROFILE_ENV_KEY)
+
+
+def list_profiles(root):
+    """profile 白名单 = 现场枚举 `<root>/bots/profiles/*.json` 的基名（排序去 `.json`）。
+
+    目录不在场 ∨ 其中无一枚 `*.json` ⇒ 返回 []（调用方据此 die 并点名枚举根，⛔ 静默放行）。
+    ⛔ 不写死名单：名单是活注册表，写死即滞后（判据 = 改一处部署不产生本仓 diff）。"""
+    try:
+        entries = os.listdir(os.path.join(root, PROFILES_REL))
+    except OSError:
+        return []
+    return sorted(f[:-len(".json")] for f in entries
+                  if f.endswith(".json") and f != ".json")
+
+
+def check_profile(raw, root):
+    """`--profile` 校验：名字须命中 `list_profiles(root)` 的现场枚举白名单，非法即 `die`
+    并在 **stderr** 打印可选名单（写入口不留脏声明，口径同 `check_reaper`）。
+
+    缺失/空串（None）= 不声明人格 → 交由 `warn_missing_profile` 打一行 WARN 后**照建**
+    （⛔ 硬失败：存量调用方与守护 bot 登记面依赖缺省行为）。
+    **只核名字命中清单、⛔ 不核清单的 `form` 字段**：形态配错（给任务会话填常驻/交互档）
+    属声明面 + 资产 lint 的射程，本仓不复制该判据（也不因它加运行时阻断）。
+    调用位置硬约束：在任何 `os.makedirs`/落盘**之前** ⇒ 拒后零副作用。"""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    pdir = os.path.join(root, PROFILES_REL)
+    avail = list_profiles(root)
+    if not avail:
+        die("无法校验 --profile %r：白名单枚举根 %s 不在场 ∨ 其中无 *.json（白名单是现场"
+            "枚举、不写死名单；若这棵树不是工作区根请改正 --root）。"
+            "本次未创建任何目录/文件。" % (raw, pdir), code=2)
+    if s not in avail:
+        die("非法 --profile：%r——白名单 = 现场枚举 %s/*.json 的基名，可选：%s。"
+            "本次未创建任何目录/文件。" % (raw, pdir, ", ".join(avail)), code=2)
+    return s
+
+
+def profile_prefix_of(command):
+    """`command` 串首既有的 `DISPATCH_PROFILE=<X>` 前缀值（无前缀 → None）。
+
+    判据 = 串首（容前导空白）的 `<键>=<非空白串>` + 空白，与手写前缀的存量档案同款
+    （`DISPATCH_PROFILE=<名> exec python3 …`）。串中其它位置的同名赋值不算前缀
+    （那是命令自己的 env，改它属改写调用方给的 command 值）。"""
+    m = PROFILE_PREFIX_RE.match(command or "")
+    return m.group(1) if m else None
+
+
+def apply_profile_prefix(command, profile):
+    """`--profile` → `spec.command` 前缀（落地形态见本节头注）。三格：
+
+      ① command 无前缀 ⇒ 拼 `DISPATCH_PROFILE=<名> ` 于串首；
+      ② 已有**同值**前缀 ⇒ 逐字返回原 command（幂等，⛔ 不重复拼）；
+      ③ 已有**异值**前缀 ⇒ `die` 并打印两侧值（⛔ 静默覆盖：两处声明打架时猜哪一处都会
+         造出「登记方以为的人格 ≠ 实际装载的人格」，且该失效是静默的）。
+
+    未给 `--profile`（None/空）⇒ 原样返回，现值行为逐字不变。
+    调用位置同 `check_profile`：在任何落盘之前。"""
+    if not profile:
+        return command
+    have = profile_prefix_of(command)
+    if have is None:
+        return "%s=%s %s" % (PROFILE_ENV_KEY, profile, command)
+    if have != profile:
+        die("--profile %r 与 --command 里既有的前缀 %s=%s 冲突（两侧值都在此，⛔ 静默覆盖）："
+            "人格声明只留一处——要么去掉 --profile、要么把前缀从 --command 里删掉。"
+            "本次未创建任何目录/文件。" % (profile, PROFILE_ENV_KEY, have), code=2)
+    return command
+
+
+def warn_missing_profile(command, root):
+    """人格声明缺席（既无 `--profile`、`command` 也无前缀）⇒ 一行 WARN 到 **stderr**，
+    登记**照建**（rc、spec 键集与现值逐字一致）。
+
+    缺省不静默，口径同 `warn_unwritten_spec_keys`：政策不钉进代码缺省值 ⇒ 缺省的**后果**
+    必须在登记当场可见（漏写前缀的失效形态是静默回落 ⇒ 工具面随之失效，只有登记这一刻
+    能拦）。文案 ⛔ 写死回落档的 profile 名与「哪类件必须用哪个 profile」一类工作区政策
+    措辞（收录判据 ①：改一条政策 ∨ 改一处部署不得产生本仓 diff）——回落档的名字与其语义
+    住调用方的人格解析层，本仓只点名「按运行时缺省档回落」+ 给现场可选名单。"""
+    if profile_prefix_of(command) is not None:
+        return                      # command 自带前缀 = 已声明人格（存量手写形态），不打
+    avail = list_profiles(root)
+    print("WARN: 未指定 --profile 且 --command 无 %s= 前缀 ⇒ spec.command 不带人格声明 ⇒ "
+          "该会话按运行时的缺省档回落（未设 %s 时回落哪个 profile 由人格解析层决定，"
+          "本仓不复制该判据），能力/工具面即最基线档；需要更强 ∨ 更受限的工具面"
+          "（如只读强制）必须显式 --profile <名>。登记照建。可选名单（现场枚举 <root>/%s"
+          "/*.json）：%s"
+          % (PROFILE_ENV_KEY, PROFILE_ENV_KEY, PROFILES_REL,
+             ", ".join(avail) if avail
+             else "（空：%s 不在场 ∨ 其中无 *.json）" % os.path.join(root, PROFILES_REL)),
+          file=sys.stderr)
 
 
 def cmd_bot_register(a):
@@ -821,6 +936,16 @@ def main():
                         'spec.get("restartPolicy")=="auto"）；'
                         '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
                         'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
+    p.add_argument("--profile", default=None,
+                   help="人格 profile 名（可选）。**白名单 = 现场枚举** <root>/%s/*.json 的"
+                        "基名（⛔ 不写死名单；枚举根按 --root 解析，口径同 env/host-id）；"
+                        "**非法即拒**（rc=2、stderr 打印可选名单、零落盘），只核名字命中清单、"
+                        "不核清单的 form 字段。**落地 = 把 `%s=<名> ` 前缀拼进 spec.command**"
+                        "（人格装载的唯一载入口；本 CLI ⛔ 不给 spec 加键、⛔ 不动调度语义）："
+                        "与 --command 里既有的同键前缀**同值 ⇒ 幂等不重复拼**、**异值 ⇒ 拒**"
+                        "（打印两侧值，⛔ 静默覆盖）。缺省（且 command 无前缀）⇒ 打一行 WARN"
+                        "（会话按运行时缺省档回落、工具面为最基线档）但**照建**"
+                        % (PROFILES_REL, PROFILE_ENV_KEY))
     p.add_argument("--host")
     p.add_argument("--created-by-host")
     p.add_argument("--resources", default=None,
