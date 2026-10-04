@@ -49,7 +49,7 @@
   S39 topic 协作容器（设计稿 dispatch/docs/design/topic-design.md）：寻址四族（文法/直落/
       扫描面隔离）+ agentctl send 投递闭环（目录自动创建/信封字段/文件名格式）+
       GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律 2026-09-06 经用户拍板移除，；
-      topic/dispatcher 仍受 PROTECTED_SYSTEM_PATHS 保护）
+      topic/dispatcher 受 PROTECTED_SYSTEM_PATHS 缺省拒删、--force 审计旁路可删）
   S40 agentctl 脚手架：topic init 标准布局（topic.md 骨架 + inbox/ + watcher/
       订阅登记）与拒绝面 + bot register --subscribes（协议 §4.1 通道 B 写入口：新建/只改一字段/
       清空/他族拒绝）+ bot register --description/--reaper（：§4.1 两个可选字段
@@ -2196,7 +2196,7 @@ def s39():
     """topic 协作容器（设计稿 dispatch/docs/design/topic-design.md §8）：
     寻址四族（文法/直落/扫描面隔离）+ agentctl send 投递闭环（目录自动创建、
     信封字段、文件名格式）+ GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律
-    2026-09-06 经用户拍板移除，；topic/dispatcher 仍受保护）。"""
+    2026-09-06 经用户拍板移除，；topic/dispatcher 缺省拒删、--force 审计旁路可删）。"""
     import proto
     # a) 寻址：文法 + 直落（无存在性试探，目录不在场也解析）
     assert proto.is_valid_participant_id("topic/t1")
@@ -2247,7 +2247,7 @@ def s39():
     assert not any(p.startswith("topic/") for p in proto.list_participants(ROOT))
     # d) GC 通道：topic/ 可入删除清单（对齐 task/ 口径）；bot/ 同样可入
     #    （bot 不朽铁律 2026-09-06 经用户拍板移除）；topic/dispatcher
-    #    仍受 PROTECTED_SYSTEM_PATHS 保护（含 --force）
+    #    受 PROTECTED_SYSTEM_PATHS 缺省拒删、--force 审计旁路可删
     gc = os.path.join(HERE, os.pardir, "agents-sync", "gc.py")
     gcenv = dict(scrub_env(), GC_WORKSPACE=ROOT,
                  GC_AGENTS_DIR=os.path.join(ROOT, "agents"))

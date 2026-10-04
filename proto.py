@@ -246,8 +246,13 @@ POSITION_PID = QUEUE_DIR + "/" + POSITION_TOPIC
 # 同源断言钉住——将来新增系统主题只改一侧即变红。
 PROTECTED_SYSTEM_TOPICS = (POSITION_TOPIC,)
 # 职位信箱的两个载体地址（同一信箱在两个族里的落点：现役 queue 参与方 + 遗留 topic
-# tombstone）：两个都不可删——回落面必须无条件可写，而 tombstone 一旦删除会被冻结节点
-# （老代码仍把它当回落目标）的 send 侧 ensure-inbox 复活并经网状同步推回。
+# tombstone）。保护语义 = **缺省拒删类**（防误删回落面）：无审计标记的条目在 hub 侧与
+# 消费侧一律拒绝；`gc.py add --force` 的审计标记（#FORCED:）解除本类（用户裁定
+# 2026-10-04：显式用户授权是终局，权限类限制不住它；形状护栏〔裸族容器/gc 自树/
+# 非法路径〕属条目有效性、永不解除）。消费侧以 marker 为门：若消费侧也拒，hub 删完
+# 节点副本会回推复活。force 删 tombstone 载体的前置核验归授权方：全网无冻结节点
+# （老代码的 send 侧 ensure-inbox 会把删掉的信箱复活并经网状同步推回；现役代码的
+# 退役地址表已拦截写侧）。
 # gc.py 与 ssh-sync.py 的 hub/消费侧副本同值（e2e S41 + test_gc.py 钉）。
 PROTECTED_SYSTEM_PATHS = tuple(TOPIC_DIR + "/" + t for t in PROTECTED_SYSTEM_TOPICS) + (
     POSITION_PID,)
