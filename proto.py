@@ -245,14 +245,15 @@ POSITION_PID = QUEUE_DIR + "/" + POSITION_TOPIC
 # 名单的 hub 侧副本（该脚本刻意保持 stdlib-only、不 import 本模块），两侧由 e2e S41 的
 # 同源断言钉住——将来新增系统主题只改一侧即变红。
 PROTECTED_SYSTEM_TOPICS = (POSITION_TOPIC,)
-# 职位信箱的两个载体地址（同一信箱在两个族里的落点：现役 queue 参与方 + 遗留 topic
-# tombstone）。保护语义 = **缺省拒删类**（防误删回落面）：无审计标记的条目在 hub 侧与
-# 消费侧一律拒绝；`gc.py add --force` 的审计标记（#FORCED:）解除本类（用户裁定
-# 2026-10-04：显式用户授权是终局，权限类限制不住它；形状护栏〔裸族容器/gc 自树/
-# 非法路径〕属条目有效性、永不解除）。消费侧以 marker 为门：若消费侧也拒，hub 删完
-# 节点副本会回推复活。force 删 tombstone 载体的前置核验归授权方：全网无冻结节点
-# （老代码的 send 侧 ensure-inbox 会把删掉的信箱复活并经网状同步推回；现役代码的
-# 退役地址表已拦截写侧）。
+# 职位信箱的两个载体地址（现役 queue 参与方 + 已退役的 topic 载体——其目录经全网
+# 无冻结节点核验后于 2026-10-04 用户授权 force 删除；地址留表 = 若被复活同样受
+# 缺省拒删保护）。保护语义 = **缺省拒删类**（防误删回落面）：无审计标记的条目在
+# hub 侧与消费侧一律拒绝；`gc.py add --force` 的审计标记（#FORCED:）解除本类
+# （用户裁定 2026-10-04：显式用户授权是终局，权限类限制不住它；形状护栏〔裸族
+# 容器/gc 自树/非法路径〕属条目有效性、永不解除）。消费侧以 marker 为门：若消费侧
+# 也拒，hub 删完节点副本会回推复活。force 删退役载体的前置核验归授权方：全网无
+# 冻结节点（老代码的 send 侧 ensure-inbox 会把删掉的信箱复活并经网状同步推回；
+# 现役代码的退役地址表已拦截写侧）。
 # gc.py 与 ssh-sync.py 的 hub/消费侧副本同值（e2e S41 + test_gc.py 钉）。
 PROTECTED_SYSTEM_PATHS = tuple(TOPIC_DIR + "/" + t for t in PROTECTED_SYSTEM_TOPICS) + (
     POSITION_PID,)
