@@ -119,14 +119,13 @@ $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
 # lore 资产清单 + 全局名字索引（`knowledge` 名 → 清单；规范 `@bots#kb-spec`，
 # 机制口径 `@dispatch#params`，lore 内容组织 `@lore#gates`，单测 bots/test_kb_index.py）
 python3 bots/kb_index.py index library/agentfw                 # 名（lore 根下相对路径）→ markdown 索引表
-python3 bots/kb_index.py index --recursive dispatch/docs      # 工作区路径声明（legacy 档）
 python3 bots/kb_index.py audit the workspace knowledge base/library/work               # 巡检：未入册（缺 frontmatter when:）
 python3 bots/kb_index.py prompt --domains-json '["library/agentfw","desk/agentfw-lead"]'  # 注入用知识清单块
 python3 bots/kb_index.py names -v                              # 全局名表（frontmatter name:/anchors:）+ 缓存统计
 python3 bots/kb_index.py resolve <名>[#<锚点>]                  # 名 → 路径（未命中 rc=2、撞名 rc=1）
 python3 bots/kb_index.py read <名>#<锚点>                       # 输出该节全文（节边界 = 下一个同级或更高级标题）
 python3 bots/kb_index.py refs <名> [--scope tasks]              # 反向索引 = 改权威前的知会名单
-python3 bots/kb_index.py check                                  # 名引用/锚点契约核对（悬空名/未声明锚点/锚点漂移；有违规 rc=1）
+python3 bots/kb_index.py check                                  # 名引用/锚点契约核对（判据枚举 = `bots/kb_index.py` 的 `CHECK_KINDS`；有违规 rc=1）
 ```
 
 ```bash
