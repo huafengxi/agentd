@@ -57,6 +57,7 @@ anchors:
 | `e2e.py` | 端到端测试：51 项 = S1–S60（无 S13/S28/S35/S36/S46/S47/S48/S51/S52；S9 = 收尾「无遗留测试进程」检查）——基础生命周期/判死接手/FIFO/DAG 调度/路由与 host/封装收敛/常驻能力/control 三动作（S3/S4：枚举外动作 agentctl 拒绝 + runner rejected 零写入）/topic 容器与脚手架（S39/S40）/退役地址护栏（S41）/取消不误报无报告（S42）/空跑 provider 不算成功（S43）/终态通知重放护栏（S44）/终态通知收件面与回落面（S45：reaper 单收件方直投 + 缺字段/文法非法/不活回落职位信箱带 note + notified.json 标记唯一判重事实源）/子任务自家信箱推送收件面含 0828 回归（S49；以子进程调 node 驱动真 TS 扩展）/子端收件面 P0 spawn 竞态两形态与就绪门（S50；fake pi 逐字复现 pi 的拒收串与 no-assistant guard）/**真 pi live 覆盖**（S53：localhost 桩供应商 + `PI_CODING_AGENT_DIR` 合成配置驱动真 `pi --mode rpc`，验真 inotify（fs.watch）认领、真 steer/followUp 队列注入落会话树、真落盘确认（注入文本进 jsonl → 写终态 ack）；pi 不在 PATH → 显式 skip），/终态通知 **reaper 主模型**（S54：收件面 = {reaper}、载荷无 role/reaperPid、spec 残留 watchers 字段零作用、reaper 缺失/不存在回落职位信箱带 note、(taskId,收件方) 判重）/bot 族自身终态同规则（S55：进程型 bot `control stop` → 通知落其 reaper 信箱；无 reaper 字段 → 回落职位信箱带 note）/子端 ask 写侧收件面=该任务 reaper（S56：runner spawn 复用 `resolve_reaper` 单点经 env 注入 `AGENTD_ASK_INBOX`/`NOTE`——reaper 活→指其自家信箱且无 note、reaper 不存在→回落职位信箱+note 且不建僵尸目录）/控制信封 `from` 归属单点化（S57：`agentctl control` 的 `from` 与文件名前缀走显式 `--from` ＞ 环境 `AGENT_SELF` ＞ 职位信箱的同源优先级，非法 `--from` 拒绝且零副作用，与扩展侧 `core.resolveCreatorPid` 同口径）/**写侧动词两档**（S58：send 的 type 缺省·`--deliver` 显式才落盘·`--body-file -` 逐字保真·`type=ask` 自动带 via·from 三档归属·六种拒分支零落盘；answer 在扫描面并集里找最早未答 ask + reply 继承 via + `--deliver` 与 send 同形：steer 逐字落盘 / 缺省 = 信封不写该键（⛔ 非 followUp）/ 枚举外值 argparse 拒 rc=2；无未答 ask/已 final/无 spec 三种意图落空全拒；cancel 带存活门而 control 不过门（对照）；update 五道硬校验 + 只覆盖传入字段；**跨语言钉桩** = TS 收件侧 core.ts 的 via/deliver/消息型枚举与本仓 proto 常量逐字相等；夹具期间停 runner/scheduler，否则真 runner 会消费夹具的 stop 请求把未启动夹具收成 final）/`--root` 前置校验的自我击穿回归（S59：错 root = agents 树本身时，即使嵌套残骸在场——残骸恰好满足「`<root>/agents` 在场」这条硬前置——仍 die、rc=2、零新建目录/文件；正常工作区根只读动词零回归且残骸在场也放行；`env/host-id` 软前置未升硬）/`agentctl create --profile`（S60：拼 `DISPATCH_PROFILE=<名> ` 前缀（逐字 = 手写形态、spec 不长新键）・非法名被拒（白名单现场枚举 `<root>/bots/profiles/*.json`、枚举根按 `--root` 解析 ⇒ 真工作区里在场的名字在夹具根里不在场也拒 = 反写死名单钉；rc=2 + 打印可选名单 + 零落盘）・前缀冲突被拒（异值 rc=2 且两侧值都在报文里；同值幂等）・缺省一行 WARN 且照建（command 逐字原值；自带前缀不打 = 存量手写形态零回归）・`create --help` 覆盖三格），逐项清单见文件头 docstring（可带 argv 子串只跑部分场景，如 `e2e.py S44 S45`；**部分场景有前置依赖**：S15 读 S14 的通知产物、S37 会清场前序遗留的非终态参与方，S44/S45/S54/S55/S56/S57/S58/S59/S60 自建夹具可单跑） |
 | `test_wrap.py` | 封装单测（编号 `T<n>`，**上界一律取现场值**，不写死 = `grep -oE 'T[0-9]+' pi-wrap/test_wrap.py | sort -uV | tail -1`）：socket 生命周期/透传/收敛/resident/**人格面发射契约**（T48：恰一个 `-e` 指向注入层、**零**人格 flag、输入 env 原样透传、装载行不自报形态、宿主陈旧`AGENTD_CONTEXT_COMPACTION` 被洗掉、注入层缺失 ⇒ WARN + 会话照常 exit 0 无诊断、resident 形态同样注入且不注入`CHILD_EXTS`）——人格面的**内容**判据（caps 展开序 = 声明序 / 形态定档与无 profile 名时的回落 / 工具面并集 / knowledge 三档 /model→provider 派生 / `contextCompaction` 归一 / 降级矩阵 / 输出契约键集）不在本套件，归`pi-wrap/test_persona.py`（P 系列，钉解析层）/子端扩展注入面（T29：任务形态按 `CHILD_EXTS` 顺序注入×2、缺失静默跳过不拖垮、resident 零注入）/就绪握手（T30：env 传两枚标记路径、prompt 接受早于开门、陈旧标记 spawn 前必清、失败路径不写标记、resume 幂等路径也写、resident 不参与、子端不 arm 时有界等待 + WARN 不假活、扩展缺失即不传不等）/**就绪门信号 env 的洗刷面**（T31：名单含两枚 + `scrub_env` 真洗掉 + 三调用方同源不复制名单 + `spawn_pi()` 洗刷后显式赋值 ⇒ 握手不受影响）/**`spec.command` env 前缀键的洗刷覆盖钉桩**（T47：扫 `bots/daemon/*/spec.json`、`heartbeats/register.py`、`w/ext/sessiond/proc.py` 的命令前缀键，逐枚断言 `scrub_env` 真洗掉 ⇒ 新增身份标记漏进洗刷名单在**提交前**就红，不靠运行时守卫） |
 | `test_runner_final.py` | runner 生命周期收口面单测（F1–F8，仅标准库）：`final` 的赋值判据——缺 `restartPolicy` 键的非常驻任务到代终态即 final（F1）+ 该档案的终态通知落 reaper 信箱与 `notified.json`（F2）+ 其 `provides` 被 scheduler 解析为 success 使依赖者放行（F3，含「抹掉 final 即退回 pending」的根因对照）+ 存量「代终态 ∧ 未 final」档案一轮 `service()` 自愈（F4）+ 常驻体不收口（F5）+ `auto` 不收口且自愈仍触发（F6）+ `one-shot`/`manual` 回归对照（F7）+ 他机只读与吸收态早退两个分支零写入（F8） |
+| `test_report_slots.py` | 报表面单测（R1–R8，仅标准库）：排队卡点列与「应跑未跑」门禁的**占位上限层次**——occ 达本体层缺省而真卡点在主机层时 ⛔ 报「等槽位」（R1）/ 真饱和时报「等槽位（occ/上限 满·上限=运行态层）」且两数同层、门禁序不变（R2）/ 运行态上限 > 本体层缺省时「应跑未跑」恢复采集（R3）/ 上限不可得 ⇒ 不断言满且采集照常（R4）/ argv 解析五格（R5）/ 进程识别三重判据：包装壳、他 root、缺 `--root`、非 python 解释器排除，`--root=` 与符号链接 root 命中（R6）/ `effective_max_concurrent` 端到端四格含双调度器异值（R7，夹具 = sleep 存根进程，⛔ 真调度器）/ `ts_to_epoch` 复用面不破（R8，`dash/gc-tasks.py` 的单点） |
 | `test_runner_notify.py` | runner 终态通知面单测（H9/H13/H14，编号沿用历史命名）：终态通知判重（notified.json 标记唯一事实源，信箱信封不判重）/ 收件面解析（`resolve_reaper` 两档 + 活性代理三判据 + 回落 note 文案）/ 子端 ask 写侧收件面 env（`_ask_inbox_env` 复用 `resolve_reaper` 单点——reaper 活→指其自家信箱无 note、不存在/无消费者→回落职位信箱+note 点名成因、同源自证、值恒为 str） |
 
 运行时树（`agents/`）不入库（见仓库根 `.gitignore`）。
@@ -134,6 +135,7 @@ python3 e2e.py
 # runner 侧单测（仅标准库、直跑；逐个文件的用例面见下「文件」表）
 python3 test_runner_notify.py     # 终态通知面（H 系列）
 python3 test_runner_final.py      # 生命周期收口面（F 系列：`final` 的赋值判据）
+python3 test_report_slots.py      # 报表面（R 系列：卡点列/「应跑未跑」的占位上限层次）
 ```
 
 扩展侧 guard 测试 = `<扩展根>/tests/agentd-ext.test.mjs`（**`<扩展根>`** = 调用方 pi 的**全局扩展装载面**里的
@@ -183,15 +185,30 @@ status` 两层判定一致（排队/已放行待拉起、运行中（⚠️心�
 ≤60s ✅，否则 ⚠️ stale，锁缺失 ⚠️；② scheduler 存活——dev 本地 `pgrep -f 'agentd/scheduler.py'`，✅/🚨；
 ③ agents-sync 链路间接口径——远端锁由远端 runner 写、经同步链路到达 dev，内容新鲜即同时证明
 「远端 runner 活 + 同步链路通」（✅ 双活）；dev 亦为节点、有本机链路，
-表内注明。上述任一异常 → 异常区置顶追加「🚨 基础设施」条目。
+表内注明。上述任一异常 → 异常区置顶追加「🚨 基础设施」条目；
+④ **占位上限（有效层）**——判据单点 `report.effective_max_concurrent`：从 `pgrep -f` 的 pid 里筛出
+「argv[0] 是 python 解释器 ∧ 某 argv 以 `agentd/scheduler.py` 结尾 ∧ 其 `--root` 与报表 root 同一实体
+（realpath）」的那枚，读它 argv 的 `--max-concurrent`（`--max-concurrent N` ∕ `=N` 两形态；未传 ⇒
+生效值 = 本体层缺省 `scheduler.DEFAULT_MAX_CONCURRENT`）。三层（**本体** = 代码缺省值 ∕ **装配声明** =
+`scheduler-loop.sh` 的 `MAX_CONCURRENT` ∕ **运行态** = 实跑进程 argv）里只有运行态层是有效层——
+`scheduler.tick` 的饱和判据逐字 = `len(occupants) >= self.max_concurrent` 而 `self.max_concurrent` ← argv；
+装配声明层改了未重启即与生效值漂移。层次用词同 `lore/library/agentfw/facts/task-book-authoring.md`
+「实际落点层次」条的层次候选族。该行报量带层次名与取证依据（pid ∕ argv 键 ∕ 本体层缺省是否生效）。
+上限**不可得**（本机无管这棵树的 scheduler ∕ 多枚值不一致 = 协议禁的双调度器形态 ∕ 探针失败）⇒ 该行标
+⚠️ 不可得，且卡点列**不断言「等槽位」**（宁缺不错层：槽位层跳过、继续判主机层），「应跑未跑」门禁照常采集。
 活跃表排序：运行中（含心跳停滞）在前、已放行待拉起次之、排队中最后，组内按登记时间。
+活跃表「调度依赖」列的 ⛔卡点按 `scheduler.tick` 门禁序给（依赖 → 资源 → **槽位** → 主机），「等槽位」格
+带层次标注（`·上限=运行态层`）且格内两数同层（occ = 本轮 `_scan` 现值、上限 = 运行态生效值）⇒ `-s active`
+单节切片脱离「## 系统」也能判该上限取自哪一层。
 终态任务表缺省不渲染（报表保持简洁）：
 `--finalized` 显示最近 20 条、`--all` 显示全部；统计头/异常区/活跃表/系统小节不受影响。
 顶部异常区汇总失败（附 exitcode）、心跳停滞、
 「应跑未跑」：未启动任务（无 enable.json ∧ 无 pid.json）
 镜像 scheduler.tick 放行门禁计算「应跑」——needs 的 provider 均成功（口径同
 scheduler.provider_success）∧ 所需资源与占位者（running/已放行未落地）持有资源无交集 ∧
-占位数未饱和（缺省上限 4，同 DEFAULT_MAX_CONCURRENT）∧ 目标主机存活（复用
+占位数未饱和（上限 = **运行态层**生效值，判据单点 `report.effective_max_concurrent`；⛔ 本体层缺省
+`DEFAULT_MAX_CONCURRENT`——装配声明层（`scheduler-loop.sh` 的 `MAX_CONCURRENT`）可覆盖它，用缺省值判会在 `occ ≥ 缺省` 期间既误标卡点列又短路本条
+采集；上限不可得 ⇒ 不断言饱和、本条照常跑）∧ 目标主机存活（复用
 scheduler.host_runner_alive 读 agentd.<host>.lock 新鲜度）；四者皆满足却仍未放行才报，
 提示调度器可能卡住。等待依赖/资源/槽位、主机不存活、缺 host 均属正常调度状态不报；
 「needs 不可满足」：未启动任务

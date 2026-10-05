@@ -22,6 +22,10 @@
 provider ∧ 资源与占位者无交集 ∧ 占位数未饱和 ∧ 目标主机存活；四者皆满足却仍未放行 →
 🚨 应跑未跑（提示调度器可能卡住）。等待依赖/等待资源/等待槽位/主机不存活均属正常调度状态，
 不报（取代旧「排队超 30 分钟」规则）。
+饱和判据的上限 = **运行态层**（实跑 scheduler 进程 argv 的 `--max-concurrent`，见
+`effective_max_concurrent`），⛔ 本体层缺省 `scheduler.DEFAULT_MAX_CONCURRENT`——现网
+装配声明层（`scheduler-loop.sh` 的 `MAX_CONCURRENT`）覆盖该缺省 ⇒ 用缺省值判会在
+`occ ≥ 缺省` 期间既误标卡点列又短路本规则的采集。上限不可得 ⇒ 不断言「满」（本规则照常跑）。
 ② 「needs 不可满足」（用户第二条排队类规则）——未启动任务直接复用
 scheduler.eval_needs（import 复用，口径零漂移）判三态：unsat（某能力无 provider 或 provider
 全部终态非成功）→ 🚨 needs 不可满足（调度器永不放行，需人工干预）；wait（仍有未终态
@@ -113,6 +117,10 @@ HEARTBEAT_STALE_SECS = 5 * 60      # 运行中任务心跳停滞阈值
 # scheduler 判活有限重试：抗 pgrep 瞬时假阴性。总耗时上限 ≤1.5s。
 SCHED_ALIVE_TRIES = 3
 SCHED_ALIVE_RETRY_DELAY = 0.4      # 重试间隔（秒）
+
+# scheduler 进程探针（判活 ∪ 有效占位上限两处共用同一 pattern，⛔ 在他处另拼字面串）
+SCHEDULER_PROC_PATTERN = "agentd/scheduler.py"
+PROC_PROBE_TIMEOUT = 5.0           # 单次 pgrep/ps 上界（秒）：探针绝不得挂住报表生成
 
 # 「## 系统」小节：runner 判活锁固定舰队。判活口径与阈值完全
 # 复用调度器放行门禁第四条件（scheduler.host_runner_alive / HOST_ALIVE_THRESHOLD），零漂移。
@@ -457,10 +465,11 @@ def judge(t, adir, now):
 
 def _pgrep_once():
     try:
-        rc = subprocess.run(["pgrep", "-f", "agentd/scheduler.py"],
+        rc = subprocess.run(["pgrep", "-f", SCHEDULER_PROC_PATTERN],
                             stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL).returncode
-    except OSError:
+                            stderr=subprocess.DEVNULL,
+                            timeout=PROC_PROBE_TIMEOUT).returncode
+    except (OSError, subprocess.SubprocessError):
         return False
     return rc == 0
 
@@ -477,6 +486,133 @@ def scheduler_process_alive():
         if i < SCHED_ALIVE_TRIES - 1:
             time.sleep(SCHED_ALIVE_RETRY_DELAY)
     return False
+
+
+def _scheduler_pids():
+    """本机 cmdline 含 SCHEDULER_PROC_PATTERN 的 pid 列表（pgrep -f；失败/缺失 → []）。"""
+    try:
+        p = subprocess.run(["pgrep", "-f", SCHEDULER_PROC_PATTERN],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           text=True, timeout=PROC_PROBE_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    pids = []
+    for tok in p.stdout.split():
+        try:
+            pids.append(int(tok))
+        except ValueError:
+            continue
+    return pids
+
+
+def _proc_argv(pid):
+    """pid → argv token 列表。Linux 读 /proc/<pid>/cmdline（NUL 分隔，含空格的路径不失真）；
+    无 /proc（macOS）⇒ `ps -o args= -p <pid>` 空白切分（该形态下含空格路径会失真 ⇒
+    解析不出上限即降级为不可断言，方向保守）。进程已消失/不可读 → []。"""
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            raw = f.read()
+        if raw:
+            return [t for t in raw.decode("utf-8", "replace").split("\0") if t]
+    except OSError:
+        pass
+    try:
+        p = subprocess.run(["ps", "-o", "args=", "-p", str(pid)],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           text=True, timeout=PROC_PROBE_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return p.stdout.strip().split()
+
+
+def _argv_value(argv, flag):
+    """argv 里 `--flag <值>` ∕ `--flag=<值>` 两形态（同 argparse）的取值；缺 → None。"""
+    eq = flag + "="
+    for i, tok in enumerate(argv):
+        if tok == flag and i + 1 < len(argv):
+            return argv[i + 1]
+        if tok.startswith(eq):
+            return tok[len(eq):]
+    return None
+
+
+def _scheduler_argv_matches(argv, root):
+    """三重判据：这枚进程是否 = 管 `root` 这棵树的 scheduler。
+      ① argv[0] 是 python 解释器；② 某个 argv token 以 `agentd/scheduler.py` 结尾
+      （= 被执行的脚本本体）；③ 其 `--root` 与报表 root 同一实体（realpath 相等）。
+    ①② 排除 cmdline 里恰好提到该路径的包装壳（`bash -c '… agentd/scheduler.py …'`：
+    pgrep -f 实测会命中）；③ 排除他 root 的 scheduler（e2e ∕ 单测临时树 ∪ 人工 --once 调试）
+    ⇒ 探针只认「管这棵树的那枚」：临时树上的报表恒走降级路径（确定性），生产报表
+    不受并存测试进程污染。"""
+    if not argv or not os.path.basename(argv[0]).startswith("python"):
+        return False
+    if not any(tok.endswith(SCHEDULER_PROC_PATTERN) for tok in argv[1:]):
+        return False
+    r = _argv_value(argv, "--root")
+    if not r:
+        return False
+    try:
+        return os.path.realpath(os.path.expanduser(r)) == os.path.realpath(root)
+    except OSError:
+        return False
+
+
+def _parse_max_concurrent(argv):
+    """argv → `--max-concurrent` 的显式值（正整数）；未传 ∕ 值不可解析 ∕ 非正 ⇒ None。
+    None 的语义 = 「argv 未显式覆盖 ⇒ 生效值落回本体层缺省」（补值由调用方做，以便
+    层次标注能写明是哪一格）。"""
+    v = _argv_value(argv, "--max-concurrent")
+    if v is None:
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def effective_max_concurrent(root):
+    """**有效占位上限** → (limit ∕ None, note)。权威落点 = 运行态层。
+
+    三层（用词同 `lore/library/agentfw/facts/task-book-authoring.md`「实际落点层次」条的
+    层次候选族）：
+      本体层     = `scheduler.DEFAULT_MAX_CONCURRENT`（代码缺省值）；
+      装配声明层 = `scheduler-loop.sh` 的 `MAX_CONCURRENT`（启动时传给 --max-concurrent）；
+      运行态层   = 实跑 scheduler 进程 argv 的 `--max-concurrent`。
+    只有运行态层是**有效层**：scheduler.tick 的饱和判据逐字 =
+    `len(occupants) >= self.max_concurrent`，而 `self.max_concurrent` ← argv ⇒ 本函数取的
+    与调度器自己用的是**同一源**（那枚进程的 argv）；装配声明层改了未重启即与生效值漂移。
+
+    limit=None ⇒ **不可断言**（本机无管这棵树的 scheduler ∕ 探针失败 ∕ 多枚值不一致）
+    ⇒ 调用方 ⛔ 判「满」：宁可不报槽位层（继续判主机层），也不报一个错层的数。
+    部署假设与既有 `scheduler_process_alive()` 同形（调度方全局唯一实例；report.py 现网
+    跑在它所在机）⇒ 他机报表走降级路径，不引入新假设。"""
+    hits = []
+    for pid in _scheduler_pids():
+        argv = _proc_argv(pid)
+        if _scheduler_argv_matches(argv, root):
+            hits.append((pid, argv))
+    if not hits:
+        return None, ("本机无 --root 指向本树的 scheduler 进程"
+                      "（调度方全局唯一实例）⇒ 卡点列不断言「等槽位」")
+    vals = {}
+    for pid, argv in hits:
+        v = _parse_max_concurrent(argv)
+        vals.setdefault(v if v is not None else scheduler.DEFAULT_MAX_CONCURRENT,
+                        []).append((pid, v is None))
+    if len(vals) > 1:
+        detail = "、".join("pid %s=%d" % (pid, v) for v, ps in sorted(vals.items())
+                          for pid, _d in ps)
+        return None, ("本机 %d 枚 scheduler 进程的上限不一致（%s）——协议禁双调度器，"
+                      "槽位层不断言" % (len(hits), detail))
+    limit, ps = next(iter(vals.items()))
+    pids = "、".join(str(pid) for pid, _d in ps)
+    if ps[0][1]:
+        return limit, ("运行态层：scheduler pid %s 的 argv 未传 --max-concurrent ⇒ "
+                       "生效 = 本体层缺省 %d" % (pids, limit))
+    return limit, ("运行态层：scheduler pid %s 的 argv --max-concurrent=%d"
+                   "（本体层缺省 %d 未生效）"
+                   % (pids, limit, scheduler.DEFAULT_MAX_CONCURRENT))
 
 
 def collect_system_health(root, now):
@@ -720,11 +856,21 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     # 占位数未饱和 ∧ 目标主机存活；全部满足却仍未启动（无 enable ∧ 无 pid.json）
     # 才进异常区。等待依赖/资源/槽位/主机均属正常调度状态，不报（取代旧「排队超 30 分钟」）。
     should_run = []
+    # 饱和判据的上限取**运行态层**（实跑 scheduler 的 argv），⛔ 本体层缺省
+    # DEFAULT_MAX_CONCURRENT：装配声明层（scheduler-loop.sh 的 MAX_CONCURRENT）
+    # 覆盖该缺省 ⇒ 拿缺省值判会在 occ ≥ 缺省期间① 把真卡点（资源/主机/缺 host）盖成
+    # 「等槽位」② 短路下面这段「应跑未跑」采集（用户 2026-08-28 拍板的门禁静默）。
+    slot_limit, slot_limit_note = effective_max_concurrent(root)
     occ, held, providers_by_cap, slots_full = [], set(), None, False
     try:
         occ, held, providers_by_cap, _q = scheduler.Scheduler(
-            root, proto.local_hosts(), all_hosts=True)._scan()
-        slots_full = len(occ) >= scheduler.DEFAULT_MAX_CONCURRENT
+            root, proto.local_hosts(),
+            max_concurrent=(slot_limit if slot_limit is not None
+                            else scheduler.DEFAULT_MAX_CONCURRENT),
+            all_hosts=True)._scan()
+        # 与 scheduler.tick 同式同参：occ = 本轮 _scan 现值、上限 = 运行态生效值 ⇒ 两数同层。
+        # 上限不可得 ⇒ 不断言「满」（降级：槽位层跳过，卡点列继续判主机层）。
+        slots_full = slot_limit is not None and len(occ) >= slot_limit
         gate_ok = True
     except Exception:
         gate_ok = False  # 门禁信息采集失败 → 保守不报两条排队类规则，其余报表照常
@@ -847,7 +993,9 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
                 items.append("%s←%s" % (r, ",".join(hs)) if hs else r)
             return "等资源:" + "、".join(items)
         if slots_full:
-            return "等槽位（%d/%d 满）" % (len(occ), scheduler.DEFAULT_MAX_CONCURRENT)
+            # 两数同层（occ = 本轮 _scan 现值、上限 = 运行态层生效值）；层次标注随格给出
+            # ⇒ `-s active` 单节切片也读得到（取证细节在「## 系统」的「占位上限（有效层）」行）。
+            return "等槽位（%d/%d 满·上限=运行态层）" % (len(occ), slot_limit)
         if proto.host_missing({"host": t["host"]}):
             return "缺 host 无人认领"
         if t["host"] not in host_alive_cache:
@@ -908,6 +1056,10 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
         L.append("| %s | %s | %s | %s | %s |" % (r["host"], runner, hb, mt, link))
     L.append("")
     L.append("scheduler（dev）：%s" % ("✅ 在跑" if sched_ok else "🚨 不在"))
+    # 占位上限的有效层读数（= 卡点列「等槽位」与「应跑未跑」门禁共用的那个上限）：
+    # 报量带层次 ⇒ 读者能判这个数取自哪一层（本体/装配声明/运行态）与取证依据。
+    L.append("占位上限（有效层）：%s ｜ %s"
+             % (slot_limit if slot_limit is not None else "⚠️ 不可得", slot_limit_note))
     L.append("")
 
     # 统计头
