@@ -121,7 +121,7 @@ $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
 # 机制口径 `@dispatch#params`，lore 内容组织 `@lore#gates`，单测 bots/test_kb_index.py）
 python3 bots/kb_index.py index library/agentfw                 # 名（lore 根下相对路径）→ markdown 索引表
 python3 bots/kb_index.py audit library/work                    # 巡检：未入册（缺 frontmatter when:）
-python3 bots/kb_index.py prompt --domains-json '["library/agentfw","desk/agentfw-lead"]'  # 注入用知识清单块
+python3 bots/kb_index.py prompt --domains-json '["library/agentfw","desk/dispatcher"]'  # 注入用知识清单块
 python3 bots/kb_index.py names -v                              # 全局名表（frontmatter name:/anchors:）+ 缓存统计
 python3 bots/kb_index.py resolve <名>[#<锚点>]                  # 名 → 路径（未命中 rc=2、撞名 rc=1）
 python3 bots/kb_index.py read <名>#<锚点>                       # 输出该节全文（节边界 = 下一个同级或更高级标题）

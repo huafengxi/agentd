@@ -297,9 +297,13 @@ RETIRED_MAILBOXES = {
     # position 信箱与其 watcher 进程合并成单一 queue 参与方（信箱与处理进程同目录）
     # ⇒ 两类旧地址都进表：前者有存量投递方，后者只防陈旧文档驱动的写侧重建僵尸信箱。
     BOT_DIR + "/work-lead": QUEUE_DIR + "/work-lead",
-    BOT_DIR + "/agentfw-lead": QUEUE_DIR + "/agentfw-lead",
     BOT_DIR + "/work-lead-watcher": QUEUE_DIR + "/work-lead",
-    BOT_DIR + "/agentfw-lead-watcher": QUEUE_DIR + "/agentfw-lead",
+    # agentfw-lead position 并入 dispatcher（框架域策展面由 dispatcher 兼任）⇒ 该 position 的
+    # 三个历史地址（queue 族一枚 + bot 族两枚）一律改投职位信箱。本表是**单跳**（retired_move
+    # 不递推）⇒ 旧 bot 族地址必须直指新址，⛔ 指向同样已退役的 queue/agentfw-lead。
+    QUEUE_DIR + "/agentfw-lead": POSITION_PID,
+    BOT_DIR + "/agentfw-lead": POSITION_PID,
+    BOT_DIR + "/agentfw-lead-watcher": POSITION_PID,
 }
 
 
