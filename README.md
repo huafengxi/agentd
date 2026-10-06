@@ -58,7 +58,7 @@ anchors:
 | `test_wrap.py` | 封装单测（编号 `T<n>`，**上界一律取现场值**，不写死 = `grep -oE 'T[0-9]+' pi-wrap/test_wrap.py | sort -uV | tail -1`）：socket 生命周期/透传/收敛/resident/**人格面发射契约**（T48：恰一个 `-e` 指向注入层、**零**人格 flag、输入 env 原样透传、装载行不自报形态、宿主陈旧`AGENTD_CONTEXT_COMPACTION` 被洗掉、注入层缺失 ⇒ WARN + 会话照常 exit 0 无诊断、resident 形态同样注入且不注入`CHILD_EXTS`）——人格面的**内容**判据（caps 展开序 = 声明序 / 形态定档与无 profile 名时的回落 / 工具面并集 / knowledge 三档 /model→provider 派生 / `contextCompaction` 归一 / 降级矩阵 / 输出契约键集）不在本套件，归`pi-wrap/test_persona.py`（P 系列，钉解析层）/子端扩展注入面（T29：任务形态按 `CHILD_EXTS` 顺序注入×2、缺失静默跳过不拖垮、resident 零注入）/就绪握手（T30：env 传两枚标记路径、prompt 接受早于开门、陈旧标记 spawn 前必清、失败路径不写标记、resume 幂等路径也写、resident 不参与、子端不 arm 时有界等待 + WARN 不假活、扩展缺失即不传不等）/**就绪门信号 env 的洗刷面**（T31：名单含两枚 + `scrub_env` 真洗掉 + 三调用方同源不复制名单 + `spawn_pi()` 洗刷后显式赋值 ⇒ 握手不受影响）/**`spec.command` env 前缀键的洗刷覆盖钉桩**（T47：扫 `bots/daemon/*/spec.json`、`heartbeats/register.py`、`w/ext/sessiond/proc.py` 的命令前缀键，逐枚断言 `scrub_env` 真洗掉 ⇒ 新增身份标记漏进洗刷名单在**提交前**就红，不靠运行时守卫） |
 | `test_runner_final.py` | runner 生命周期收口面单测（F1–F8，仅标准库）：`final` 的赋值判据——缺 `restartPolicy` 键的非常驻任务到代终态即 final（F1）+ 该档案的终态通知落 reaper 信箱与 `notified.json`（F2）+ 其 `provides` 被 scheduler 解析为 success 使依赖者放行（F3，含「抹掉 final 即退回 pending」的根因对照）+ 存量「代终态 ∧ 未 final」档案一轮 `service()` 自愈（F4）+ 常驻体不收口（F5）+ `auto` 不收口且自愈仍触发（F6）+ `one-shot`/`manual` 回归对照（F7）+ 他机只读与吸收态早退两个分支零写入（F8） |
 | `test_report_slots.py` | 报表面单测（R1–R8，仅标准库）：排队卡点列与「应跑未跑」门禁的**占位上限层次**——occ 达本体层缺省而真卡点在主机层时 ⛔ 报「等槽位」（R1）/ 真饱和时报「等槽位（occ/上限 满·上限=运行态层）」且两数同层、门禁序不变（R2）/ 运行态上限 > 本体层缺省时「应跑未跑」恢复采集（R3）/ 上限不可得 ⇒ 不断言满且采集照常（R4）/ argv 解析五格（R5）/ 进程识别三重判据：包装壳、他 root、缺 `--root`、非 python 解释器排除，`--root=` 与符号链接 root 命中（R6）/ `effective_max_concurrent` 端到端四格含双调度器异值（R7，夹具 = sleep 存根进程，⛔ 真调度器）/ `ts_to_epoch` 复用面不破（R8，`dash/gc-tasks.py` 的单点） |
-| `test_runner_notify.py` | runner 终态通知面单测（H9/H13/H14，编号沿用历史命名）：终态通知判重（notified.json 标记唯一事实源，信箱信封不判重）/ 收件面解析（`resolve_reaper` 两档 + 活性代理三判据 + 回落 note 文案）/ 子端 ask 写侧收件面 env（`_ask_inbox_env` 复用 `resolve_reaper` 单点——reaper 活→指其自家信箱无 note、不存在/无消费者→回落职位信箱+note 点名成因、同源自证、值恒为 str） |
+| `test_runner_notify.py` | runner 终态通知面单测（H9/H13/H14，编号沿用历史命名）：终态通知判重（notified.json 标记唯一事实源，信箱信封不判重）/ 收件面解析（`resolve_reaper` 三档（⓪ 哨兵 `NO_REAPER` = 不发 / ① 显式收件方 / ② 回落）+ 活性代理三判据 + 回落 note 文案）/ 子端 ask 写侧收件面 env（`_ask_inbox_env` 复用 `resolve_reaper` 单点——reaper 活→指其自家信箱无 note、不存在/无消费者/哨兵档→回落职位信箱+note 点名成因、同源自证、值恒为 str） |
 
 运行时树（`agents/`）不入库（见仓库根 `.gitignore`）。
 
@@ -114,7 +114,7 @@ $A bot register --name <名字> --subscribes topic/<议题 id>[,…] \
      # `restartPolicy`；两 flag 缺省时各打一行 WARN 到 stderr（登记照常成功）；已在场分支不生效
      # 两个可选 flag 的缺省后果（各一句，可独立抄）：
      # --restart-policy 缺省 = spec 不写该键 ⇒ 崩溃不自愈，但**仍会 final、仍会发终态通知**（runner 的自愈判据逐字 = spec.get("restartPolicy")=="auto"；`final` 与该键无关，判据见下「约定赋值与实现口径」首条）；常驻体要自愈必须显式 --restart-policy auto（守护型的正规路径 = 被追踪声明源 bots/daemon/<名>/spec.json + make bots.seed，其 spec 自带该字段）。
-     # --reaper 缺省 = spec 不写该键 ⇒ 终态通知回落职位信箱 queue/dispatcher 并带 note；要指定收尾方就显式 --reaper <两段路径式 id>（bot/<名> ∨ task/<id> ∨ topic/<id>）。
+     # --reaper 缺省 = spec 不写该键 ⇒ 终态通知回落职位信箱 queue/dispatcher 并带 note；要指定收尾方就显式 --reaper <两段路径式 id>（bot/<名> ∨ task/<id> ∨ topic/<id>）；无人收尾的一次性会话用哨兵 --reaper none（= 不发终态通知，现值 = proto.NO_REAPER）。
 # 删除铁律：两者都只创建——agents/ 内任何清理走 `python3 agents-sync/gc.py add <路径>` + `reap`
 
 # lore 资产清单 + 全局名字索引（`knowledge` 名 → 清单；规范 `@bots#kb-spec`，
@@ -490,9 +490,11 @@ report.md：在场 → 按 `@agent-file-protocol#operations` 完成判定（fina
   `core.resolveReaper`）**：给 reaper 写一份 inform 信封（载荷不带 role/reaperPid——旁观者面
   已裁，收件方恒为唯一收尾方）。对 task 与 bot 两族参与方同规则（bot 自身终态——散会 stop 等
   ——同样回流其 reaper）；建目录只建 `inbox/`（克制口径同 `ensure_dispatcher_inbox`）。
-  **reaper 解析两档**：① `spec.reaper` 在场且过文法白名单 → 它（文法非法视作缺字段 + 一行
-  WARNING）；② 缺字段/文法非法 → 回落职位信箱 + `note` 点名成因（登记侧恒写 reaper，缺失属
-  存量/人工档案形态）。① 的目标过**活性代理**，不活 → 回落职位信箱 + `note`。
+  **reaper 解析三档**：⓪ `spec.reaper == proto.NO_REAPER`（哨兵）→ **None**：无收件方、不发通知
+  信封（`notify_tick` 跳过；`_ask_inbox_env` 仍回落职位信箱——ask 必须有收件面）；① `spec.reaper`
+  在场且过文法白名单 → 它（文法非法视作缺字段 + 一行 WARNING）；② 缺字段/文法非法 → 回落
+  职位信箱 + `note` 点名成因（登记侧恒写 reaper，缺失属存量/人工档案形态）。① 的目标过**活性
+  代理**，不活 → 回落职位信箱 + `note`。
   **活性代理**（`Runner._pid_active`）：目录在场 ∧（`pid.json` 可读且 `final != true` ∨ `watcher/`
   有非隐藏条目 ∨ 被任一参与方 `spec.subscribes` 声明）——只判目录存在性会把通知投进无人读的信箱
   （已下线 bot 的目录在 gc 前仍在场、pid.json 已 final）= 静默丢失；第三条判据兜住「主题主持人靠

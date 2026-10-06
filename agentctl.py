@@ -368,20 +368,20 @@ when: "（占位：何时该来读本主题文档——一句话；入册后由 
 
 
 def check_reaper(raw, what="reaper"):
-    """`--reaper` 文法校验（终态通知唯一收件面，协议 §4.1 `spec.reaper`）：复用寻址
-    单点 `proto.is_valid_participant_id`（两段路径式 `<family>/<name>`，family ∈
-    proto.FAMILIES，name 过段白名单），非法即 `die`——与 `resolve_sender`/`require_pid`
-    同一口径，不新增 proto 逻辑。缺失（None）= 不写该键 → 运行时 `runner.resolve_reaper`
-    回落职位信箱（`proto.POSITION_PID`）并带 note，属既有语义，此处不代填。"""
+    """`--reaper` 文法校验（终态通知唯一收件面，协议 §4.1 `spec.reaper`）：取值合法性单点
+    `proto.is_reaper_value` = 两段路径式参与方 id（`<family>/<name>`，family ∈ proto.FAMILIES，
+    name 过段白名单）∨ 无收件方哨兵 `proto.NO_REAPER`（= 不发终态通知）；非法即 `die`——与
+    `resolve_sender`/`require_pid` 同一口径，不新增 proto 逻辑。缺失（None）= 不写该键 → 运行时
+    `runner.resolve_reaper` 回落职位信箱（`proto.POSITION_PID`）并带 note，属既有语义，此处不代填。"""
     if raw is None:
         return None
     s = str(raw).strip()
     if not s:
         return None
-    if not proto.is_valid_participant_id(s):
-        die("非法 %s：%r——须为两段路径式 <family>/<name>，family ∈ {%s}，"
-            "name ∈ [A-Za-z0-9._-]+（禁 ./../空段、裸名；§2.1/§4.1）"
-            % (what, raw, ", ".join(proto.FAMILIES)))
+    if not proto.is_reaper_value(s):
+        die("非法 %s：%r——须为两段路径式 <family>/<name>（family ∈ {%s}，"
+            "name ∈ [A-Za-z0-9._-]+，禁 ./../空段、裸名）∨ 哨兵 %r（= 不发终态通知）；§2.1/§4.1"
+            % (what, raw, ", ".join(proto.FAMILIES), proto.NO_REAPER))
     return s
 
 
@@ -925,9 +925,10 @@ def main():
                    help="写入 spec `name` 字段（人类可读描述，§4.1）；缺省不写该键")
     p.add_argument("--reaper", default=None,
                    help="写入 spec `reaper` 字段（终态通知唯一收件面，§4.1）："
-                        "两段路径式 <family>/<name>，family ∈ {%s}；非法即拒。"
+                        "两段路径式 <family>/<name>，family ∈ {%s}；∨ 哨兵 `%s`"
+                        "（= 无收件方、不发终态通知）；非法即拒。"
                         "缺省不写该键 → 运行时回落职位信箱 %s 带 note"
-                        % (", ".join(proto.FAMILIES), proto.POSITION_PID))
+                        % (", ".join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default="",
                    help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈，'
@@ -991,10 +992,11 @@ def main():
                         "spec 已在场时不生效（本命令只改 subscribes）")
     p.add_argument("--reaper", default=None,
                    help="新建 spec 时写入 `reaper` 字段（终态通知唯一收件面，§4.1）："
-                        "两段路径式 <family>/<name>，family ∈ {%s}；非法即拒。"
+                        "两段路径式 <family>/<name>，family ∈ {%s}；∨ 哨兵 `%s`"
+                        "（= 不发终态通知）；非法即拒。"
                         "缺省不写该键 → 运行时回落职位信箱 %s。"
                         "spec 已在场时不生效"
-                        % (", ".join(proto.FAMILIES), proto.POSITION_PID))
+                        % (", ".join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
     p.set_defaults(fn=cmd_bot_register)
 
     # topic 组：协作容器脚手架（设计稿 dispatch/docs/design/topic-design.md §7/§8）

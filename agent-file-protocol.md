@@ -191,7 +191,7 @@ agents/<participantId>/
 | `workdir` | string | ✅ | **外部工作目标目录**（agent 的 cwd）：**协议不管理其中任何文件**。**路径可移植**：`$HOME` 内路径登记侧归一化为 `~/...` 落盘、非 home 路径保持绝对，运行方以 `expanduser` 展开 |
 | `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual` 崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 第一代终止即 final（常驻体亦然）。**本字段只管自愈、不管收口**：非常驻参与方到代终态一律 `final`（判据 = `@agentd#conventions`）。**分两档**：① **运行时语义** = 字段缺失 ⇒ 不自动重启（行为等同 `manual`；判据逐字 = `runner.py` 的 `spec.get("restartPolicy") == "auto"`），但**缺键与 `manual` 仍 `final`、仍发终态通知**；② **登记侧** = dispatch 登记路径恒写 `one-shot`（任务形态）、CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给 ⇒ 键不在场 + 登记当场一行 WARN 点名缺省的后果与补法） |
 | `creator` | string | ✅ | 创建者身份 = **回信地址** = **真实登记方**（审计用）；终态通知的投递不由它推导（收件面 = `reaper`） |
-| `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法 id 拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法 id 拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（`@dispatch#lifecycle`） |
+| `reaper` | string | ➖ | **通知域扩展字段**：终态通知的**唯一收尾方**（读报告验收、遗留进 todo、销账）。取值 = 两段路径式参与方 id ∨ **无收件方哨兵 `none`**（= 到终态**不发通知信封**，⛔ 不是回落；合法性单点 = `proto.is_reaper_value`，用于无人收尾的一次性会话；其失败信号由登记方自己读退出码处置）。登记侧**分两档**：dispatch 登记路径恒写（缺省推导 = `creator`）、非法值拒绝登记；CLI（`agentctl create`/`bot register`）**给了才写**（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法值拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。**终态通知与子端 ask 的写侧收件面同源消费本字段**（哨兵档下 ask 仍回落职位信箱：ask 必须有收件面；`@dispatch#lifecycle`） |
 | `host` | string | ➖ | **路由扩展**（§15）：目标机器——仅该机 runner 可认领；协议缺省语义 = `createdByHost`，登记实现一律登记时物化写入；**缺失/空 = 无机器认领**（§15.1） |
 | `createdByHost` | string | ➖ | **路由扩展**（§15）：创建方所在机器，回信/审计用；缺省 = 创建者本机 |
 | `subscribes` | array of string | ➖ | **消息域扩展字段**：登记期订阅意图——每项为 `topic/<id>`，该会话的 receiver 把对应 topic 全量日志信箱纳入监视面（共享式多订阅，ack 两态 §4.6）。**只承载登记期意图**：运行期增删订阅走 topic 的 `watcher/<裸名>` 条目，不改本不可变档。非 `topic/` 族与非法 id 一律忽略并留降级日志（`task/`、`bot/`、`queue/` 信箱**不得**被第三方会话绑定，防抢收）。写入口与硬校验 = `@agentd#usage`；主持人口径 = `@topic-design#moderator-carrier` |
@@ -443,7 +443,7 @@ runner 作为系统发送方（`from` = 保留裸名 `agentd`，§2.2）写的 i
 
 | `body.event` | 语义 | 收件面 |
 |---|---|---|
-| `task_done` / `task_failed` / `task_canceled` | 生命周期终态通知（载荷含 taskId/status/exitcode/report/取消原因；reaper 回落时附回落成因 `note`） | **`spec.reaper`**（单收件方，其自家信箱；reaper 缺失/不可达 → 回落本系统主题。字段登记 §4.1，应用层口径 `@dispatch#notify`） |
+| `task_done` / `task_failed` / `task_canceled` | 生命周期终态通知（载荷含 taskId/status/exitcode/report/取消原因；reaper 回落时附回落成因 `note`） | **`spec.reaper`**（单收件方，其自家信箱；reaper 缺失/不可达 → 回落本系统主题；reaper = 哨兵 `none` → **不发本类信封**。字段登记 §4.1，应用层口径 `@dispatch#notify`） |
 
 1. **不新增 type**：系统事件是「告知，不要答复」→ `type=inform`（§6.2 按会话语用切分，不按内容切分）；事件语义全在 `body` 载荷内；
 2. **幂等判据 = 自家 `notified.json` 标记**（唯一事实源，只在终态通知投递后写），信箱内信封在场与否不参与判重（§8 部署层记账件）；

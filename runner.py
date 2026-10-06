@@ -354,7 +354,11 @@ class Runner:
 
     def resolve_reaper(self, spec, cache=None):
         """终态通知的**唯一收件方**解析（单点；登记侧对偶 = core.ts resolveReaper 写
-        spec.reaper）。两档 + 一道退役改投：
+        spec.reaper）。三档 + 一道退役改投：
+        ⓪ `spec.reaper == proto.NO_REAPER`（哨兵）→ **None**：无收件方、不发终态通知
+           （一次性 handler 族的自噬轮次防线，语义与理由 = `proto.NO_REAPER` 注）；
+           调用方对 None 的处置各自定义：`notify_tick` 跳过不发，`_ask_inbox_env`
+           仍回落职位信箱（ask 必须有收件面，否则子端阻塞无人应答）；
         ① `spec.reaper` 在场且过文法白名单 → 它（文法非法 → 视作缺字段走 ② + 一行 WARNING：
            登记侧已拒非法值，运行侧只可能是人工补录）；
            ①b 命中退役表（`proto.RETIRED_MAILBOXES`）→ **改投新址 + note 点名成因**（写侧
@@ -370,10 +374,12 @@ class Runner:
         对 task 与 bot 两族参与方同规则（bot 自身终态——散会 stop 等——同样回流其 reaper）。
         纯判定 + 存在性试探；建目录归发送侧（只建 inbox/，同 ensure_dispatcher_inbox 口径）。
         @param {dict|None} cache 每轮 tick 的活性备忘录（见 _pid_active）
-        @returns {dict} {"pid", "inbox", "note": None|str}"""
+        @returns {dict|None} {"pid", "inbox", "note": None|str}；哨兵档返回 **None**（不发）"""
         spec = spec or {}
         target = None
         raw = spec.get("reaper")
+        if isinstance(raw, str) and raw.strip() == proto.NO_REAPER:
+            return None   # ⓪ 显式无收件方：不发终态通知（⛔ 不是回落）
         if isinstance(raw, str) and raw.strip():
             cand = raw.strip()
             if proto.is_valid_participant_id(cand):
@@ -416,6 +422,12 @@ class Runner:
         （身份/信号类，不得继承进孙进程：继承会把它带进被启动的服务，并让嵌套 receiver 误用外层任务的 ask 路由）。
         @returns {dict} 待 env.update 的键值（值恒为 str）"""
         r = self.resolve_reaper(spec)
+        if r is None:
+            # 哨兵档（无终态通知）不影响 ask 路由：ask 必须有收件面（否则子端阻塞无人应答）
+            # ⇒ 回落职位信箱并点名成因。
+            r = {"inbox": proto.position_inbox(self.root),
+                 "note": "spec.reaper=%s（无终态通知）⇒ ask 仍须有收件面，回落职位信箱"
+                         % proto.NO_REAPER}
         env = {"AGENTD_ASK_INBOX": r["inbox"]}
         if r.get("note"):
             env["AGENTD_ASK_NOTE"] = str(r["note"])
@@ -540,6 +552,8 @@ class Runner:
             if mark is not None and mark.get("complete") is True:
                 continue   # 热路径短路：判重已完整 → 零收件方解析、零活性探测
             recipient = self.resolve_reaper(spec, active)
+            if recipient is None:
+                continue   # 哨兵档（spec.reaper=none）：无收件方 ⇒ 不发、也不写判重标记
             if self._already_notified(pid_, recipient["pid"]):
                 continue
             if self.replay_suppressed(pid_, doc):

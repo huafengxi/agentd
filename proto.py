@@ -186,6 +186,20 @@ def is_valid_participant_id(s) -> bool:
         return False
 
 
+# `spec.reaper` 的「无收件方」哨兵（§4.1）：值恒为该字面量 ⇒ 参与方到终态**不发通知信封**
+# （⛔ 不是回落职位信箱）。需要这一档的形态 = 无人收尾的一次性会话（如 position 的 handler）：
+# 缺字段档会把它自己的终态灌进单点职位信箱，而那里的消费者又是一枚同族会话 ⇒ 每枚跑完再拉起
+# 一枚（自噬轮次）。它的失败信号不靠终态通知：登记方（watcher）自己读退出码升级（熔断 → IM）。
+NO_REAPER = "none"
+
+
+def is_reaper_value(s) -> bool:
+    """`spec.reaper` 的取值合法性 = 两段路径式参与方 id ∨ 无收件方哨兵（§4.1）。
+    写侧三处同判（`agentctl.check_reaper` / 扩展 `core.ts::resolveReaper` / 本函数），
+    运行侧解析单点 = `runner.resolve_reaper`（哨兵 → None → 不发）。"""
+    return s == NO_REAPER or is_valid_participant_id(s)
+
+
 def fs_safe_id(pid_: str) -> str:
     """`/` 进文件名的转写单点（§2.2）：`/` → `.`（如 `task/65ijbb` → `task.65ijbb`）。
     一切拼信封/事件文件名处强制过。转写不可逆（段内含 `.` 时），但文件名只用于唯一性

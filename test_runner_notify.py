@@ -164,7 +164,17 @@ def h13():
     ok("H13 缓存面不改判定（带/不带缓存同结论）",
        r._pid_active("bot/sub-only", cache) == r._pid_active("bot/sub-only") == (True, ""))
 
-    # ---- resolve_reaper 两档 ----
+    # ---- resolve_reaper 三档（⓪ 哨兵 / ① 显式收件方 / ② 回落）----
+    got = r.resolve_reaper({"reaper": proto.NO_REAPER})
+    ok("H13 ⓪ reaper = 哨兵 %r → None（无收件方、不发通知；⛔ 不是回落职位信箱）"
+       % proto.NO_REAPER, got is None, got)
+    got = r.resolve_reaper({"reaper": "  %s  " % proto.NO_REAPER, "creator": "bot/live-proc"})
+    ok("H13 ⓪ 哨兵带空白仍命中（strip 后等值判定，creator 不参与推导）", got is None, got)
+    ok("H13 ⓪ 哨兵不是参与方 id（文法面不混：is_valid_participant_id 拒、is_reaper_value 收）",
+       not proto.is_valid_participant_id(proto.NO_REAPER)
+       and proto.is_reaper_value(proto.NO_REAPER)
+       and proto.is_reaper_value("bot/live-box")
+       and not proto.is_reaper_value("bot/a/b"), None)
     got = r.resolve_reaper({"reaper": "bot/live-box", "creator": proto.POSITION_PID})
     ok("H13 reaper 显式字段（creator 不参与推导）",
        got["pid"] == "bot/live-box"
@@ -264,6 +274,10 @@ def h14():
         ok("H14 _ask_inbox_env 与 resolve_reaper 同源（单点复用：%s）" % spec.get("reaper"),
            env.get("AGENTD_ASK_INBOX") == rr["inbox"]
            and env.get("AGENTD_ASK_NOTE") == rr["note"], (env, rr))
+    env = r._ask_inbox_env({"reaper": proto.NO_REAPER})
+    ok("H14 哨兵档（无终态通知）不影响 ask 路由 → 回落职位信箱 + note 点名成因",
+       env["AGENTD_ASK_INBOX"] == pos and proto.NO_REAPER in env.get("AGENTD_ASK_NOTE", "")
+       and "回落职位信箱" in env.get("AGENTD_ASK_NOTE", ""), env)
     ok("H14 env 值恒为 str（spawn env.update 安全）",
        all(isinstance(v, str) for v in r._ask_inbox_env({"reaper": "bot/ghost"}).values()))
 
