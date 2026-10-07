@@ -144,6 +144,14 @@
       枚举根不在场也拒 ⇒ 反写死名单钉；rc=2 + 打印可选名单 + 零落盘）/ 前缀冲突被拒
       （异值 rc=2 且两侧值都在报文里、同值幂等不重复拼）/ 缺省一行 WARN 且照建
       （command 逐字原值；自带前缀不打 = 存量手写形态零回归）+ `create --help` 覆盖三格
+  S61 `agentctl create --prompt-file`（任务书与登记同批落盘；消掉「`prompt.md` 必须与
+      `create` 写在同一个 shell 调用里」这条竞态绕行规则）七格：可读文件 ⇒ `prompt.md`
+      逐字在场（⛔ 渲染 ∨ 转义 ∨ 补尾换行）且 stdout 仍是 taskId 裸串 / **写点顺序钉**
+      （AST 取 `cmd_create` 里两个原子写点的行号：prompt < spec ⇒ 调度方看见 spec 时
+      prompt 必已在场，竞态窗结构上闭合）/ 拒分支 ×5（不存在 ∨ 是目录 ∨ 零字节 ∨
+      纯空白 ∨ 非 UTF-8）rc=2 + 零落盘（⛔ 建了目录却没 prompt 的半成品）/ 缺省不传
+      旗标行为逐字不变（⛔ 写 `prompt.md`）/ 已在场目录仍拒且不覆写既有任务书 /
+      `create --help` 覆盖三格 / 与 `--profile` 同用不互斥
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -152,6 +160,8 @@ S57 自建控制信封夹具（不起进程、收尾自清）→ **可单跑**�
 S58 自建写信封夹具（不起进程；职位信箱只删本场景写的件）→ **可单跑**；
 S59 自建临时工作区根夹具（含残骸；不起进程、不读主树 ROOT，收尾自清）→ **可单跑**；
 S60 自建临时工作区根夹具（含 `bots/profiles/` 白名单枚举根；不起进程、不读主树 ROOT，
+收尾自清）→ **可单跑**；
+S61 自建临时工作区根夹具（含任务书正文与四类非法文件夹具；不起进程、不读主树 ROOT，
 收尾自清）→ **可单跑**。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
@@ -171,6 +181,7 @@ runner 不自写 enable。
 仅使用 python3 标准库（例外：S49 以子进程调 `node` 驱动真 TS 扩展——node 是 pi 本体的
 运行时，四机必然在场；缺失则断言失败并点名原因，不静默跳过）。
 """
+import ast
 import glob
 import json
 import os
@@ -4887,6 +4898,165 @@ def s60():
         _rm_scenario_root(S60BASE)
 
 
+# ------------- S61（agentctl create --prompt-file：任务书与登记同批落盘）
+
+S61BASE = os.path.join(TMPBASE, "root-s61")   # 本场景自建根（专用临时目录，不用生产树）
+
+
+def s61():
+    """`agentctl create --prompt-file`（消掉「prompt.md 与 create 必须写在同一个 shell 调用里」
+    这条竞态绕行规则）七格：
+
+    ① **正常落盘**：可读文件 ⇒ rc=0 ∧ stdout 仍是 taskId 裸串（既有语义）∧ `prompt.md` 在场
+      且内容**逐字**相同（多行/UTF-8/反引号/`$VAR`/引号全保留 ⇒ 钉「⛔ 渲染、⛔ 转义」）。
+    ② **写点顺序钉**（竞态窗闭合的真判据）：`cmd_create` 里 `prompt.md` 的写点行号 **<**
+      `spec.json` 的写点行号（AST 级取，⛔ 文本 grep）。只断言「两者都在场」照不到顺序，而
+      写在 spec 之后只是把窗变窄：调度方的可见性锚是 `spec.json`。
+    ③ **拒分支 ×5 + 零落盘**：路径不存在 ∨ 是目录 ∨ 零字节 ∨ 纯空白 ∨ 非 UTF-8 ⇒ rc=2 ∧
+      stderr 点名 `--prompt-file` ∧ **不建 `task/<名>` 目录**（⛔ 半成品：建了却没 prompt）。
+    ④ **缺省行为逐字不变**：不传旗标 ⇒ 无 `prompt.md`、spec 照建、stdout 仍是裸串
+      （存量调用方 = watcher 与 heartbeats/register，两者今天都是「create 先、写 prompt 后」）。
+    ⑤ **既有拒建语义不变**：已在场目录 + `--prompt-file` ⇒ 仍 `已存在` rc=2 且零落盘
+      （不覆写已有任务目录里的 prompt.md）。
+    ⑥ **help 面**：`create --help` 写明三格（写点在 spec.json 之前 / 拒分支零落盘 / 缺省不变）。
+    ⑦ **与 `--profile` 同用不互斥**：前缀拼接照旧 ∧ prompt.md 照落。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    ws = os.path.join(S61BASE, "ws")
+    os.makedirs(os.path.join(ws, "agents", "task"), exist_ok=True)
+    os.makedirs(os.path.join(ws, "env"), exist_ok=True)
+    with open(os.path.join(ws, "env", "host-id"), "w") as f:
+        f.write("%s s61-canonical\n" % socket.gethostname())
+    os.makedirs(os.path.join(ws, "bots", "profiles"), exist_ok=True)
+    with open(os.path.join(ws, "bots", "profiles", "s61-review.json"), "w") as f:
+        f.write("{}")
+    # 任务书夹具：多行 + UTF-8 + 会被 shell/转义吃掉的字符族（逐字保真的反例面）
+    BODY = ("# 任务：S61 夹具\n\n"
+            "分级：M ｜ 中文与 emoji ✅ ｜ `反引号` ｜ $VAR 与 ${VAR} ｜ \"双引号\" 与 '单引号'\n"
+            "末行无换行符")
+    pf = os.path.join(S61BASE, "prompt-body.md")
+    with open(pf, "w", encoding="utf-8") as f:
+        f.write(BODY)
+    bad_dir = os.path.join(S61BASE, "bad")
+    os.makedirs(bad_dir, exist_ok=True)
+    zeros = os.path.join(S61BASE, "zero.md")
+    open(zeros, "w").close()
+    blank = os.path.join(S61BASE, "blank.md")
+    with open(blank, "w") as f:
+        f.write("  \n\t\n")
+    binf = os.path.join(S61BASE, "bin.md")
+    with open(binf, "wb") as f:
+        f.write(b"\xff\xfe\x00bad")
+
+    def run(*args):
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)
+        return subprocess.run([sys.executable, os.path.join(HERE, "agentctl.py"),
+                               "--root", ws, *args], capture_output=True, text=True,
+                              env=env, timeout=60)
+
+    def create(name, *extra):
+        return run("create", "--name", name, "--command", "true", "--workdir", ws,
+                   "--creator", "tester", *extra)
+
+    def adir(name):
+        return os.path.join(ws, "agents", "task", name)
+
+    def no_dir(name):
+        assert not os.path.exists(adir(name)), "拒后零落盘（不得建 task/%s）" % name
+
+    try:
+        # ---- ① 正常落盘：rc=0 + stdout 裸串 + 内容逐字 ----
+        r = create("s61-a", "--prompt-file", pf)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == "s61-a", "stdout 仍是 taskId 裸串（既有语义）：%r" % r.stdout
+        got = os.path.join(adir("s61-a"), "prompt.md")
+        assert os.path.exists(got), "prompt.md 应在场：%s" % got
+        with open(got, encoding="utf-8") as f:
+            assert f.read() == BODY, "逐字保真（⛔ 渲染 ∨ 转义 ∨ 补尾换行）"
+        assert os.path.exists(os.path.join(adir("s61-a"), "spec.json")), "spec 照建"
+        assert os.path.isdir(os.path.join(adir("s61-a"), "inbox")), "inbox/ 照建（布局不变）"
+
+        # ---- ② 写点顺序钉（AST 级，⛔ 文本 grep）----
+        with open(os.path.join(HERE, "agentctl.py"), encoding="utf-8") as f:
+            tree = ast.parse(f.read())
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "cmd_create")
+
+        def _tag(node):
+            """写点的目标文件名标签：直提字串常量 ∨ 名字，也钻一层 `os.path.join(adir, X)`
+            取 X（现网两个写点都是 join 形态）⇒ 标签 = `spec.json` ∨ `PROMPT_FILE_NAME`。"""
+            if isinstance(node, ast.Call) and node.args:
+                node = node.args[-1]
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return node.value
+            if isinstance(node, ast.Name):
+                return node.id
+            return None
+
+        lin = {}
+        for n in ast.walk(fn):
+            if not isinstance(n, ast.Call) or not isinstance(n.func, ast.Attribute):
+                continue
+            if n.func.attr not in ("atomic_write", "atomic_write_json") or not n.args:
+                continue
+            t = _tag(n.args[0])
+            if t:
+                lin.setdefault(t, n.lineno)
+        assert "spec.json" in lin and "PROMPT_FILE_NAME" in lin, \
+            "cmd_create 里应同时有 prompt 与 spec 两个原子写点（按实参识别）：%s" % sorted(lin)
+        assert lin["PROMPT_FILE_NAME"] < lin["spec.json"], (
+            "prompt.md 的写点必须在 spec.json **之前**（调度方的可见性锚是 spec.json；"
+            "写在它之后只是把竞态窗变窄、⛔ 变没）：prompt@%d spec@%d"
+            % (lin["PROMPT_FILE_NAME"], lin["spec.json"]))
+
+        # ---- ③ 拒分支 ×5 + 零落盘 ----
+        cases = [("不存在", os.path.join(S61BASE, "nosuch.md")), ("是目录", bad_dir),
+                 ("零字节", zeros), ("纯空白", blank), ("非 UTF-8", binf)]
+        for i, (why, p) in enumerate(cases):
+            nm = "s61-b%d" % i
+            r = create(nm, "--prompt-file", p)
+            assert r.returncode == 2, "%s ⇒ 应拒（rc=2）：rc=%d %s" % (why, r.returncode, r.stderr)
+            assert "--prompt-file" in r.stderr, "stderr 须点名该旗标（%s）：%s" % (why, r.stderr)
+            assert "本次未创建任何目录/文件" in r.stderr, "须声明零副作用（%s）：%s" % (why, r.stderr)
+            no_dir(nm)
+        assert os.path.isdir(adir("s61-a")), "对照组 s61-a 不受拒分支影响"
+
+        # ---- ④ 缺省行为逐字不变 ----
+        r = create("s61-c")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == "s61-c", r.stdout
+        assert not os.path.exists(os.path.join(adir("s61-c"), "prompt.md")), \
+            "不传旗标 ⇒ ⛔ 写 prompt.md（存量调用方行为逐字不变）"
+        assert os.path.exists(os.path.join(adir("s61-c"), "spec.json")), "spec 照建"
+
+        # ---- ⑤ 已在场目录 + --prompt-file 仍拒（既有拒建语义不变、⛔ 覆写）----
+        before = open(os.path.join(adir("s61-a"), "prompt.md"), encoding="utf-8").read()
+        other = os.path.join(S61BASE, "other.md")
+        with open(other, "w", encoding="utf-8") as f:
+            f.write("# 另一份正文（不得覆写既有任务书）\n")
+        r = create("s61-a", "--prompt-file", other)
+        assert r.returncode == 2 and "已存在" in r.stderr, (r.returncode, r.stderr)
+        assert open(os.path.join(adir("s61-a"), "prompt.md"), encoding="utf-8").read() == before, \
+            "拒建 ⇒ 既有 prompt.md 逐字不动"
+
+        # ---- ⑥ help 面 ----
+        r = run("create", "--help")
+        assert r.returncode == 0, r.stderr
+        assert "--prompt-file" in r.stdout, r.stdout
+        for tok in ("spec.json` 之前", "零落盘", "行为逐字不变"):
+            assert tok in r.stdout, "help 须写明 %r（写点顺序/拒分支零落盘/缺省不变）" % tok
+
+        # ---- ⑦ 与 --profile 同用不互斥 ----
+        r = create("s61-d", "--prompt-file", pf, "--profile", "s61-review")
+        assert r.returncode == 0, r.stderr
+        with open(os.path.join(adir("s61-d"), "spec.json"), encoding="utf-8") as f:
+            doc = json.load(f)
+        assert doc["command"] == "DISPATCH_PROFILE=s61-review true", doc["command"]
+        with open(os.path.join(adir("s61-d"), "prompt.md"), encoding="utf-8") as f:
+            assert f.read() == BODY, "两旗标同用 ⇒ prompt 仍逐字"
+    finally:
+        _rm_scenario_root(S61BASE)
+
+
 def _scrub_inherited_env():
     """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
 
@@ -4985,6 +5155,11 @@ def main():
           " + 零落盘・前缀冲突被拒（异值 rc=2 且两侧值都在报文里；同值幂等不重复拼）"
           "・缺省一行 WARN 且照建（command 逐字原值；自带前缀不打 = 存量手写形态零回归）"
           "・create --help 覆盖三格", s60)
+    check("S61 agentctl create --prompt-file（任务书与登记同批落盘）：可读文件 ⇒ prompt.md 逐字在场"
+          "且 stdout 仍是 taskId 裸串・**写点顺序钉**（AST：prompt 写点行号 < spec.json 写点行号"
+          " = 竞态窗结构上闭合）・拒分支 ×5（不存在/是目录/零字节/纯空白/非 UTF-8）rc=2 + 零落盘"
+          "・缺省不传旗标行为逐字不变（⛔ 写 prompt.md）・已在场目录仍拒且不覆写既有任务书"
+          "・create --help 覆盖三格・与 --profile 同用不互斥", s61)
     stop_runner()
     stop_scheduler()
 

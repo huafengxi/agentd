@@ -5,7 +5,9 @@
   create        写 spec.json 创建进程型参与方（§5.1/§2.2/§4.1；`--description` → spec `name`、
                 `--reaper` → spec `reaper`，恒写 `createdAt`，与 dispatch 登记面对齐；
                 `--profile` → `spec.command` 的 `DISPATCH_PROFILE=<名> ` 前缀 = 人格装载的
-                唯一载入口，白名单现场枚举 `<root>/bots/profiles/*.json`，缺省只 WARN 不硬失败）
+                唯一载入口，白名单现场枚举 `<root>/bots/profiles/*.json`，缺省只 WARN 不硬失败；
+                `--prompt-file` → 该文件内容逐字落 `agents/task/<id>/prompt.md`，**写点在
+                spec.json 之前** ⇒ 登记与「可被放行」之间无 prompt 缺失窗）
   create-bot    创建信箱型 bot（bot/<名字>/，只建 inbox/，无 spec）
   bot register  登记进程型 bot spec：`--subscribes topic/<id>[,…]`（通道 B，§4.1）
                 + `--description`（→ spec `name`）/`--reaper`（→ spec `reaper`）
@@ -160,6 +162,8 @@ def cmd_create(a):
     # --profile：白名单现场枚举 + 前缀冲突即拒（两者都在落盘前 ⇒ 拒后零副作用）
     profile = check_profile(getattr(a, "profile", None), a.root)
     command = apply_profile_prefix(a.command, profile)
+    # --prompt-file：读全文也在落盘前（拒后零副作用，口径同 check_profile/check_reaper）
+    prompt_text = read_prompt_file(getattr(a, "prompt_file", None))
     if a.name:
         if "/" in a.name or a.name.startswith("."):
             die("非法目录名：%r（作为路径组件合法即可，§2.2）" % a.name)
@@ -232,6 +236,10 @@ def cmd_create(a):
         v = getattr(a, opt)
         if v is not None:
             spec[key] = parse_str_array(v, "--" + opt)
+    # --prompt-file 的写点**必须在 spec.json 之前**（本节头注：调度方的可见性锚是 spec.json，
+    # 写在它之后只是把竞态窗变窄、⛔ 变没；e2e S61 钉源码顺序）。两次都是 temp+rename 原子写。
+    if prompt_text is not None:
+        proto.atomic_write(os.path.join(adir, PROMPT_FILE_NAME), prompt_text)
     proto.atomic_write_json(os.path.join(adir, "spec.json"), spec)  # temp+rename（§5.1）
     print(name)
 
@@ -529,6 +537,47 @@ def warn_missing_profile(command, root):
              ", ".join(avail) if avail
              else "（空：%s 不在场 ∨ 其中无 *.json）" % os.path.join(root, PROFILES_REL)),
           file=sys.stderr)
+
+
+# ---------- prompt-file（任务书正文的登记侧写入口）----------
+#
+# `prompt.md` 是应用层普通文件（协议 §5.1 边界：启动载荷组装归实现，spec.json 只住进程管理
+# 字段），本仓 ⛔ 渲染其正文（收录判据 ①：政策文案不入本仓）。本旗标只把**调用方已渲染好的**
+# 文件逐字搬进新建的任务目录，消掉的缺陷 = 「登记完成」与「任务书在场」分两次调用时的竞态：
+# 调度方看见 `spec.json` 即可同秒写 `enable.json` 放行、会话封装在 spawn 后数十毫秒读
+# `prompt.md` ⇒ 分两次调用会以「prompt 不可读」死首代，而带 `restartPolicy=one-shot` 的件
+# 首代失败即 `final` ⇒ 连 restart 止损都不可用（归档裁定的一手实例与其首选修法形态见
+# 调用方工作区的 `lore/archive/desk-agentfw-lead/backlog.md`「待入册格 16 原体」节）。
+# 根治面只能在登记通道本身：写点排在 `spec.json` **之前** ⇒ 竞态窗结构上不存在。
+PROMPT_FILE_NAME = "prompt.md"           # 任务目录内的启动载荷文件名（布局常量，⛔ 政策文案）
+
+
+def read_prompt_file(raw):
+    """`--prompt-file` 校验 + 读全文（**⛔ 渲染**：逐字搬运，不改一个字节）。
+
+    三格拒（`die` rc=2，调用位置在任何 `os.makedirs`/落盘之前 ⇒ **拒后零副作用**、
+    ⛔ 留下「建了目录却没 prompt」的半成品）：① 路径不可读（不存在 ∨ 是目录 ∨ 无权限）
+    ② 内容为空（零字节 ∨ 纯空白）—— 空任务书与没任务书是同一失效形态（会话起来无事可做
+    却照样报完成）③ 解码失败（非 UTF-8）。
+    未给旗标（None/空串）⇒ 返回 None，`cmd_create` 的落盘路径与现值逐字一致。
+    @returns {str ∨ None} 文件全文"""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    p = os.path.abspath(os.path.expanduser(s))
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            txt = f.read()
+    except (OSError, UnicodeDecodeError) as e:
+        die("--prompt-file %r 不可读（%r）⇒ 拒绝创建：登记与任务书必须同时落盘，"
+            "⛔ 建了目录却没 prompt。本次未创建任何目录/文件。" % (raw, e), code=2)
+    if not txt.strip():
+        die("--prompt-file %r 内容为空（零字节 ∨ 纯空白）⇒ 拒绝创建：空任务书与没任务书"
+            "是同一失效形态（会话起来无事可做却照样报完成）。本次未创建任何目录/文件。"
+            % raw, code=2)
+    return txt
 
 
 def cmd_bot_register(a):
@@ -955,6 +1004,16 @@ def main():
                    help="调度：本任务成功后提供的能力名数组（JSON）")
     p.add_argument("--needs", default=None,
                    help="调度：依赖的能力名数组（JSON；provider 成功后才放行）")
+    p.add_argument("--prompt-file", default=None,
+                   help="任务书文件路径（可选）：create 自己把该文件内容**逐字**原子写进"
+                        " `agents/task/<id>/%s`，且**写点在 `spec.json` 之前** ⇒ 登记返回 taskId 时"
+                        "任务书必已在场（消掉「create 与写 %s 分两次调用」的竞态：调度方看见"
+                        " spec.json 即可能同秒放行、会话封装在 spawn 后数十毫秒读 prompt ⇒ 分两次"
+                        "调用会以 prompt 不可读死首代，而 one-shot 件首代失败即 final、restart 也救不回）。"
+                        "本 CLI **⛔ 渲染**任务书正文（正文由调用方渲染好写进该文件，收录判据 ①）。"
+                        "拒分支（rc=2 + **零落盘**、⛔ 留半成品目录）：路径不可读 ∨ 内容为空"
+                        "（零字节/纯空白）∨ 非 UTF-8。**缺省不传 ⇒ 行为逐字不变**（不写该文件）"
+                        % (PROMPT_FILE_NAME, PROMPT_FILE_NAME))
     p.set_defaults(fn=cmd_create)
 
     p = sub.add_parser("create-bot",
