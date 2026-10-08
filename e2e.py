@@ -2287,13 +2287,42 @@ def s39():
     assert "bot/tester/" in body and any(
         ln == "bot/tester/" for ln in body.splitlines()), \
         "bot/ 条目无标记入清单（非旁路，无需审计标记）：" + body
+    # PROTECTED_SYSTEM_PATHS 三档：缺省拒 / --force 审计旁路放行 / 形状护栏连 --force 仍拒
     for prot in ("topic/dispatcher/", "queue/dispatcher/"):
+        # a) 缺省（不带 --force）：拒
+        rn = subprocess.run([sys.executable, gc, "add", prot],
+                            capture_output=True, text=True, env=gcenv)
+        assert rn.returncode != 0, \
+            "%s 缺省应拒（PROTECTED_SYSTEM_PATHS 权限类）：%s%s" % (
+                prot, rn.stdout, rn.stderr)
+    for prot in ("topic/dispatcher/", "queue/dispatcher/"):
+        # b) --force 审计旁路：放行
         rp = subprocess.run([sys.executable, gc, "add", prot,
                              "--force", "--force-by", "s39"],
                             capture_output=True, text=True, env=gcenv)
-        assert rp.returncode != 0, \
-            "%s 保护不动（职位信箱的两个载体地址）：含 --force 拒绝：%s%s" % (
-                prot, rp.stdout, rp.stderr)
+        assert rp.returncode == 0, \
+            "%s --force 审计旁路应放行：%s%s" % (prot, rp.stdout, rp.stderr)
+    # 验证清单条目带 #FORCED: 审计标记且审计值含 s39
+    lists = glob.glob(os.path.join(ROOT, "agents", "gc", "delete-list.*"))
+    assert lists, "删除清单应落盘"
+    all_lines = []
+    for lp in sorted(lists):
+        with open(lp) as f:
+            all_lines.extend(f.read().splitlines())
+    for prot in ("topic/dispatcher/", "queue/dispatcher/"):
+        marked = [ln for ln in all_lines
+                  if ln.startswith(prot) and " #FORCED:" in ln]
+        assert marked, \
+            "%s 条目应带 #FORCED: 审计标记" % prot
+        assert any("s39" in ln for ln in marked), \
+            "%s 审计值应含 s39：%s" % (prot, marked)
+    # c) 形状护栏类（裸族级容器）：连 --force 仍拒
+    rs = subprocess.run([sys.executable, gc, "add", "queue/",
+                         "--force", "--force-by", "s39"],
+                        capture_output=True, text=True, env=gcenv)
+    assert rs.returncode != 0, \
+        "裸 queue/（形状护栏 BARE_FAMILY_ENTRIES）连 --force 仍拒：%s%s" % (
+            rs.stdout, rs.stderr)
     # 清理：临时树内直接 rmtree（非生产 agents/ 网格，e2e 收尾整体删除）
     shutil.rmtree(os.path.join(ROOT, "agents", "topic"), ignore_errors=True)
     shutil.rmtree(os.path.join(ROOT, "agents", "gc"), ignore_errors=True)
