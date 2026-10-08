@@ -231,6 +231,20 @@ def cmd_create(a):
              "内嵌的 taskId 与目录名就此对不上）；纯空白则建出一枚名为空白的参与方目录"
              "（扫描面与寻址面都认不出它）",
         remedy="要自动生成的随机 id 请**不传**该旗标（缺省档 = proto.auto_name()）")
+    # 两枚路由字段的空值硬拒也排在任何 makedirs 之前：它们的取值点（`a.host or canonical`）
+    # 在下面 spec 组装段，那时 adir 与 inbox/ 已建出 ⇒ 贴着取值点加守卫会留残骸。
+    # 其后的 `or canonical` 回落链逐字不动（S22 既有裁定 = 解析链缺项回落登记机规范名，
+    # 射程不含「CLI 显式给了空值」这一档）。
+    for opt, raw, key in (("--host", a.host, "host"),
+                          ("--created-by-host", a.created_by_host, "createdByHost")):
+        reject_blank_value(
+            raw, opt,
+            harm="空串会被 `or canonical` 回落链静默换成登记机规范名（与**不传**该旗标同值 ⇒ "
+                 "调用方指定的路由/审计目标被丢弃，登记侧读数看不出差异）；纯空白非假值 ⇒ 被"
+                 "逐字写进 spec.%s ⇒ scheduler 的 host 匹配永不命中（该件永久排队）+ 审计面失真"
+                 % key,
+            remedy="要缺省（= 登记机规范名，解析链见 local_canonical_host）请**不传**该旗标；"
+                   "要指定他机就给一个非空的规范名")
     reaper = check_reaper(getattr(a, "reaper", None))
     description = check_description(getattr(a, "description", None))
     # --profile：白名单现场枚举 + 前缀冲突即拒（两者都在落盘前 ⇒ 拒后零副作用）
@@ -459,13 +473,24 @@ def check_reaper(raw, what="reaper"):
     """`--reaper` 文法校验（终态通知唯一收件面，协议 §4.1 `spec.reaper`）：取值合法性单点
     `proto.is_reaper_value` = 两段路径式参与方 id（`<family>/<name>`，family ∈ proto.FAMILIES，
     name 过段白名单）∨ 无收件方哨兵 `proto.NO_REAPER`（= 不发终态通知）；非法即 `die`——与
-    `resolve_sender`/`require_pid` 同一口径，不新增 proto 逻辑。缺失（None）= 不写该键 → 运行时
-    `runner.resolve_reaper` 回落职位信箱（`proto.POSITION_PID`）并带 note，属既有语义，此处不代填。"""
+    `resolve_sender`/`require_pid` 同一口径，不新增 proto 逻辑。缺失（None = **不传**该旗标）
+    = 不写该键 → 运行时 `runner.resolve_reaper` 回落职位信箱（`proto.POSITION_PID`）并带 note，
+    属既有语义，此处不代填。
+    **传了旗标但值为空 ∕ 纯空白 ⇒ 硬拒**（rc=2 + 零落盘，`reject_blank_value`）：假值判定会把
+    它并进「没传旗标」那一档 ⇒ 调用方指定的收尾方被静默丢弃，而缺省档那行 WARN 说的是「未传」
+    ⇒ 登记侧读数与报文都指错成因。哨兵 `proto.NO_REAPER` 非空白 ⇒ 不受本守卫影响，仍合法。
+    适用面 = `create` 与 `bot register`（两枚动词共用本函数）；调用位置在两枚动词的任何
+    `os.makedirs` 之前 ⇒ 拒后零副作用。"""
     if raw is None:
         return None
+    reject_blank_value(
+        raw, "--reaper",
+        harm="空值会被假值判定并进「没给旗标」那一档 ⇒ spec 不写 reaper 键 ⇒ 终态通知回落职位"
+             "信箱 %s 并带 note（调用方指定的收尾方被静默丢弃），而缺省档那行 WARN 说的是「未传"
+             " --reaper」⇒ 登记侧读数与报文都指错成因" % proto.POSITION_PID,
+        remedy="要指定收尾方就给一个两段路径式 id（如 bot/<名> ∨ task/<id> ∨ topic/<id>）∨ "
+               "哨兵 %r（= 不发终态通知）；要走缺省回落请**不传**该旗标" % proto.NO_REAPER)
     s = str(raw).strip()
-    if not s:
-        return None
     if not proto.is_reaper_value(s):
         die("非法 %s：%r——须为两段路径式 <family>/<name>（family ∈ {%s}，"
             "name ∈ [A-Za-z0-9._-]+，禁 ./../空段、裸名）∨ 哨兵 %r（= 不发终态通知）；§2.1/§4.1"
@@ -501,9 +526,12 @@ def warn_unwritten_spec_keys(reaper, restart_policy):
     bot 两族同规则，两条 CLI 路径的不对称是同一个）；bot register 的「spec 已在场」
     分支两 flag 本就不生效 ⇒ 不打。文案两段（后果 + 怎么给）缺一不可。"""
     if not reaper:
-        print("WARN: 未声明 --reaper ⇒ spec 不写该键 ⇒ 终态通知回落职位信箱 %s 并带 note；"
+        # 措辞点名「本次调用未传」：本 WARN 只在 `check_reaper` 的 None 分支之后可达（传空值
+        # 已被硬拒 rc=2）⇒ ⛔ 用「未声明」——那会把「传了空值」与「没传旗标」说成一档。
+        print("WARN: 本次调用未传 --reaper ⇒ spec 不写该键 ⇒ 终态通知回落职位信箱 %s 并带 note；"
               "要指定收尾方就带 --reaper <两段路径式 id>（如 bot/<名> ∨ task/<id> ∨ "
-              "topic/<id>）" % proto.POSITION_PID, file=sys.stderr)
+              "topic/<id>）∨ 哨兵 %r（= 不发终态通知）；传空值/纯空白会被拒（rc=2、零落盘）"
+              % (proto.POSITION_PID, proto.NO_REAPER), file=sys.stderr)
     if not restart_policy:
         print('WARN: 未声明 --restart-policy ⇒ spec 不写该键 ⇒ 崩溃不自愈，但仍会 final、'
               '仍会发终态通知（final 与该键无关：非常驻参与方到代终态即收口；runner 的'
@@ -680,7 +708,26 @@ def require_bot_spec_trio(a):
     """新建 bot spec 的三件必备（`--command/--workdir/--creator`，与 `cmd_create` 同纪律）。
 
     调用位置硬约束：任何 `os.makedirs` ∕ 写点**之前**（拒 ⇒ 零落盘）。只在新建分支跑
-    （spec.json 已在场时本命令只改 `subscribes`，三件不生效）。"""
+    （spec.json 已在场时本命令只改 `subscribes`，三件不生效）。
+    两档必须可区分：**不传**旗标（None）⇒ 下面那条三件齐备的报文（既有口径逐字不动）；
+    **传了旗标但值为空 ∕ 纯空白** ⇒ 逐件走 `reject_blank_value`（rc=2 + 零落盘）、报文点名是
+    哪一件——空白值经假值判定会被当有效值收进 spec（`command` 空白 ⇒ 会话什么也不跑、`workdir`
+    空白 ⇒ 被 abspath 解析成 <cwd>/空白 一类怪路径、`creator` 空白 ⇒ 审计面查不出登记方），
+    与 `create` 同名旗标的口径就此对齐。"""
+    for opt, raw, harm in (
+            ("--command", a.command,
+             "spec.command 会被逐字写成空白 ⇒ 拉起来的会话什么也不跑（∨ 根本起不来），"
+             "而登记侧从 spec 读数上看不出它与正常登记的 bot 有何差别"),
+            ("--workdir", a.workdir,
+             "空值会被 os.path.abspath(os.path.expanduser(v)) 解析成**调用方 cwd**（纯空白"
+             "则解析成 <cwd>/空白 一类怪路径）⇒ runner 在一个调用方从没指定的目录里 spawn"),
+            ("--creator", a.creator,
+             "spec.creator 是审计面唯一记录「谁登记的」的字段 ⇒ 写成空白即查不出登记方")):
+        reject_blank_value(
+            raw, opt, harm=harm,
+            remedy="本旗标是新建 spec 的必备项：要给就给非空值，⛔ 用空值占位。只要信箱用 "
+                   "`create-bot`；守护型 bot 走被追踪声明源 bots/daemon/<名字>/spec.json"
+                   " + `make bots.seed`；只想改订阅而 spec 应在场 = 先核对路径 --root")
     if not a.command or not a.workdir or not a.creator:
         die("bot/%s 无 spec.json：新建进程型 bot spec 需 --command/--workdir/--creator 三件"
             "（只要信箱用 `create-bot`；守护型 bot 走被追踪声明源 bots/daemon/<名字>/spec.json"
@@ -718,6 +765,19 @@ def cmd_bot_register(a):
     # 两个新可选字段的校验先于任何 makedirs/落盘（拒后零副作用，口径同 parse_subscribes）
     reaper = check_reaper(getattr(a, "reaper", None))
     description = check_description(getattr(a, "description", None))
+    # 两枚路由字段的空值硬拒同样必须在下面的 makedirs 之前（取值点 `a.host or canonical`
+    # 在新建 spec 段，那时 bot/<名>/ 与 inbox/ 已建出 ⇒ 贴取值点加守卫会留残骸）；
+    # 其后的回落链逐字不动（S22 既有裁定，射程不含「CLI 显式给了空值」这一档）。
+    for opt, raw, key in (("--host", a.host, "host"),
+                          ("--created-by-host", a.created_by_host, "createdByHost")):
+        reject_blank_value(
+            raw, opt,
+            harm="空串会被 `or canonical` 回落链静默换成登记机规范名（与**不传**该旗标同值 ⇒ "
+                 "调用方指定的路由/审计目标被丢弃，登记侧读数看不出差异）；纯空白非假值 ⇒ 被"
+                 "逐字写进 spec.%s ⇒ scheduler 的 host 匹配永不命中（该件永久排队）+ 审计面失真"
+                 % key,
+            remedy="要缺省（= 登记机规范名，解析链见 local_canonical_host）请**不传**该旗标；"
+                   "要指定他机就给一个非空的规范名")
     bdir = proto.bot_dir(a.root, a.name)
     spath = os.path.join(bdir, "spec.json")
     # 新建分支的三件必备校验**先于任何 makedirs**（rc≠0 ⇒ 零落盘）：排在写点之后会留下
@@ -871,8 +931,11 @@ def cmd_send(a):
     require_pid(a.to, "收件方")
     require_not_retired(a.to, "收件方")
     body = body_of(a)                       # 收件方可先于其余一切存在：目录本身就是队列（§11.4）
-    if a.type == "reply" and not a.ref:
-        die("type=reply 必须带 --ref（无主答复无效，§6.2）")
+    # trim 判据（⛔ 假值判定）：空白 ref 会写出关联不到任何 ask 的孤儿答复（提问方永远等不到）。
+    # rc 保持 die 的缺省 1 = 本守卫的既有码（改 2 会动既有裁定面与调用方预期）。
+    if a.type == "reply" and not (a.ref or "").strip():
+        die("type=reply 必须带 --ref（无主答复无效，§6.2）；纯空白同样无效——空白 ref 会写出"
+            "关联不到任何 ask 的孤儿答复（提问方永远等不到）")
     sender = resolve_sender(a.sender, "发送方")
     env = {"from": sender, "ts": proto.now_ts(), "type": a.type, "body": body}
     if a.ref:
@@ -1108,7 +1171,9 @@ def main():
                    help="写入 spec `reaper` 字段（终态通知唯一收件面，§4.1）："
                         "两段路径式 <family>/<name>，family ∈ {%s}；∨ 哨兵 `%s`"
                         "（= 无收件方、不发终态通知）；非法即拒。"
-                        "缺省不写该键 → 运行时回落职位信箱 %s 带 note"
+                        "缺省（= **不传**本旗标）不写该键 → 运行时回落职位信箱 %s 带 note。"
+                        "值为空/纯空白即拒（rc=2、零落盘）：空值会被并进「没给旗标」那一档 ⇒ "
+                        "指定的收尾方被静默丢弃，要缺省回落请**不传**本旗标"
                         % (", ".join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default="",
@@ -1130,8 +1195,14 @@ def main():
                         "**值为空/纯空白即拒**（rc=2、零落盘）：空值会静默降到基线人格，且"
                         "产物与**不传**本旗标逐字同款 ⇒ 要基线档请**不传**本旗标"
                         % (PROFILES_REL, PROFILE_ENV_KEY))
-    p.add_argument("--host")
-    p.add_argument("--created-by-host")
+    p.add_argument("--host", help="认领机规范名（缺省 = 登记机，解析链见 local_canonical_host）。"
+                                  "值为空/纯空白即拒（rc=2、零落盘）：空串会被回落链静默换成登记机"
+                                  "规范名、纯空白会被逐字写进 spec.host ⇒ scheduler 的 host 匹配"
+                                  "永不命中（该件永久排队）；要缺省请**不传**本旗标")
+    p.add_argument("--created-by-host",
+                   help="登记机规范名（缺省 = 登记机）。值为空/纯空白即拒（rc=2、零落盘，"
+                        "口径同 --host：空白值会逐字写进 spec.createdByHost ⇒ 审计面失真）；"
+                        "要缺省请**不传**本旗标")
     p.add_argument("--resources", default=None,
                    help="调度：互斥资源名数组（JSON，如 '[\"gpu\"]'；缺省=[\"serial\"]，[]=不占）")
     p.add_argument("--provides", default=None,
@@ -1168,9 +1239,15 @@ def main():
     p.add_argument("--subscribes", default=None,
                    help="逗号分隔的 topic/<id> 列表（只有 topic/ 族可绑定，防抢收）；"
                         "空串 = 显式清空（删字段）")
-    p.add_argument("--command", help="新建 spec 必备：启动命令（同 create）")
-    p.add_argument("--workdir", help="新建 spec 必备：工作目录（~/ 可，落盘归一化可移植）")
-    p.add_argument("--creator", help="新建 spec 必备：登记方（路径式 id 或任务名）")
+    p.add_argument("--command", help="新建 spec 必备：启动命令（同 create）。值为空/纯空白即拒"
+                                     "（rc=2、零落盘）：空白值会被逐字写进 spec.command ⇒ 会话"
+                                     "什么也不跑而登记侧看不出来")
+    p.add_argument("--workdir", help="新建 spec 必备：工作目录（~/ 可，落盘归一化可移植）。"
+                                     "值为空/纯空白即拒（rc=2、零落盘）：空值会被解析成**调用方"
+                                     " cwd** ⇒ runner 在错的目录 spawn")
+    p.add_argument("--creator", help="新建 spec 必备：登记方（路径式 id 或任务名）。值为空/纯空白"
+                                     "即拒（rc=2、零落盘）：空白值会写进审计字段 spec.creator ⇒ "
+                                     "查不出登记方")
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default="",
                    help='写入 spec `restartPolicy`（§4.1）；缺省 = 不写该键 ⇒ 崩溃不自愈，'
@@ -1179,8 +1256,14 @@ def main():
                         'spec.get("restartPolicy")=="auto"）；'
                         '常驻体要自愈必须显式 auto（守护型的正规路径 = 被追踪声明源 '
                         'bots/daemon/<名>/spec.json + `make bots.seed`，其 spec 自带该字段）')
-    p.add_argument("--host")
-    p.add_argument("--created-by-host")
+    p.add_argument("--host", help="认领机规范名（缺省 = 登记机，解析链见 local_canonical_host）。"
+                                  "值为空/纯空白即拒（rc=2、零落盘）：空串会被回落链静默换成登记机"
+                                  "规范名、纯空白会被逐字写进 spec.host ⇒ scheduler 的 host 匹配"
+                                  "永不命中（该件永久排队）；要缺省请**不传**本旗标")
+    p.add_argument("--created-by-host",
+                   help="登记机规范名（缺省 = 登记机）。值为空/纯空白即拒（rc=2、零落盘，"
+                        "口径同 --host：空白值会逐字写进 spec.createdByHost ⇒ 审计面失真）；"
+                        "要缺省请**不传**本旗标")
     p.add_argument("--description", default=None,
                    help="新建 spec 时写入 `name` 字段（人类可读描述，§4.1）；缺省不写该键。"
                         "spec 已在场时不生效（本命令只改 subscribes）")
@@ -1188,7 +1271,9 @@ def main():
                    help="新建 spec 时写入 `reaper` 字段（终态通知唯一收件面，§4.1）："
                         "两段路径式 <family>/<name>，family ∈ {%s}；∨ 哨兵 `%s`"
                         "（= 不发终态通知）；非法即拒。"
-                        "缺省不写该键 → 运行时回落职位信箱 %s。"
+                        "缺省（= **不传**本旗标）不写该键 → 运行时回落职位信箱 %s。"
+                        "值为空/纯空白即拒（rc=2、零落盘）：空值会被并进「没给旗标」那一档 ⇒ "
+                        "指定的收尾方被静默丢弃，要缺省回落请**不传**本旗标。"
                         "spec 已在场时不生效"
                         % (", ".join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
     p.set_defaults(fn=cmd_bot_register)
@@ -1218,7 +1303,9 @@ def main():
     p.add_argument("--body", help="正文（与 --body-file 二选一；trim 后空即拒）")
     p.add_argument("--body-file", dest="body_file",
                    help="正文取自文件（长文/含引号换行走此道，不经 shell 断词）；`-` = stdin")
-    p.add_argument("--ref", help="reply 必填：所答 ask 的 id")
+    p.add_argument("--ref", help="reply 必填：所答 ask 的 id。空 ∕ 纯空白同样无效（拒、rc=1、"
+                                 "零落盘）：空白 ref 会写出关联不到任何 ask 的孤儿答复"
+                                 "（提问方永远等不到）")
     p.add_argument("--deliver", choices=list(proto.DELIVER_MODES), default=None,
                    help="投递方式（§6.6，与 type 正交）：steer = 立即介入运行中会话的当前轮；"
                         "缺省不写字段 = followUp（排队等当前轮结束）")

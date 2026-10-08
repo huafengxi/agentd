@@ -182,6 +182,24 @@
       `bot register` 三件的空串档；做错态臂 = 改前 rc≠0 却留 `task/<名>/`+`inbox/` ∨
       `bot/<名>/`+`inbox/` 残骸）/ **`--root` 档报文逐字不变**（`reject_blank_root` 改为委托
       `reject_blank_value` 的安全性钉）/ **help 面**（六枚旗标各自所在动词的 `--help` 逐枚写明口径）
+  S64 `agentctl` 空白旗标值收口批 r2（S61⑧/S62/S63 之后的同族半族；缺陷形态同 S63 =「给了旗标
+      却没给值」被假值回落并进「不传旗标」那一档 ⇒ 意图被静默丢弃 ∨ 空白被逐字写进落盘正文）七格：
+      **A1 `--reaper`**（`create` ∪ `bot register` 共用 `check_reaper`；`raw is None` 分支逐字不动
+      = S45/S54/S55/S56 的「缺失 ⇒ 不写键 ⇒ 回落职位信箱带 note」裁定）∪ **A2 `--host`/
+      `--created-by-host`**（两动词；守卫排在任何 `os.makedirs` 之前、`or canonical` 回落链不动
+      = S22）∪ **A3 `send --type reply` 的 `--ref`**（假值判定换 trim、**rc 保持 1**；`cmd_answer`
+      的 ref 自动派生自最早未答 ask ⇒ 无空白档缺陷、⛔ 碰）∪ **A4 `bot register` 三件**（trim
+      判据逐件点名，rc 与既有空串档同值 = 2；「spec 已在场 ⇒ 只改 subscribes」分支逐字不变）
+      × 空值三形态 = 30 枚 ⇒ rc ∧ 报文四要素（旗标名 ∪ `repr(raw)` ∪ 成因 ∪ 正确做法）∧ 零副作用
+      声明 ∧ 零落盘（诱饵根 `agents/` 递归清单同值）/ **缺省臂两列**（改前 = `git show` 不可变 sha
+      副本 ∕ 改后 = 工作树：不传旗标 ⇒ rc ∪ 落盘 spec ∪ stdout 逐字同值；本批唯一授权的字面变更
+      = A1 的 reaper WARN 措辞「未声明」→「本次调用未传」+ 空值被拒提示，断言「除该行外逐行同值
+      ∧ WARN 条数同值」）/ **哨兵 `none`（`proto.NO_REAPER`）仍合法** ∪ **真值 ref 逐字写入** ∪
+      **B1 `--subscribes` 零改动证明**（空值 = 文档化清空语义、S40③ 钉住 ⇒ ⛔ 动；两副本 ×3 形态
+      × 两分支 ⇒ rc ∪ stderr ∪ `spec.subscribes` ∪ stdout 逐字同值）/ **做错态**（①–④ 的**同一条
+      断言**跑在改前副本上逐格必须 AssertionError 并打印读数 + 改前具体产物 = spec 无 reaper 键 ∧
+      WARN 说「未声明」∕ `spec.host`·`createdByHost` 写成空白 ∕ 信封 `ref` 写成空白（孤儿答复）∕
+      三件写成空白）/ **help 面**（`create` ∪ `bot register` ∪ `send` 三动词逐枚写明口径）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -198,6 +216,8 @@ ROOT，收尾自清）→ **可单跑**；例外 = ② 的做错态臂要 `git s
 必须是含该对象的 git checkout；取不到即断言失败并点名原因，⛔ 静默跳过）。
 S63 同 S62 的三诱饵根形态（另含 `bots/profiles/` 白名单枚举根 ∪ ask/spec 夹具；不起进程、
 不读写主树 ROOT，收尾自清）→ **可单跑**；例外同 S62（② 的做错态臂要 `git show` 改前不可变 sha）。
+S64 同 S62/S63 的三诱饵根形态（另含 `bots/profiles/` 白名单枚举根 ∪ task/bot spec 夹具；不起进程、
+不读写主树 ROOT，收尾自清）→ **可单跑**；例外同 S62（⑦ 的做错态臂要 `git show` 改前不可变 sha）。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -5698,6 +5718,498 @@ def s63():
     finally:
         _rm_scenario_root(S63BASE)
 
+
+S64BASE = os.path.join(TMPBASE, "root-s64")   # 本场景自建根（专用临时目录，不用生产树）
+
+# S64 的改前锚：本批收口前的 main 分支 commit（**不可变引用**；⛔ 工作树，⛔ HEAD~n 相对量）
+S64_PRE_FIX_SHA = "4c187062ae6a782343a1986d180cf8804228f1c1"
+S64_PROFILE = "s64-self"
+# 两副本分属改前/改后的判据（按本批新增的报文正文判，⛔ 按行号）：改后在场、改前不在场
+S64_NEW_MARK = "空值会被假值判定并进「没给旗标」那一档"
+
+
+def s64():
+    """空白旗标值收口批 r2（S61⑧ `--prompt-file` ∪ S62 `--root` ∪ S63 六枚之后的同族半族）七格：
+
+    缺陷形态同 S63：「给了旗标却没给值」被假值回落并进「不传旗标」那一档 ⇒ 调用方意图被静默
+    丢弃 ∨ 空白被逐字写进落盘正文（`spec.json` ∕ 信封），而登记侧读数看不出差异。
+    ① **A1 `--reaper`**（`create` ∪ `bot register` 共用 `check_reaper`）×3 形态 ⇒ rc=2 ∧ 报文
+      四要素（旗标名 ∪ `repr(raw)` ∪ 成因 ∪ 正确做法）∧ 零副作用声明 ∧ 零落盘；`raw is None`
+      （不传旗标）分支逐字不动 = 既有裁定「缺失 ⇒ 不写键 ⇒ 运行时回落职位信箱带 note」
+      （S45/S54/S55/S56 族）；哨兵 `none`（`proto.NO_REAPER`）非空白 ⇒ 仍合法（⑤ 的正向对照）。
+    ② **A2 `--host` ∪ `--created-by-host`**（`create` ∪ `bot register`）×3 形态 = 12 枚 ⇒ 同上；
+      守卫在两枚动词的任何 `os.makedirs` **之前**（取值点 `a.host or canonical` 在 spec 组装段，
+      贴它加守卫会留 `task/<名>/`+`inbox/` ∨ `bot/<名>/`+`inbox/` 残骸）；其后的 `or canonical`
+      回落链逐字不动 = S22 既有裁定（射程 = 解析链缺项，⛔ 覆盖 CLI 显式给空值）。
+    ③ **A3 `send --type reply` 的 `--ref`** ×3 形态 ⇒ **rc=1**（既有守卫的现值码，⛔ 改 2）∧
+      报文含既有串 `type=reply 必须带 --ref` ∧ 零落盘（收件方 inbox 条目数同值）；判据从假值式
+      换成 trim ⇒ 空白档不再写出关联不到任何 ask 的**孤儿答复**。`cmd_answer` 的 ref 由
+      `proto.find_pending_ask` 自动派生 ⇒ 无空白档缺陷，本批 ⛔ 碰它。
+    ④ **A4 `bot register` 三件**（`--command`/`--workdir`/`--creator`）×3 形态 = 9 枚 ⇒ rc=2
+      （与既有空串档同值）∧ 报文点名是哪一件 ∧ 零落盘；「不传旗标」档的原报文（`无 spec.json：
+      新建…三件`）逐字保留，「spec 已在场 ⇒ 只改 subscribes、三件不生效」分支行为逐字不变。
+    ⑤ **缺省臂（改前/改后两列，来源不同：old = `git show` 的不可变 sha ∕ new = 工作树）**：
+      不传旗标 ⇒ rc ∪ 落盘 spec ∪ stdout 两列逐字同值；A1 的 reaper WARN 措辞是本批唯一授权的
+      字面变更（改前「未声明 --reaper」∕ 改后「本次调用未传 --reaper」+ 空值被拒提示）⇒ 断言
+      「除该行外 stderr 逐行同值 ∧ WARN 条数同值」；哨兵 `none` 与真值 ref 的正向对照在此。
+    ⑥ **B1 `--subscribes` 零改动证明**：空值 = 文档化的显式清空语义（`parse_subscribes` 与拒绝
+      报文都写明「清空传 `--subscribes ''`」，S40③ 钉住）⇒ 属既有裁定面、⛔ 动；两副本 ×3 形态
+      × 两分支（新建 ∪ spec 已在场）⇒ (rc ∪ stderr ∪ `spec.subscribes`) 逐字同值 = True。
+    ⑦ **做错态构造 + help 面**：把 ①–④ 的**同一条断言**跑在改前副本上 ⇒ 逐格必须
+      AssertionError（读数打印出来），并逐格给出改前的具体产物（spec 无 reaper 键 ∧ WARN 说
+      「未声明」∕ `spec.host` 被写成空白 ∕ 信封 `ref` 被写成空白 ∕ `spec.command`·`workdir`·
+      `creator` 被写成空白）；help 面 = 三个动词的 `--help` 逐枚写明本批旗标的空值拒绝口径。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    ws = os.path.join(S64BASE, "ws")            # 诱饵工作区根（显式 --root 的目标）
+    cwd = os.path.join(S64BASE, "cwd")          # 中性 cwd（本身不是工作区根）
+    newroot = os.path.join(S64BASE, "newroot")  # 改后副本的「本仓所在根」（= 其 default_root()）
+    oldroot = os.path.join(S64BASE, "oldroot")  # 改前副本的「本仓所在根」
+
+    def mkws(root, canonical):
+        """造够过 require_workspace_root 的诱饵工作区根 + --profile 的白名单枚举根。"""
+        os.makedirs(os.path.join(root, "agents", "task"), exist_ok=True)
+        os.makedirs(os.path.join(root, "agents", "bot"), exist_ok=True)
+        os.makedirs(os.path.join(root, "agents", "queue", "dispatcher", "inbox"), exist_ok=True)
+        os.makedirs(os.path.join(root, "env"), exist_ok=True)
+        with open(os.path.join(root, "env", "host-id"), "w") as f:
+            f.write("%s %s\n" % (socket.gethostname(), canonical))
+        os.makedirs(os.path.join(root, "bots", "profiles"), exist_ok=True)
+        with open(os.path.join(root, "bots", "profiles", S64_PROFILE + ".json"), "w") as f:
+            f.write('{"form": "task"}\n')
+
+    mkws(ws, "s64-canonical")
+    mkws(newroot, "s64-new-canonical")
+    mkws(oldroot, "s64-old-canonical")
+    os.makedirs(cwd, exist_ok=True)
+
+    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系（在任何删除之前）----
+    real = os.path.realpath(S64BASE)
+    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
+        "诱饵根必须在本套件临时基目录内：%s" % real
+    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
+        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
+        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
+
+    # ---- 改后副本（与被测真文件逐字同源）----
+    os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
+    NEW = os.path.join(newroot, "agentd", "agentctl.py")
+
+    # ---- 改前副本：从不可变 sha 取对象（⛔ 读工作树；取不到即断言失败，⛔ 静默跳过）----
+    os.makedirs(os.path.join(oldroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        r = subprocess.run(["git", "-C", HERE, "show", "%s:%s" % (S64_PRE_FIX_SHA, fn)],
+                           capture_output=True, timeout=60)
+        assert r.returncode == 0, (
+            "做错态臂取不到改前版本（git -C %s show %s:%s）：rc=%d %s"
+            % (HERE, S64_PRE_FIX_SHA, fn, r.returncode,
+               r.stderr.decode("utf-8", "replace").strip()))
+        with open(os.path.join(oldroot, "agentd", fn), "wb") as f:
+            f.write(r.stdout)
+    OLD = os.path.join(oldroot, "agentd", "agentctl.py")
+    with open(NEW, encoding="utf-8") as f:
+        assert S64_NEW_MARK in f.read(), "改后副本应含本批 A1 的空白守卫报文（否则 sha/工作树错）"
+    with open(OLD, encoding="utf-8") as f:
+        assert S64_NEW_MARK not in f.read(), "改前副本 ⛔ 含本批守卫（sha 错 = 做错态不会红）"
+
+    BLANKS = (("", "空串"), ("   ", "纯空白"), ("\t\n", "制表符加换行"))
+    # 信封 id（= ts + 发件方 + 随机后缀）每次跑必不同 ⇒ 归一化后才能比两列（带不带 `.msg` 同式）
+    MSGID = re.compile(r"\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d\.\d+-[A-Za-z0-9._]+-[a-z0-9]+")
+
+    def nz(s, tag):
+        """两列比对前的归一化：副本标记 ∪ 信封 id（ts 与随机后缀不可复现）。"""
+        return MSGID.sub("<MSGID>", s.replace(tag + "-", "TAG-"))
+
+    def run(ctl, argv, root="WS"):
+        """root="WS" ⇒ 显式 `--root <诱饵根>`（连工具自身的根解析一起满足）。宿主 env 一律洗过。"""
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)
+        full = [sys.executable, ctl]
+        if root == "WS":
+            full += ["--root", ws]
+        elif root is not None:
+            full += ["--root", root]
+        return subprocess.run(full + argv, capture_output=True, text=True, env=env,
+                              timeout=60, cwd=cwd)
+
+    def tree(root):
+        """<root>/agents 下的递归相对路径清单（排序）= 「零落盘」的强核法。"""
+        base = os.path.join(root, "agents")
+        out = []
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames.sort()
+            for d in dirnames:
+                out.append(os.path.relpath(os.path.join(dirpath, d), base) + "/")
+            for f in sorted(filenames):
+                out.append(os.path.relpath(os.path.join(dirpath, f), base))
+        return sorted(out)
+
+    def fixture(tag, name):
+        """诱饵根里直接写一枚夹具 task（spec.json + inbox/）；⛔ 经 agentctl 写侧动词造。"""
+        n = "%s-%s" % (tag, name)
+        d = os.path.join(ws, "agents", "task", n)
+        os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
+        with open(os.path.join(d, "spec.json"), "w") as f:
+            json.dump({"command": "true", "workdir": ws, "creator": "tester",
+                       "restartPolicy": "one-shot", "reaper": "queue/dispatcher"},
+                      f, ensure_ascii=False)
+        return n
+
+    def bot_inplace(tag, name):
+        """造一枚「spec.json 已在场」的进程型 bot（走 bot register 的既在场分支）。"""
+        n = "%s-%s" % (tag, name)
+        d = os.path.join(ws, "agents", "bot", n)
+        os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
+        with open(os.path.join(d, "spec.json"), "w") as f:
+            json.dump({"command": "true", "workdir": ws, "creator": "tester",
+                       "host": "h", "createdByHost": "h", "subscribes": ["topic/t1"]},
+                      f, ensure_ascii=False)
+        return n
+
+    def spec_of(family, name):
+        """落盘 spec 的可比形态（去 createdAt = 登记时刻，两列必不同）；不在场 ⇒ 'ABSENT'。"""
+        p = os.path.join(ws, "agents", family, name, "spec.json")
+        if not os.path.exists(p):
+            return "ABSENT"
+        with open(p, encoding="utf-8") as f:
+            doc = json.load(f)
+        doc.pop("createdAt", None)
+        return json.dumps(doc, ensure_ascii=False, sort_keys=True)
+
+    def last_env(name):
+        """夹具 task 自家 inbox 的最后一枚信封（可比形态）。"""
+        inb = os.path.join(ws, "agents", "task", name, "inbox")
+        fs = sorted(f for f in os.listdir(inb) if f.endswith(".msg")) if os.path.isdir(inb) else []
+        if not fs:
+            return "ABSENT"
+        with open(os.path.join(inb, fs[-1]), encoding="utf-8") as f:
+            doc = json.load(f)
+        return json.dumps({k: doc.get(k, "<无该键>") for k in ("ref", "type", "from")},
+                          ensure_ascii=False, sort_keys=True)
+
+    def prod(spec):
+        family, name, key = spec
+        if family == "inbox":
+            return last_env(name)
+        p = os.path.join(ws, "agents", family, name, "spec.json")
+        if not os.path.exists(p):
+            return "ABSENT"
+        with open(p, encoding="utf-8") as f:
+            doc = json.load(f)
+        return json.dumps({key: doc.get(key, "<无该键>")}, ensure_ascii=False)
+
+    def matrix(tag):
+        """①–④ 的用例单点（改后断言与 ⑦ 的做错态红测**共用同一份 argv 与同一条断言**）。
+        元素 = (格, cid, argv, 期望 rc, 报文必备串, 产物读法 (family, 名, 键), 值)。
+        tag ∈ {new, old} ⇒ 夹具名各一套，两副本互不撞名。"""
+        n = lambda s: "%s-%s" % (tag, s)                       # noqa: E731
+        cr = ["--command", "true", "--workdir", ws, "--creator", "tester",
+              "--restart-policy", "one-shot"]
+        out = []
+        for i, (val, label) in enumerate(BLANKS):
+            # ① A1 --reaper × 两枚动词（共用 check_reaper）
+            nm = n("a1c%d" % i)
+            out.append(("A1", "create --reaper %s" % label,
+                        ["create", "--name", nm, "--reaper", val] + cr, 2,
+                        ("--reaper", "为空/纯空白", repr(val), "本次未创建任何目录/文件", "不传"),
+                        ("task", nm, "reaper"), val))
+            nm = n("a1b%d" % i)
+            out.append(("A1", "bot register --reaper %s" % label,
+                        ["bot", "register", "--name", nm, "--command", "true", "--workdir", ws,
+                         "--creator", "tester", "--reaper", val], 2,
+                        ("--reaper", "为空/纯空白", repr(val), "本次未创建任何目录/文件", "不传"),
+                        ("bot", nm, "reaper"), val))
+            # ② A2 --host ∪ --created-by-host × 两枚动词 = 12 枚
+            for flag, key in (("--host", "host"), ("--created-by-host", "createdByHost")):
+                nm = n("a2c%s%d" % (key, i))
+                out.append(("A2", "create %s %s" % (flag, label),
+                            ["create", "--name", nm, "--reaper", "queue/dispatcher"] + cr
+                            + [flag, val], 2,
+                            (flag, "为空/纯空白", repr(val), "本次未创建任何目录/文件", "不传"),
+                            ("task", nm, key), val))
+                nm = n("a2b%s%d" % (key, i))
+                out.append(("A2", "bot register %s %s" % (flag, label),
+                            ["bot", "register", "--name", nm, "--command", "true", "--workdir", ws,
+                             "--creator", "tester", flag, val], 2,
+                            (flag, "为空/纯空白", repr(val), "本次未创建任何目录/文件", "不传"),
+                            ("bot", nm, key), val))
+            # ③ A3 send --type reply 的 --ref（rc 保持既有守卫的 1）
+            fx = fixture(tag, "a3%d" % i)
+            out.append(("A3", "send --type reply --ref %s" % label,
+                        ["send", "task/" + fx, "--type", "reply", "--body", "s64-body",
+                         "--ref", val], 1,
+                        ("type=reply 必须带 --ref", "纯空白同样无效"), ("inbox", fx, "ref"), val))
+            # ④ A4 bot register 三件（rc 与既有空串档同值 = 2；报文点名是哪一件）
+            for opt in ("command", "workdir", "creator"):
+                nm = n("a4%s%d" % (opt, i))
+                argv = ["bot", "register", "--name", nm]
+                for o, v in (("command", "true"), ("workdir", ws), ("creator", "tester")):
+                    argv += ["--" + o, val if o == opt else v]
+                out.append(("A4", "bot register --%s %s" % (opt, label), argv, 2,
+                            ("--" + opt, "为空/纯空白", repr(val), "本次未创建任何目录/文件",
+                             "必备项"),
+                            ("bot", nm, opt), val))
+        return out
+
+    def assert_reject_r(r, need, want_rc, snap, cid):
+        """改后断言单点（吃已跑的结果）：rc ∧ 报文必备串 ∧ 零落盘（诱饵根 agents/ 清单同值）。
+        同一条断言跑在改前副本上必须 AssertionError（= ⑦ 的做错态会红）。"""
+        assert r.returncode == want_rc, \
+            "%s ⇒ 应 rc=%d：rc=%d stderr=%s" % (cid, want_rc, r.returncode, r.stderr.strip())
+        for kw in need:
+            assert kw in r.stderr, "%s 报文须含 %r：%s" % (cid, kw, r.stderr.strip())
+        assert tree(ws) == snap, "%s 拒后零落盘，实新增：%s" % (
+            cid, [x for x in tree(ws) if x not in snap])
+
+    try:
+        # ---- ①②③④ 改后：逐格硬拒（30 枚 = A1 6 ∪ A2 12 ∪ A3 3 ∪ A4 9）----
+        new_cases = matrix("new")          # 先建夹具，再取「零落盘」基线快照
+        snap = tree(ws)
+        per_cell = {}
+        for cell, cid, argv, want_rc, need, _p, _val in new_cases:
+            assert_reject_r(run(NEW, argv), need, want_rc, snap, cid)
+            per_cell[cell] = per_cell.get(cell, 0) + 1
+        assert tree(ws) == snap, "①–④ 跑完 %d 枚后诱饵根零落盘" % len(new_cases)
+        assert per_cell == {"A1": 6, "A2": 12, "A3": 3, "A4": 9}, \
+            "①–④ 的用例分布应为 A1 6 ∪ A2 12 ∪ A3 3 ∪ A4 9，实得 %s" % per_cell
+
+        # ---- ⑦a 做错态：同一条断言跑在改前副本上必须 FAIL（逐格打印读数）----
+        old_cases = matrix("old")
+        red = {}                            # cell → [红了的枚数, 总枚数, 首条 FAIL 读数]
+        old_runs = []
+        for cell, cid, argv, want_rc, need, pspec, val in old_cases:
+            before = tree(ws)
+            r = run(OLD, argv)
+            old_runs.append((cell, cid, r, pspec))
+            try:
+                assert_reject_r(r, need, want_rc, before, cid)
+                msg = ""                    # 没红 = 做错态没构造出来
+            except AssertionError as e:
+                msg = str(e)
+            got = red.setdefault(cell, [0, 0, ""])
+            got[1] += 1
+            if msg:
+                got[0] += 1
+                if not got[2]:
+                    got[2] = " ".join(msg.split())[:200]   # 断言报文已自带 cid，⛔ 再前置一次
+        for cell in sorted(red):
+            n_red, n_all, first = red[cell]
+            print("  [S64 做错态] %s：%d/%d 枚断言在改前副本（%s）上 FAIL；首条读数：%s"
+                  % (cell, n_red, n_all, S64_PRE_FIX_SHA[:8], first), flush=True)
+        assert all(v[0] == v[1] and v[1] > 0 for v in red.values()), \
+            "⑦a 每格的全部断言都必须在改前副本上 FAIL（否则做错态不会红）：%s" % red
+        assert sum(v[1] for v in red.values()) == 30, "⑦a 应覆盖 30 枚：%s" % red
+
+        # ---- ⑦b 改前的具体产物（= 上面每条断言在改前会红的实物证据）----
+        n_prod = 0
+        for (cell, cid, r, (family, name, key)), (_c2, _i2, _a2, _w2, _n2, _p2, val) in \
+                zip(old_runs, old_cases):
+            assert "为空/纯空白" not in r.stderr, \
+                "改前副本不应命中空值口径（否则 sha 错 ∨ 断言在改前不会红）：%s %s" % (cid, r.stderr)
+            if r.returncode != 0:
+                # 改前已拒的两族空串档（无产物可读）：A3 = 既有守卫的半覆盖（rc=1）∪
+                # A4 = 上一批已收成「写点之前拒」（rc=2 + 零落盘）
+                assert cell in ("A3", "A4") and val == "", \
+                    "%s 改前意外非零 rc=%d：%s" % (cid, r.returncode, r.stderr)
+                continue
+            if cell == "A1":
+                assert json.loads(prod((family, name, key)))["reaper"] == "<无该键>", \
+                    "%s 改前：空白 --reaper 被并进「没给旗标」⇒ spec 不写该键" % cid
+                assert "未声明 --reaper" in r.stderr, \
+                    "%s 改前：WARN 措辞把「传了空值」说成「未声明」⇒ 指错成因：%s" % (cid, r.stderr)
+            elif cell == "A2":
+                got = json.loads(prod((family, name, key)))[key]
+                if val == "":
+                    assert got == "s64-canonical", (
+                        "%s 改前：空串被 `or canonical` 回落链静默换成登记机规范名（与**不传**"
+                        "该旗标同值 ⇒ 调用方意图被丢弃、登记侧看不出差异）：%r" % (cid, got))
+                else:
+                    assert got == val, (
+                        "%s 改前：空白值被逐字写进 spec.%s ⇒ scheduler 的 host 匹配永不命中"
+                        "（该件永久排队）+ 审计面失真：%r" % (cid, key, got))
+            elif cell == "A3":
+                got = json.loads(last_env(name))["ref"]
+                assert got == val and got.strip() == "", \
+                    "%s 改前：空白 ref 被逐字写进信封 ⇒ 孤儿答复（提问方永远等不到）：%r" % (cid, got)
+            elif cell == "A4":
+                got = json.loads(prod((family, name, key)))[key]
+                if key == "workdir":
+                    assert os.path.dirname(os.path.expanduser(got)) in (cwd, os.path.realpath(cwd)), \
+                        "%s 改前：空白 --workdir 被 abspath 解析成**调用方 cwd** 下的怪路径：%r" \
+                        % (cid, got)
+                else:
+                    assert got == val and got.strip() == "", \
+                        "%s 改前：空白值被逐字写进 spec.%s：%r" % (cid, key, got)
+            else:
+                raise AssertionError("未知格 %s" % cell)
+            n_prod += 1
+        assert n_prod == 26, (
+            "⑦b 应给出 26 枚改前具体产物（30 − A3 空串档 1 枚 − A4 空串档 3 枚 = 26），实得 %d"
+            % n_prod)
+
+        # ---- ⑤ 缺省臂：改前/改后两列（来源不同）同值；A1 的 WARN 措辞是本批唯一字面变更 ----
+        def default_pair(cid, argv_of, prod_of):
+            """同一枚缺省档命令跑在两副本上 ⇒ 断言 (rc ∪ 落盘产物 ∪ stdout) 两列逐字同值。
+            返回 {tag: (rc, 产物, stdout, 原始 stderr)} 供逐格附加断言。"""
+            res = {}
+            for tag, ctl in (("old", OLD), ("new", NEW)):
+                r = run(ctl, argv_of(tag))
+                res[tag] = (r.returncode, nz(str(prod_of(tag)), tag), nz(r.stdout, tag), r.stderr)
+            for idx, what in ((0, "rc"), (1, "落盘产物"), (2, "stdout")):
+                assert res["old"][idx] == res["new"][idx], \
+                    "%s 缺省臂的 %s 两列须逐字同值：old=%r new=%r" % (
+                        cid, what, res["old"][idx], res["new"][idx])
+            return res
+
+        def warn_pair(cid, res):
+            """A1 的 WARN 措辞订正：除该行外 stderr 逐行同值 ∧ WARN 条数同值 ∧ 两列各自的措辞。"""
+            for tag, word in (("old", "未声明 --reaper"), ("new", "本次调用未传 --reaper")):
+                assert word in res[tag][3], "%s 的 %s 列 WARN 措辞须含 %r：%s" % (
+                    cid, tag, word, res[tag][3])
+            assert res["old"][3].count("WARN:") == res["new"][3].count("WARN:"), \
+                "%s 两列的 WARN 条数须同值：%r ∥ %r" % (cid, res["old"][3], res["new"][3])
+            strip_reaper = lambda s: [l for l in s.splitlines() if "--reaper" not in l]  # noqa: E731
+            assert strip_reaper(res["old"][3]) == strip_reaper(res["new"][3]), \
+                "%s 除 reaper WARN 行外 stderr 须逐行同值：\n%r\n%r" % (
+                    cid, res["old"][3], res["new"][3])
+            assert "传空值/纯空白会被拒" in res["new"][3], \
+                "%s 改后 WARN 须提示空值被拒：%s" % (cid, res["new"][3])
+
+        # A1：不传 --reaper（两枚动词）⇒ spec 无 reaper 键 + 一条 reaper WARN
+        res = default_pair(
+            "A1 create 不传 --reaper",
+            lambda t: ["create", "--name", t + "-d1", "--command", "true", "--workdir", ws,
+                       "--creator", "tester", "--restart-policy", "one-shot"],
+            lambda t: spec_of("task", t + "-d1"))
+        warn_pair("A1 create 不传 --reaper", res)
+        assert '"reaper"' not in res["new"][1], \
+            "A1 缺省臂：不传旗标 ⇒ spec 仍不写 reaper 键（既有裁定，⛔ 代填）：%s" % res["new"][1]
+        res = default_pair(
+            "A1 bot register 不传 --reaper",
+            lambda t: ["bot", "register", "--name", t + "-d2", "--command", "true",
+                       "--workdir", ws, "--creator", "tester"],
+            lambda t: spec_of("bot", t + "-d2"))
+        warn_pair("A1 bot register 不传 --reaper", res)
+        assert '"reaper"' not in res["new"][1], "A1 缺省臂（bot）：spec 仍不写 reaper 键：%s" % res["new"][1]
+
+        # A1 正向对照：哨兵 none（proto.NO_REAPER）非空白 ⇒ 守卫不碰它，两列同值
+        res = default_pair(
+            "A1 create --reaper none（哨兵）",
+            lambda t: ["create", "--name", t + "-d3", "--command", "true", "--workdir", ws,
+                       "--creator", "tester", "--restart-policy", "one-shot",
+                       "--reaper", "none"],
+            lambda t: spec_of("task", t + "-d3"))
+        assert json.loads(res["new"][1])["reaper"] == "none", \
+            "A1 正向对照：哨兵 none 仍合法且逐字写入 spec.reaper：%s" % res["new"][1]
+        assert res["old"][3] == res["new"][3], "A1 哨兵档两列 stderr 须逐字同值：%r ∥ %r" % (
+            res["old"][3], res["new"][3])
+        res = default_pair(
+            "A1 create --reaper 真值",
+            lambda t: ["create", "--name", t + "-d4", "--command", "true", "--workdir", ws,
+                       "--creator", "tester", "--restart-policy", "one-shot",
+                       "--reaper", "queue/dispatcher"],
+            lambda t: spec_of("task", t + "-d4"))
+        assert json.loads(res["new"][1])["reaper"] == "queue/dispatcher", res["new"][1]
+
+        # A2：不传 --host/--created-by-host ⇒ 两键回落诱饵根规范名（S22 既有裁定，两列同值）
+        for cid, argv_of, fam, sfx in (
+                ("A2 create 不传 host 两枚",
+                 lambda t: ["create", "--name", t + "-d5", "--command", "true", "--workdir", ws,
+                            "--creator", "tester", "--restart-policy", "one-shot",
+                            "--reaper", "queue/dispatcher"], "task", "d5"),
+                ("A2 bot register 不传 host 两枚",
+                 lambda t: ["bot", "register", "--name", t + "-d6", "--command", "true",
+                            "--workdir", ws, "--creator", "tester", "--restart-policy", "one-shot",
+                            "--reaper", "queue/dispatcher"], "bot", "d6")):
+            res = default_pair(cid, argv_of, lambda t, fam=fam, sfx=sfx: spec_of(fam, t + "-" + sfx))
+            docn = json.loads(res["new"][1])
+            assert docn["host"] == "s64-canonical" == docn["createdByHost"], \
+                "%s：缺省档两键仍回落诱饵根规范名（S22）：%s" % (cid, res["new"][1])
+            assert res["old"][3] == res["new"][3], "%s 两列 stderr 须逐字同值" % cid
+
+        # A3：真值 ref ⇒ rc=0 且逐字写入信封（两列同值）
+        fx = {"old": fixture("old", "d7"), "new": fixture("new", "d7")}
+        res = default_pair(
+            "A3 send --type reply --ref 真值",
+            lambda t: ["send", "task/" + fx[t], "--type", "reply", "--body", "s64-body",
+                       "--ref", "2026-01-01-00-00-00.000-task.%s-ask0" % fx[t]],
+            lambda t: last_env(fx[t]))
+        assert json.loads(res["new"][1])["ref"].endswith("-ask0"), \
+            "A3 缺省臂：真值 ref 逐字写入信封：%s" % res["new"][1]
+
+        # A4：三件不传 ⇒ 原报文逐字保留（两列同值）；spec 已在场分支行为不变
+        res = default_pair("A4 bot register 三件不传",
+                           lambda t: ["bot", "register", "--name", t + "-d8"],
+                           lambda t: spec_of("bot", t + "-d8"))
+        assert res["new"][0] == 2 and "无 spec.json" in res["new"][3], \
+            "A4 缺省臂：不传旗标仍是原报文（rc=2 + 三件齐备口径）：%s" % res["new"][3]
+        assert res["old"][3].replace("old-", "TAG-") == res["new"][3].replace("new-", "TAG-"), \
+            "A4 缺省臂：原报文两列逐字同值（归一化副本标记后）：%r ∥ %r" % (res["old"][3], res["new"][3])
+        ex = {"old": bot_inplace("old", "d9"), "new": bot_inplace("new", "d9")}
+        res = default_pair(
+            "A4/B1 bot register spec 已在场只改 subscribes",
+            lambda t: ["bot", "register", "--name", ex[t], "--subscribes", "topic/t2"],
+            lambda t: spec_of("bot", ex[t]))
+        docn = json.loads(res["new"][1])
+        assert docn["subscribes"] == ["topic/t2"] and docn["command"] == "true" \
+            and docn["creator"] == "tester", \
+            "既在场分支：只改 subscribes、其余字段逐字保留：%s" % res["new"][1]
+        assert res["old"][3] == res["new"][3] == "", "既在场分支两列 stderr 均应为空"
+
+        # ---- ⑥ B1 --subscribes 零改动证明（两副本 ×3 形态 × 两分支 ⇒ 三读数逐字同值）----
+        b1 = []
+        for i, (val, label) in enumerate(BLANKS):
+            b1.append(("新建分支 %s" % label,
+                       lambda t, i=i, val=val: ["bot", "register", "--name", t + "-b1n%d" % i,
+                                                "--command", "true", "--workdir", ws,
+                                                "--creator", "tester", "--restart-policy",
+                                                "one-shot", "--reaper", "queue/dispatcher",
+                                                "--subscribes", val],
+                       lambda t, i=i: spec_of("bot", t + "-b1n%d" % i)))
+            exi = {"old": bot_inplace("old", "b1e%d" % i), "new": bot_inplace("new", "b1e%d" % i)}
+            b1.append(("既在场分支 %s" % label,
+                       lambda t, exi=exi, val=val: ["bot", "register", "--name", exi[t],
+                                                    "--subscribes", val],
+                       lambda t, exi=exi: spec_of("bot", exi[t])))
+        for cid, argv_of, prod_of in b1:
+            res = {}
+            for tag, ctl in (("old", OLD), ("new", NEW)):
+                r = run(ctl, argv_of(tag))
+                sp = json.loads(prod_of(tag))
+                res[tag] = (r.returncode, nz(r.stderr, tag),
+                            json.dumps(sp.get("subscribes", "<无该键>"), ensure_ascii=False),
+                            nz(r.stdout, tag))
+            assert res["old"] == res["new"], \
+                "⑥ B1（`--subscribes` = 文档化清空语义，本批 ⛔ 改）%s 两列须逐字同值：\nold=%r\nnew=%r" \
+                % (cid, res["old"], res["new"])
+            assert res["new"][0] == 0, "⑥ B1 %s 应 rc=0（既有语义）：%s" % (cid, res["new"])
+        print("  [S64 B1] --subscribes 两副本 ×3 形态 × 两分支 = %d 枚，"
+              "(rc ∪ stderr ∪ spec.subscribes ∪ stdout) 逐字同值 = True" % len(b1), flush=True)
+
+        # ---- ⑦c help 面：三个动词的 --help 逐枚写明本批旗标的空值拒绝口径 ----
+        for verb_argv, flags, kw, want in (
+                (["create", "--help"], ("--reaper", "--host", "--created-by-host"),
+                 "值为空/纯空白即拒", 3),
+                (["bot", "register", "--help"],
+                 ("--reaper", "--host", "--created-by-host", "--command", "--workdir", "--creator"),
+                 "值为空/纯空白即拒", 6),
+                (["send", "--help"], ("--ref",), "纯空白同样无效", 1)):
+            r = subprocess.run([sys.executable, NEW] + verb_argv, capture_output=True,
+                               text=True, env=scrub_env(), timeout=60, cwd=cwd)
+            assert r.returncode == 0, r.stderr
+            flat = re.sub(r"\s+", "", r.stdout)      # argparse 会按宽度折行 ⇒ 去空白后比
+            for fl in flags:
+                assert fl in flat, "%s --help 须列出 %s" % (" ".join(verb_argv), fl)
+            assert flat.count(kw) >= want, (
+                "%s --help 须为本批 %d 枚旗标各写明一次空值拒绝口径（%r），实得 %d 处"
+                % (" ".join(verb_argv), want, kw, flat.count(kw)))
+    finally:
+        _rm_scenario_root(S64BASE)
+
+
 def _scrub_inherited_env():
     """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
 
@@ -5824,6 +6336,17 @@ def main():
           " --command/--workdir/--creator 空串档；做错态臂 = 改前 rc≠0 却留 task/+inbox ∨"
           " bot/+inbox 残骸）・**--root 档报文逐字不变**（reject_blank_root 委托 reject_blank_value"
           " 的安全性钉）・**help 面**（六枚旗标各自所在动词的 --help 逐枚写明口径）", s63)
+    check("S64 agentctl 空白旗标值收口批 r2（S63 之后的同族半族；A1 --reaper 两动词 ∪ A2"
+          " --host/--created-by-host 两动词 ∪ A3 send --type reply 的 --ref（rc 保持 1）∪ A4"
+          " bot register 三件）：**逐格硬拒** × 空值三形态 = 30 枚 ⇒ rc（A1/A2/A4 = 2 ∪ A3 = 1）"
+          " + 报文四要素 + 零副作用声明 + 零落盘（诱饵根 agents/ 递归清单同值）・**缺省臂两列**"
+          "（改前 = git show 不可变 sha 副本 ∕ 改后 = 工作树：不传旗标 ⇒ rc ∪ 落盘 spec ∪ stdout"
+          " 逐字同值；唯一授权的字面变更 = A1 的 reaper WARN 措辞，断言除该行外逐行同值）・"
+          "**哨兵 none 仍合法** ∪ **真值 ref 逐字写入** ∪ **B1 --subscribes 零改动证明**（空值 ="
+          " 文档化清空语义、S40③ 钉住 ⇒ ⛔ 动；两副本 ×3 形态 × 两分支逐字同值）・**做错态**"
+          "（①–④ 的同一条断言跑在改前副本上逐格必须 FAIL 并打印读数 + 改前具体产物 = spec 无"
+          " reaper 键 ∧ WARN 说「未声明」∕ spec.host 写成空白 ∕ 信封 ref 写成空白（孤儿答复）∕"
+          " 三件写成空白）・**help 面**（create ∪ bot register ∪ send 三动词逐枚写明口径）", s64)
     stop_runner()
     stop_scheduler()
 
