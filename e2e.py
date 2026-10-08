@@ -164,7 +164,7 @@
       成因 ⇒ 证明① 的断言在改前会红）/ **缺省臂**（不传旗标 ⇒ 照旧 `default_root()` 且真文件的
       它仍 = 本仓父目录；同一枚命令传空值 rc=2 ∕ 不传 rc=0 = 两档可区分）/ **覆盖面**
       （`--help` 枚举的 13 个动词逐个 × 空值三形态均 rc=2 且命中口径，⛔ 只在 create 一处收口）
-      + `--help` 写明空值拒绍口径
+      + `--help` 写明空值拒绝口径
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -5140,7 +5140,7 @@ def s62():
       `require_workspace_root` 的诱饵工作区根（含 `agents/` ∪ `env/host-id`），以中性目录为 cwd
       跑 `--root ""` ∨ 纯空白 ∨ 制表符加换行 × {create, send} ⇒ rc=2 ∧ stderr 命中「值为空/
       纯空白」口径 ∧ 零新增（`agents/task/` 与 `agents/queue/*/inbox/` 的条目数改前/改后同值）。
-      验「拒绍」类守卫一律用诱饵（⛔ 对真生产根跑创建类命令）：被测副本的 `default_root()`
+      验「拒绝」类守卫一律用诱饵（⛔ 对真生产根跑创建类命令）：被测副本的 `default_root()`
       也指向诱饵根 ⇒ 即使守卫漏了，落盘也只落到临时根。
     ② **做错态构造**（证明① 的断言会红）：同一诱饵根下跑改前版本（`git show <不可变 sha>`
       写到临时路径）⇒ 空串档 **rc=0 并建出参与方**（静默回落 `default_root()` = 副本所在根，
@@ -5151,7 +5151,7 @@ def s62():
       合法回落（实例 2026-10-08：探针 `--root ""` ⇒ 生产 agents 树建出三枚参与方并被
       scheduler enable+spawn）。
     ④ **覆盖面 + help 面**：`--help` 枚举的 13 个动词逐个×空值三形态均 rc=2 且命中口径
-      （⛔ 只在 `create` 一处收口）；`--help` 写明空值拒绍口径。
+      （⛔ 只在 `create` 一处收口）；`--help` 写明空值拒绝口径。
     只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
     ws = os.path.join(S62BASE, "ws")            # 诱饵工作区根（显式 --root 的合法目标）
     cwd = os.path.join(S62BASE, "cwd")          # 中性 cwd（本身不是工作区根）
@@ -5319,7 +5319,7 @@ def s62():
         r = subprocess.run([sys.executable, NEW, "--help"], capture_output=True, text=True,
                            env=scrub_env(), timeout=60, cwd=cwd)
         assert r.returncode == 0, r.stderr
-        assert "值为空/纯空白" in r.stdout, "--help 须写明空值拒绍口径：%s" % r.stdout
+        assert "值为空/纯空白" in r.stdout, "--help 须写明空值拒绝口径：%s" % r.stdout
     finally:
         _rm_scenario_root(S62BASE)
 
