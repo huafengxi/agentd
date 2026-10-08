@@ -40,6 +40,11 @@ AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 `python3 <WS>/agentd/agentctl.py <动词> …` 即可）；显式 --root
 只用于另一棵树（如测试临时树）。仅使用 python3 标准库。
 
+**取值型旗标的空 ∕ 纯空白值一律硬拒**（rc=2 + 零落盘；判据、报文四要素与调用位置硬约束 =
+`reject_blank_value`）：给了旗标却没给值 = 调用方 bug，⛔ 静默降级成缺省档——缺省档 =
+**不传**该旗标，两档在代码里必须可区分（`a.x or default()` 一类假值回落会把它们并成一档，
+后果 = 调用方的意图被丢弃 ∨ 被换成别的东西 ∨ 被逐字写进落盘正文，而登记侧读数看不出差异）。
+
 **删除铁律**：本 CLI 只做创建/登记，不提供任何删除动作——agents/ 内目录清理一律走
 `agents-sync/gc.py add` 删除清单通道（bot/ 族还需 --force 审计旁路），绝不直接 rm。
 """
@@ -85,6 +90,28 @@ def local_canonical_host(root):
     return hn, True
 
 
+def reject_blank_value(raw, opt, harm, remedy):
+    """取值型旗标的「值存在但 trim 后为空」硬拒单点（rc=2 + 零落盘）。
+
+    判据射程 = **显式给了旗标却没给值**（`raw is None` = 没给旗标 ⇒ 原样返回 None，缺省档行为
+    逐字不变）。两档必须可区分：`a.x or default()` ∨ `if a.x:` 一类**假值回落**把「传了空值」
+    并进「没传旗标」⇒ 调用方的意图被静默丢弃（改用随机 id ∕ 回落缺省人格 ∕ 回落职位信箱归属），
+    而登记侧从读数上看不出差异；`os.path.abspath(os.path.expanduser(""))` 一类**路径解析**则把空值
+    换成调用方 cwd（下游进程在一个没人指定的目录里跑）。成因与一手实例 = `reject_blank_root`。
+
+    调用位置硬约束：在任何 `os.makedirs` ∕ 任何写点**之前**（拒后零副作用，⛔ 留半成品残骸——
+    `agents/` 下的残骸要 `agents-sync/gc.py add` 通道才收得掉）。
+    报文四要素缺一不可：旗标名 ∪ `repr(raw)` ∪ 成因（`harm`）∪ 正确做法（`remedy`），
+    外加零副作用声明（调用方据此判「不用去清残骸」）。
+    @returns raw（非空白档原样透传，便于 `x = reject_blank_value(a.x, …)` 形态）"""
+    if raw is None:
+        return None
+    if not str(raw).strip():
+        die("%s 的值为空/纯空白（%r）：%s。%s；本次未创建任何目录/文件。"
+            % (opt, raw, harm, remedy), code=2)
+    return raw
+
+
 def reject_blank_root(raw):
     """`--root` 的值为空 ∨ 纯空白 ⇒ 硬拒（rc=2 + 零落盘），跑在任何路径解析之前。
 
@@ -98,12 +125,12 @@ def reject_blank_root(raw):
 
     ⛔ 先解析成路径再判：那时「值为空」这个成因已不可见（空值成了 cwd ∨ 缺省根）。
     要缺省根请**不传**该旗标（`default_root()`，现场发现），⛔ 传空值。"""
-    if not raw.strip():
-        die("--root 的值为空/纯空白（%r）：给了旗标却没给值 = 调用方 bug（典型 = 上游变量"
-            "取值失败）。空值 ⛔ 静默降级——回落缺省根（本仓所在根 = 生产工作区根）会把"
-            "探针/测试的对照臂直接写进生产 agents 树并被 scheduler enable+spawn，解析成 cwd"
-            "下的路径则报错口径指错成因。要缺省根请**不传**该旗标；本次未创建任何目录/文件。"
-            % raw, code=2)
+    reject_blank_value(
+        raw, "--root",
+        harm="给了旗标却没给值 = 调用方 bug（典型 = 上游变量取值失败）。空值 ⛔ 静默降级——"
+             "回落缺省根（本仓所在根 = 生产工作区根）会把探针/测试的对照臂直接写进生产 "
+             "agents 树并被 scheduler enable+spawn，解析成 cwd下的路径则报错口径指错成因",
+        remedy="要缺省根请**不传**该旗标")
 
 
 def require_workspace_root(root):
@@ -132,7 +159,11 @@ def require_workspace_root(root):
     但错 root 也表现为该文件缺失，故补一行指向 root 语义的 WARN（与 `local_canonical_host`
     回退时的「补一行」告警各管一面：那行说机器映射，本行说 root 是不是工作区根）。
 
-    返回归一化后的绝对路径（expanduser + abspath；对既有绝对路径入参是 no-op）。"""
+    返回归一化后的绝对路径（expanduser + abspath；对既有绝对路径入参是 no-op）。
+
+    **改本函数的返回契约（返回值形态 ∨ 是否可能返回 None ∨ 归一化程度）须同批核两枚 import
+    方**：`agentd/report.py` 与 `agentd/needscheck.py` 都 `import agentctl` 并取 `default_root()`
+    作各自 `--root` 的缺省值（两个只读判定面）⇒ 契约漂移会让它们静默指向另一棵树。"""
     reject_blank_root(root)
     r = os.path.abspath(os.path.expanduser(root))
     if os.path.basename(os.path.realpath(r)) == "agents":
@@ -182,6 +213,24 @@ def beijing_iso():
 
 def cmd_create(a):
     # 可选字段的校验先于任何 makedirs/落盘（拒后零副作用，口径同 cmd_bot_register）
+    # 三枚取值型旗标的空值硬拒排在最前（判据与报文形态 = reject_blank_value：给了旗标
+    # 却没给值 = 调用方 bug，⛔ 静默降级）；**不传旗标**的缺省档逐字不变。
+    reject_blank_value(
+        a.command, "--command",
+        harm="spec.command 会被逐字写成空 ⇒ 拉起来的会话什么也不跑（∨ 根本起不来），"
+             "而登记侧从 spec 读数上看不出它与正常登记的件有何差别",
+        remedy="本旗标是必填项：要跑什么就给一条非空命令，⛔ 用空值占位")
+    reject_blank_value(
+        a.workdir, "--workdir",
+        harm="空值会被 os.path.abspath(os.path.expanduser(v)) 解析成**调用方 cwd**（纯空白"
+             "则解析成 <cwd>/空白 一类怪路径）⇒ runner 在一个调用方从没指定的目录里 spawn",
+        remedy="本旗标是必填项：要给 cwd 就给一条非空路径，⛔ 用空值占位")
+    reject_blank_value(
+        a.name, "--name",
+        harm="空串会被当「没给旗标」⇒ 改用随机 id（调用方拿不到自己要的名字，而任务书正文里"
+             "内嵌的 taskId 与目录名就此对不上）；纯空白则建出一枚名为空白的参与方目录"
+             "（扫描面与寻址面都认不出它）",
+        remedy="要自动生成的随机 id 请**不传**该旗标（缺省档 = proto.auto_name()）")
     reaper = check_reaper(getattr(a, "reaper", None))
     description = check_description(getattr(a, "description", None))
     # --profile：白名单现场枚举 + 前缀冲突即拒（两者都在落盘前 ⇒ 拒后零副作用）
@@ -189,6 +238,14 @@ def cmd_create(a):
     command = apply_profile_prefix(a.command, profile)
     # --prompt-file：读全文也在落盘前（拒后零副作用，口径同 check_profile/check_reaper）
     prompt_text = read_prompt_file(getattr(a, "prompt_file", None))
+    # 调度字段（：DAG 调度）的解析同样排在任何写点之前：非法 JSON ∨ 空值拒时零落盘
+    # （排在写点之后会留下「建了 task/<id>/ 与 inbox/ 却没 spec.json」的残骸，要
+    # agents-sync/gc.py add 通道才收得掉）。只提前**解析与校验**：键的写入位置与
+    # 顺序不动 ⇒ spec 正文逐字不变。
+    sched = [(key, parse_str_array(getattr(a, opt), "--" + opt))
+             for opt, key in (("resources", "resources"), ("provides", "provides"),
+                              ("needs", "needs"))
+             if getattr(a, opt) is not None]
     if a.name:
         if "/" in a.name or a.name.startswith("."):
             die("非法目录名：%r（作为路径组件合法即可，§2.2）" % a.name)
@@ -255,12 +312,10 @@ def cmd_create(a):
     spec["host"] = host
     spec["createdByHost"] = created_by
     # 调度字段（：DAG 调度）：不传则不写入，
-    # 调度侧按缺省语义处理（resources→["serial"]，provides/needs→[]）。
-    for opt, key in (("resources", "resources"), ("provides", "provides"),
-                     ("needs", "needs")):
-        v = getattr(a, opt)
-        if v is not None:
-            spec[key] = parse_str_array(v, "--" + opt)
+    # 调度侧按缺省语义处理（resources→["serial"]，provides/needs→[]）；
+    # 值已在本函数开头解析并校验过（拒 ⇒ 零落盘）。
+    for key, value in sched:
+        spec[key] = value
     # --prompt-file 的写点**必须在 spec.json 之前**（本节头注：调度方的可见性锚是 spec.json，
     # 写在它之后只是把竞态窗变窄、⛔ 变没；e2e S61 钉源码顺序）。两次都是 temp+rename 原子写。
     if prompt_text is not None:
@@ -487,16 +542,26 @@ def check_profile(raw, root):
     """`--profile` 校验：名字须命中 `list_profiles(root)` 的现场枚举白名单，非法即 `die`
     并在 **stderr** 打印可选名单（写入口不留脏声明，口径同 `check_reaper`）。
 
-    缺失/空串（None）= 不声明人格 → 交由 `warn_missing_profile` 打一行 WARN 后**照建**
-    （⛔ 硬失败：存量调用方与守护 bot 登记面依赖缺省行为）。
+    **缺失（`raw is None` = 不传旗标）**= 不声明人格 → 交由 `warn_missing_profile` 打一行 WARN
+    后**照建**（⛔ 硬失败：存量调用方与守护 bot 登记面依赖缺省行为）。
+    **传了旗标但值为空 ∕ 纯空白 ⇒ 硬拒**（rc=2 + 零落盘，`reject_blank_value`）：那会被当成
+    「没声明人格」⇒ 会话静默跑在基线人格上（该装载的 caps 全没装载），而缺省档那一行 WARN
+    照打（`warn_missing_profile` 只看 command 前缀）⇒ 落盘产物与报文与**不传**该旗标逐字同款，
+    登记侧从读数上看不出调用方本意是要装载某个人格。本守卫排在白名单枚举之前（否则报文会
+    变成「非法 --profile：''」∨ 枚举根不在场时的「无法校验 --profile」，两者都指错成因）。
     **只核名字命中清单、⛔ 不核清单的 `form` 字段**：形态配错（给任务会话填常驻/交互档）
     属声明面 + 资产 lint 的射程，本仓不复制该判据（也不因它加运行时阻断）。
     调用位置硬约束：在任何 `os.makedirs`/落盘**之前** ⇒ 拒后零副作用。"""
     if raw is None:
-        return None
+        return None                 # 没给旗标 = 缺省档（一行 WARN 且照建，⛔ 硬失败）
+    reject_blank_value(
+        raw, "--profile",
+        harm="空值会被当「没声明人格」⇒ spec.command 不拼 %s= 前缀，会话静默跑在最基线"
+             "人格上（该装载的 caps 全没装载）；而缺省档那一行 WARN 照打 ⇒ 产物与报文与"
+             "**不传**该旗标逐字同款，登记侧看不出调用方本意是要装载人格" % PROFILE_ENV_KEY,
+        remedy="要装载人格就给一个命中白名单的 profile 名；要基线档请**不传**该旗标"
+               "（缺省档 = 一行 WARN 且照建）")
     s = str(raw).strip()
-    if not s:
-        return None
     pdir = os.path.join(root, PROFILES_REL)
     avail = list_profiles(root)
     if not avail:
@@ -527,7 +592,8 @@ def apply_profile_prefix(command, profile):
       ③ 已有**异值**前缀 ⇒ `die` 并打印两侧值（⛔ 静默覆盖：两处声明打架时猜哪一处都会
          造出「登记方以为的人格 ≠ 实际装载的人格」，且该失效是静默的）。
 
-    未给 `--profile`（None/空）⇒ 原样返回，现值行为逐字不变。
+    未给 `--profile`（None = 不传旗标；空值已被 `check_profile` 硬拒到不了这里）⇒ 原样返回，
+    现值行为逐字不变。
     调用位置同 `check_profile`：在任何落盘之前。"""
     if not profile:
         return command
@@ -610,6 +676,18 @@ def read_prompt_file(raw):
     return txt
 
 
+def require_bot_spec_trio(a):
+    """新建 bot spec 的三件必备（`--command/--workdir/--creator`，与 `cmd_create` 同纪律）。
+
+    调用位置硬约束：任何 `os.makedirs` ∕ 写点**之前**（拒 ⇒ 零落盘）。只在新建分支跑
+    （spec.json 已在场时本命令只改 `subscribes`，三件不生效）。"""
+    if not a.command or not a.workdir or not a.creator:
+        die("bot/%s 无 spec.json：新建进程型 bot spec 需 --command/--workdir/--creator 三件"
+            "（只要信箱用 `create-bot`；守护型 bot 走被追踪声明源 bots/daemon/<名字>/spec.json"
+            " + `make bots.seed`；只想改订阅而 spec 应在场 = 先核对路径 --root）" % a.name,
+            code=2)
+
+
 def cmd_bot_register(a):
     """登记进程型 bot（bot 族 spec.json）：给协议 §4.1 的可选扩展字段 `subscribes`
     （通道 B = 登记期订阅意图）一个合法写入口，消灭手写不可变档（S2 结论：
@@ -642,6 +720,11 @@ def cmd_bot_register(a):
     description = check_description(getattr(a, "description", None))
     bdir = proto.bot_dir(a.root, a.name)
     spath = os.path.join(bdir, "spec.json")
+    # 新建分支的三件必备校验**先于任何 makedirs**（rc≠0 ⇒ 零落盘）：排在写点之后会留下
+    # 「bot/<名>/ 与 inbox/ 已建出、spec.json 却没有」的残骸（要 agents-sync/gc.py add 通道
+    # 才收得掉）。既在场分支不受影响（makedirs 时机不动 ⇒ 补齐 inbox/ 的行为零回归）。
+    if not os.path.exists(spath):
+        require_bot_spec_trio(a)
     os.makedirs(os.path.join(bdir, "inbox"), exist_ok=True)
     if os.path.exists(spath):
         if reaper or description:
@@ -665,12 +748,7 @@ def cmd_bot_register(a):
         print("  subscribes %s" % (json.dumps(subs, ensure_ascii=False) if subs
                                    else "（已清空 = 字段移除）"))
         return
-    # 新建 spec：command/workdir/creator 三件必备（与 cmd_create 同纪律）
-    if not a.command or not a.workdir or not a.creator:
-        die("bot/%s 无 spec.json：新建进程型 bot spec 需 --command/--workdir/--creator 三件"
-            "（只要信箱用 `create-bot`；守护型 bot 走被追踪声明源 bots/daemon/<名字>/spec.json"
-            " + `make bots.seed`；只想改订阅而 spec 应在场 = 先核对路径 --root）" % a.name,
-            code=2)
+    # 新建 spec（三件已在任何 makedirs 之前校验过 = require_bot_spec_trio）
     spec = {"command": a.command,
             "workdir": portable_path(os.path.abspath(os.path.expanduser(a.workdir))),
             "creator": a.creator}
@@ -722,8 +800,18 @@ def resolve_sender(explicit, what="发送方"):
     主持人）的取消记成调度员职位 = 审计与权威归属双失真。文法校验复用
     `proto.is_valid_participant_id`（既有函数，不新增 proto 逻辑）。
     适用面 = 全部写信封/写控制请求的动词（`send` / `answer` / `cancel` / `control`）：
-    归属口径全链单一，不得按动词分叉。"""
-    if explicit is not None and str(explicit).strip():
+    归属口径全链单一，不得按动词分叉。
+    ① 档里「给了旗标但值为空 ∕ 纯空白」⇒ 硬拒（rc=2 + 零落盘，`reject_blank_value`）：静默落
+    下一档 = 发件归属被改写（收件方按错误的发件方判归属，审计与权威归属双失真）。
+    ② 档的 `AGENT_SELF` 为空 ∕ 非法仍静默落下一档（既有裁定，⛔ 报错：env 不是调用方本次的
+    显式意图，硬拒会把无关会话的合法投递堵住；与 TS 侧 `core.resolveCreatorPid` 同口径）。"""
+    if explicit is not None:
+        reject_blank_value(
+            explicit, "--from",
+            harm="空值会被当「没给旗标」⇒ 发件归属静默回落到环境 AGENT_SELF ∨ 职位信箱 %s"
+                 "（收件方按错误的发件方判归属，审计与权威归属双失真）" % proto.POSITION_PID,
+            remedy="要声明发件方就给一个两段路径式 id（如 task/<id> ∨ bot/<名>）；要走缺省"
+                   "归属请**不传**该旗标（缺省档 = 环境 AGENT_SELF，再缺省回落职位信箱）")
         s = str(explicit).strip()
         if not proto.is_valid_participant_id(s):
             die("%s身份（--from）非法：%r——须为两段路径式 <family>/<name>，"
@@ -936,6 +1024,14 @@ def cmd_update(a):
 def cmd_enable(a):
     require_pid(a.participant)
     require_not_retired(a.participant)
+    # 空值硬拒排在存在性判定与写点之前（拒 ⇒ 零落盘）。只收 CLI 面：调度方写 enable.json
+    # 走 scheduler.py 自己的 proto.atomic_write_json(proto.enable_path(…), …)，⛔ 经本函数。
+    reject_blank_value(
+        a.by, "--by",
+        harm="enable.json 的审计字段会被写成空 ⇒ 事后查不出这枚参与方是谁放行的（放行是"
+             "不可逆动作：只进不退，而审计面是它唯一的可追溯载体）",
+        remedy="本旗标是必填项：给出真实的放行方身份（两段路径式 id ∨ 调度方标识），"
+               "⛔ 用空值占位")
     p = proto.enable_path(a.root, a.participant)
     if os.path.exists(p):
         die("enable.json 已存在——只进不退，不可重复写定（§14.2）", code=2)
@@ -997,9 +1093,14 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("create", help="写 spec.json 创建参与方")
-    p.add_argument("--name", help="自定义目录名；缺省自动生成（§2.2）")
-    p.add_argument("--command", required=True)
-    p.add_argument("--workdir", required=True)
+    p.add_argument("--name", help="自定义目录名；缺省自动生成（§2.2）。值为空/纯空白即拒"
+                                  "（rc=2、零落盘）：要随机 id 请**不传**本旗标")
+    p.add_argument("--command", required=True,
+                   help="启动命令（必填）。值为空/纯空白即拒（rc=2、零落盘）：空值会被逐字写进 "
+                        "spec.command ⇒ 会话什么也不跑而登记侧看不出来")
+    p.add_argument("--workdir", required=True,
+                   help="工作目录（必填；~/ 可，落盘归一化为可移植形式）。值为空/纯空白即拒"
+                        "（rc=2、零落盘）：空值会被解析成**调用方 cwd** ⇒ runner 在错的目录 spawn")
     p.add_argument("--creator", required=True)
     p.add_argument("--description", default=None,
                    help="写入 spec `name` 字段（人类可读描述，§4.1）；缺省不写该键")
@@ -1025,7 +1126,9 @@ def main():
                         "（人格装载的唯一载入口；本 CLI ⛔ 不给 spec 加键、⛔ 不动调度语义）："
                         "与 --command 里既有的同键前缀**同值 ⇒ 幂等不重复拼**、**异值 ⇒ 拒**"
                         "（打印两侧值，⛔ 静默覆盖）。缺省（且 command 无前缀）⇒ 打一行 WARN"
-                        "（会话按运行时缺省档回落、工具面为最基线档）但**照建**"
+                        "（会话按运行时缺省档回落、工具面为最基线档）但**照建**；"
+                        "**值为空/纯空白即拒**（rc=2、零落盘）：空值会静默降到基线人格，且"
+                        "产物与**不传**本旗标逐字同款 ⇒ 要基线档请**不传**本旗标"
                         % (PROFILES_REL, PROFILE_ENV_KEY))
     p.add_argument("--host")
     p.add_argument("--created-by-host")
@@ -1121,7 +1224,9 @@ def main():
                         "缺省不写字段 = followUp（排队等当前轮结束）")
     p.add_argument("--from", dest="sender",
                    help="发送方身份（两段路径式 id）；缺省取环境 AGENT_SELF，再缺省回落职位"
-                        "信箱 %s（不接受裸名）" % proto.POSITION_PID)
+                        "信箱 %s（不接受裸名）。值为空/纯空白即拒（rc=2、零落盘）：空值会静默"
+                        "回落下一档 ⇒ 发件归属被改写；要走缺省归属请**不传**本旗标"
+                        % proto.POSITION_PID)
     p.set_defaults(fn=cmd_send)
 
     # 用例动词（与协议动词分档）：代表一个意图，故带前置门（存在 / 非 final / 意图可成立），
@@ -1162,12 +1267,15 @@ def main():
     p.add_argument("--reason")
     p.add_argument("--from", dest="sender",
                    help="控制方身份（两段路径式 id，如 bot/<名>、task/<id>）；缺省取环境"
-                        " AGENT_SELF，再缺省回落职位信箱 %s（不接受裸名）" % proto.POSITION_PID)
+                        " AGENT_SELF，再缺省回落职位信箱 %s（不接受裸名）。值为空/纯空白即拒"
+                        "（rc=2、零落盘，口径同 send --from）" % proto.POSITION_PID)
     p.set_defaults(fn=cmd_control)
 
     p = sub.add_parser("enable", help="写 enable.json 放行（正常由调度方写；手工兑底）")
     p.add_argument("participant")
-    p.add_argument("--by", required=True)
+    p.add_argument("--by", required=True,
+                   help="放行方身份（必填；写入 enable.json 的审计字段）。值为空/纯空白即拒"
+                        "（rc=2、零落盘）：空值会让事后查不出谁放行了这枚参与方")
     p.add_argument("--note")
     p.set_defaults(fn=cmd_enable)
 

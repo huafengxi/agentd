@@ -165,6 +165,23 @@
       它仍 = 本仓父目录；同一枚命令传空值 rc=2 ∕ 不传 rc=0 = 两档可区分）/ **覆盖面**
       （`--help` 枚举的 13 个动词逐个 × 空值三形态均 rc=2 且命中口径，⛔ 只在 create 一处收口）
       + `--help` 写明空值拒绝口径
+  S63 `agentctl` 取值型旗标的空 ∨ 纯空白值硬拒（S61⑧ `--prompt-file` ∪ S62 `--root` 之后的
+      同族收口批；缺陷形态 = 「给了旗标却没给值」被假值回落并进「不传旗标」那一档 ⇒ 调用方的
+      意图被静默丢弃 ∨ 被换成别的东西 ∨ 被逐字写进落盘正文，而登记侧读数看不出差异）六格：
+      **逐格硬拒**（6 旗标 = `create` 的 `--name`/`--command`/`--workdir`/`--profile` ∪ `send`
+      的 `--from`〔`resolve_sender` 单点 ⇒ 同族覆盖 `answer`/`cancel`/`control`〕∪ `enable` 的
+      `--by`）× 空值三形态 = 27 枚 ⇒ rc=2 + 报文四要素（旗标名 ∪ `repr(raw)` ∪ 成因 ∪ 正确做法）
+      + 零副作用声明 + 零落盘（诱饵根 `agents/` 递归清单同值）/ **做错态构造**（`git show` 改前
+      不可变 sha 到临时路径：同 27 枚均不命中口径，空串档逐格给出具体产物 = 随机 id 顶掉调用方
+      给的名字 ∕ `workdir` 被解析成调用方 cwd ∕ 空 command 被逐字写进 spec ∕ 人格静默降到基线档
+      且与不传旗标那一档逐字同款（两档不可区分）∕ 发件归属被改写成职位信箱 ∕ `enable.json`
+      审计字段被写成空）/
+      **缺省臂**（不传旗标 ⇒ 逐字不变：`--name` 随机 id ∕ `--profile` 一行 WARN 且照建、command
+      不拼前缀 ∕ `--from` 回落职位信箱；必填三枚不传 ⇒ argparse required rc=2 且 **⛔ 命中空值
+      口径** ⇒ 两档可区分）/ **格 B 两组「拒了 ⇒ 零落盘」**（`create` 的三枚调度字段 ×3 形态 ∧
+      `bot register` 三件的空串档；做错态臂 = 改前 rc≠0 却留 `task/<名>/`+`inbox/` ∨
+      `bot/<名>/`+`inbox/` 残骸）/ **`--root` 档报文逐字不变**（`reject_blank_root` 改为委托
+      `reject_blank_value` 的安全性钉）/ **help 面**（六枚旗标各自所在动词的 `--help` 逐枚写明口径）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -179,6 +196,8 @@ S61 自建临时工作区根夹具（含任务书正文与四类非法文件夹�
 S62 自建三棵诱饵根（显式 --root 的目标 ∪ 改后副本根 ∪ 改前副本根；不起进程、不读写主树
 ROOT，收尾自清）→ **可单跑**；例外 = ② 的做错态臂要 `git show` 改前不可变 sha 的对象（本仓
 必须是含该对象的 git checkout；取不到即断言失败并点名原因，⛔ 静默跳过）。
+S63 同 S62 的三诱饵根形态（另含 `bots/profiles/` 白名单枚举根 ∪ ask/spec 夹具；不起进程、
+不读写主树 ROOT，收尾自清）→ **可单跑**；例外同 S62（② 的做错态臂要 `git show` 改前不可变 sha）。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -5324,6 +5343,361 @@ def s62():
         _rm_scenario_root(S62BASE)
 
 
+S63BASE = os.path.join(TMPBASE, "root-s63")   # 本场景自建根（专用临时目录，不用生产树）
+
+# S63 的改前锚：本批收口前的 main 分支 commit（**不可变引用**；⛔ 工作树，⛔ HEAD~n 相对量）
+S63_PRE_FIX_SHA = "18f3276fdfb17f5644f8176b941e9b9089653734"
+S63_PROFILE = "s63-self"
+
+
+def s63():
+    """取值型旗标的空 ∕ 纯空白值硬拒（`--root` = S62 ∪ `--prompt-file` = S61⑧ 之后的同族收口批）六格：
+
+    ① **逐格硬拒 ×6 旗标 ×3 形态**（无害诱饵根）：`create` 的 `--name`/`--command`/`--workdir`/
+      `--profile` ∪ `send` 的 `--from`（`resolve_sender` 单点 ⇒ 同族覆盖 answer/cancel/control
+      三动词）∪ `enable` 的 `--by` ⇒ rc=2 ∧ 报文四要素齐（旗标名 ∪ `repr(raw)` ∪ 成因 ∪ 正确
+      做法）∧ 零副作用声明 ∧ **零落盘**（诱饵根 `agents/` 递归清单跑前/跑后同值）。
+    ② **做错态构造**（证明① 的断言在改前会红）：改前副本（`git show <不可变 sha>` 到临时路径）
+      在同一诱饵根下逐格给出**具体产物**——随机 id 顶掉调用方给的名字 ∕ `workdir` 被解析成
+      调用方 cwd ∕ 空 command 被逐字写进 spec ∕ 人格静默降到基线档（与不传旗标那一档
+      逐字同款 ⇒ 两档不可区分）∕ 发件归属被改写成职位信箱 ∕ `enable.json` 的审计字段被写成空。
+    ③ **缺省臂**（「给了旗标却没给值」与「不传旗标」两档可区分）：不传 ⇒ 逐字不变
+      （`--name` 随机 id ∕ `--profile` 一行 WARN 且照建、command 不拼前缀 ∕ `--from` 回落职位
+      信箱）；必填三枚（`--command`/`--workdir`/`--by`）不传 ⇒ argparse required rc=2 且
+      **⛔ 命中空值口径**（该口径只属于「给了旗标却没给值」这一档）。
+    ④ **格 B 两组「拒了 ⇒ 零落盘」**：`create` 的三枚调度字段（`--resources`/`--provides`/
+      `--needs`；空值 = 非法 JSON ⇒ rc=1）×3 形态 ∪ `bot register` 的三件（`--command`/
+      `--workdir`/`--creator`；空串档 ⇒ rc=2）改后零落盘；做错态臂 = 改前 rc≠0 却已建出
+      `task/<名>/`+`inbox/` ∨ `bot/<名>/`+`inbox/` 残骸（要 `agents-sync/gc.py add` 通道才收得掉）。
+      `bot register` 的纯空白档是既有缺陷（三件用假值判定 ⇒ 空白值被当有效值收），不在本批射程。
+    ⑤ **`--root` 档报文逐字不变**（`reject_blank_root` 改为委托 `reject_blank_value` 的安全性钉）：
+      新旧两副本对同一枚 `--root` 空值的 rc 与 stderr 逐字同值。
+    ⑥ **help 面**：六枚旗标各自所在动词的 `--help` 逐枚写明空值拒绝口径。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    ws = os.path.join(S63BASE, "ws")            # 诱饵工作区根（显式 --root 的目标）
+    cwd = os.path.join(S63BASE, "cwd")          # 中性 cwd（本身不是工作区根）
+    newroot = os.path.join(S63BASE, "newroot")  # 改后副本的「本仓所在根」（= 其 default_root()）
+    oldroot = os.path.join(S63BASE, "oldroot")  # 改前副本的「本仓所在根」
+
+    def mkws(root, canonical):
+        """造够过 require_workspace_root 的诱饵工作区根 + --profile 的白名单枚举根。"""
+        os.makedirs(os.path.join(root, "agents", "task"), exist_ok=True)
+        os.makedirs(os.path.join(root, "agents", "bot"), exist_ok=True)
+        os.makedirs(os.path.join(root, "agents", "queue", "dispatcher", "inbox"), exist_ok=True)
+        os.makedirs(os.path.join(root, "env"), exist_ok=True)
+        with open(os.path.join(root, "env", "host-id"), "w") as f:
+            f.write("%s %s\n" % (socket.gethostname(), canonical))
+        os.makedirs(os.path.join(root, "bots", "profiles"), exist_ok=True)
+        with open(os.path.join(root, "bots", "profiles", S63_PROFILE + ".json"), "w") as f:
+            f.write('{"form": "task"}\n')
+
+    mkws(ws, "s63-canonical")
+    mkws(newroot, "s63-new-canonical")
+    mkws(oldroot, "s63-old-canonical")
+    os.makedirs(cwd, exist_ok=True)
+
+    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系 ----
+    real = os.path.realpath(S63BASE)
+    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
+        "诱饵根必须在本套件临时基目录内：%s" % real
+    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
+        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
+        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
+
+    # ---- 改后副本（与被测真文件逐字同源）----
+    os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
+    NEW = os.path.join(newroot, "agentd", "agentctl.py")
+
+    # ---- 改前副本：从不可变 sha 取对象（⛔ 读工作树；取不到即断言失败，⛔ 静默跳过）----
+    os.makedirs(os.path.join(oldroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        r = subprocess.run(["git", "-C", HERE, "show", "%s:%s" % (S63_PRE_FIX_SHA, fn)],
+                           capture_output=True, timeout=60)
+        assert r.returncode == 0, (
+            "做错态臂取不到改前版本（git -C %s show %s:%s）：rc=%d %s"
+            % (HERE, S63_PRE_FIX_SHA, fn, r.returncode,
+               r.stderr.decode("utf-8", "replace").strip()))
+        with open(os.path.join(oldroot, "agentd", fn), "wb") as f:
+            f.write(r.stdout)
+    OLD = os.path.join(oldroot, "agentd", "agentctl.py")
+    # 两副本确实分属改前/改后（按守卫函数名判，⛔ 按行号）
+    with open(NEW, encoding="utf-8") as f:
+        assert "reject_blank_value" in f.read(), "改后副本应含取值型旗标的空值守卫"
+    with open(OLD, encoding="utf-8") as f:
+        assert "reject_blank_value" not in f.read(), "改前副本 ⛔ 含该守卫（sha 错）"
+
+    BLANKS = (("", "空串"), ("   ", "纯空白(3空格)"), ("\t\n", "制表符加换行"))
+    OPTIONAL = ("--name", "--profile", "--from")     # 缺省档 = 不传旗标且有既有语义
+    REQUIRED = ("--command", "--workdir", "--by")    # 缺省档 = argparse required
+
+    def fixture(name):
+        """诱饵根里直接写一枚夹具参与方（spec.json）；⛔ 经 agentctl 写侧动词造。"""
+        d = os.path.join(ws, "agents", "task", name)
+        os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
+        with open(os.path.join(d, "spec.json"), "w") as f:
+            json.dump({"command": "true", "workdir": ws, "creator": "tester",
+                       "restartPolicy": "one-shot", "reaper": "queue/dispatcher"},
+                      f, ensure_ascii=False)
+        return name
+
+    def mkask(pid_, i):
+        """往职位信箱写一枚 ask（`answer` 的扫描面 = 职位信箱 ∪ spec.reaper 自家信箱）。"""
+        mid = "2026-01-0%d-00-00-00.000-%s-ask%d" % (i + 1, pid_.replace("/", "."), i)
+        with open(os.path.join(ws, "agents", "queue", "dispatcher", "inbox", mid + ".msg"),
+                  "w") as f:
+            json.dump({"id": mid, "from": pid_, "ts": "2026-01-0%d-00-00-00.000" % (i + 1),
+                       "type": "ask", "body": '{"question": "s63 夹具 ask"}'},
+                      f, ensure_ascii=False)
+
+    def blank_cases(tag):
+        """六枚旗标 × 三形态（`--from` 覆盖四动词）= 27 枚：[(形态, 值, [(case_id, 旗标, argv)])]。
+        tag ∈ {new, old} ⇒ 夹具名各一套，两副本互不撞名。"""
+        out = []
+        for i, (val, label) in enumerate(BLANKS):
+            n = "s63-%s-%d" % (tag, i)
+            cr = ["create", "--command", "true", "--workdir", ws, "--creator", "tester",
+                  "--reaper", "queue/dispatcher", "--restart-policy", "one-shot"]
+            fxp = fixture(n + "-from")
+            mkask("task/" + fxp, i)
+            fixture(n + "-en")
+            out.append((label, val, [
+                ("--name", "--name", cr[:1] + ["--name", val] + cr[1:]),
+                ("--workdir", "--workdir",
+                 ["create", "--name", n + "-wd", "--command", "true", "--workdir", val,
+                  "--creator", "tester", "--reaper", "queue/dispatcher",
+                  "--restart-policy", "one-shot"]),
+                ("--command", "--command",
+                 ["create", "--name", n + "-cmd", "--command", val, "--workdir", ws,
+                  "--creator", "tester", "--reaper", "queue/dispatcher",
+                  "--restart-policy", "one-shot"]),
+                ("--profile", "--profile", cr + ["--name", n + "-prof", "--profile", val]),
+                ("--from(send)", "--from",
+                 ["send", "queue/dispatcher", "--body", "s63-body", "--from", val]),
+                ("--from(answer)", "--from",
+                 ["answer", "task/" + n + "-from", "--body", "s63-reply", "--from", val]),
+                ("--from(cancel)", "--from",
+                 ["cancel", "task/" + n + "-from", "--reason", "s63", "--from", val]),
+                ("--from(control)", "--from",
+                 ["control", "task/" + n + "-from", "stop", "--from", val]),
+                ("--by(enable)", "--by", ["enable", "task/" + n + "-en", "--by", val]),
+            ]))
+        return out
+
+    def run(ctl, argv, root="WS"):
+        """root="WS" ⇒ 显式 `--root <诱饵根>`；None ⇒ **不传**该旗标（缺省档）；
+        其余 ⇒ 逐字传该值（含空串）。宿主 env 一律洗过，且 ⛔ 带 AGENT_SELF。"""
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)
+        full = [sys.executable, ctl]
+        if root == "WS":
+            full += ["--root", ws]
+        elif root is not None:
+            full += ["--root", root]
+        return subprocess.run(full + argv, capture_output=True, text=True,
+                              env=env, timeout=60, cwd=cwd)
+
+    def tree(root):
+        """<root>/agents 下的递归相对路径清单（排序）= 「零落盘」的强核法。"""
+        base = os.path.join(root, "agents")
+        out = []
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames.sort()
+            for d in dirnames:
+                out.append(os.path.relpath(os.path.join(dirpath, d), base) + "/")
+            for f in sorted(filenames):
+                out.append(os.path.relpath(os.path.join(dirpath, f), base))
+        return sorted(out)
+
+    def doc(*parts):
+        p = os.path.join(ws, "agents", *parts)
+        assert os.path.exists(p), "夹具/产物应在场：%s" % p
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+
+    def last_env():
+        inb = os.path.join(ws, "agents", "queue", "dispatcher", "inbox")
+        fs = sorted(f for f in os.listdir(inb) if f.endswith(".msg"))
+        with open(os.path.join(inb, fs[-1]), encoding="utf-8") as f:
+            return json.load(f)
+
+    try:
+        # ---- ① 逐格硬拒 ×6 旗标 ×3 形态：rc=2 + 报文四要素 + 零落盘 ----
+        new_cases = blank_cases("new")          # 先建夹具，再取「零落盘」基线快照
+        snap = tree(ws)
+        n_cases = 0
+        for label, val, cases in new_cases:
+            for cid, flag, argv in cases:
+                r = run(NEW, argv)
+                assert r.returncode == 2, (
+                    "%s × %s（%s）⇒ 应硬拒 rc=2：rc=%d %s"
+                    % (cid, repr(val), label, r.returncode, r.stderr))
+                assert flag in r.stderr, "%s 报文须点名旗标：%s" % (cid, r.stderr)
+                assert "为空/纯空白" in r.stderr, "%s 报文须点名成因：%s" % (cid, r.stderr)
+                assert repr(val) in r.stderr, \
+                    "%s 报文须带 repr(raw)（%r）：%s" % (cid, val, r.stderr)
+                assert "本次未创建任何目录/文件" in r.stderr, \
+                    "%s 报文须声明零副作用：%s" % cid
+                # 四要素之「正确做法」：可选三枚指向缺省档，必填三枚指向「给非空值」
+                if flag in OPTIONAL:
+                    assert "不传" in r.stderr, "%s 报文须给出正确做法（不传该旗标）：%s" % (cid, r.stderr)
+                else:
+                    assert "必填项" in r.stderr, "%s 报文须给出正确做法（必填 ⇒ 给非空值）：%s" % (cid, r.stderr)
+                n_cases += 1
+            assert tree(ws) == snap, "%s 档跑完 9 枚后零落盘：%s" % (label, tree(ws))
+        assert n_cases == 27, "① 的用例数应为 6 旗标（--from 覆盖 4 动词）×3 形态 = 27，实得 %d" % n_cases
+
+        # ---- ② 做错态构造：改前副本同 27 枚均不命中口径，且空串档逐格给出具体产物 ----
+        old_cases = blank_cases("old")          # 先建夹具，再取基线（⇒ 下面的 != 只可能是改前副本落的盘）
+        old_snap = tree(ws)
+        for label, val, cases in old_cases:
+            for cid, flag, argv in cases:
+                r = run(OLD, argv)
+                assert "为空/纯空白" not in r.stderr, \
+                    "改前副本不应命中空值口径（否则 sha 错 ∨ 断言在改前不会红）：%s %s" % (cid, r.stderr)
+                if label != "空串":
+                    continue
+                # 空串档逐格的具体产物（= ① 的零落盘断言在改前会红的证据）
+                if cid == "--name":
+                    name = r.stdout.strip()
+                    assert r.returncode == 0 and re.fullmatch(r"[a-z0-9]{6}", name), \
+                        "改前：空 --name 被当「没给旗标」⇒ 随机 id 顶掉调用方的意图：%r rc=%d %s" \
+                        % (name, r.returncode, r.stderr)
+                    assert os.path.exists(os.path.join(ws, "agents", "task", name, "spec.json")), \
+                        "改前应建出该随机 id 的参与方：%s" % name
+                elif cid == "--workdir":
+                    assert r.returncode == 0, (r.returncode, r.stderr)
+                    got = doc("task", "s63-old-0-wd", "spec.json")["workdir"]
+                    # macOS 上 /var ↔ /private/var 软链 ⇒ 子进程 getcwd 可能是解析后形态
+                    assert got in (cwd, os.path.realpath(cwd)), \
+                        "改前：空 --workdir 被 os.path.abspath 解析成**调用方 cwd**（%s），实得 %s" \
+                        % (cwd, got)
+                elif cid == "--command":
+                    assert r.returncode == 0, (r.returncode, r.stderr)
+                    assert doc("task", "s63-old-0-cmd", "spec.json")["command"] == "", \
+                        "改前：空 command 被逐字写进 spec.command"
+                elif cid == "--profile":
+                    assert r.returncode == 0, (r.returncode, r.stderr)
+                    assert doc("task", "s63-old-0-prof", "spec.json")["command"] == "true", \
+                        "改前：空 --profile 静默降到基线人格（command 不拼前缀）"
+                    # 与「不传该旗标」那一档逐字同款（缺省档的 WARN 也照打）⇒ 两档在改前不可区分
+                    r0 = run(OLD, ["create", "--name", "s63-old-0-noflag", "--command", "true",
+                                   "--workdir", ws, "--creator", "tester",
+                                   "--reaper", "queue/dispatcher",
+                                   "--restart-policy", "one-shot"])
+                    assert r0.returncode == 0 and r0.stderr == r.stderr, (
+                        "改前：空值档与不传档的 stderr 应逐字同款（= 两档不可区分）：\n%r\n%r"
+                        % (r.stderr, r0.stderr))
+                    assert doc("task", "s63-old-0-noflag", "spec.json")["command"] == "true", \
+                        "改前：不传档的 command 同样不拼前缀（两档产物同款）"
+                elif cid == "--from(send)":
+                    assert r.returncode == 0, (r.returncode, r.stderr)
+                    assert last_env()["from"] == "queue/dispatcher", \
+                        "改前：空 --from 被当「没给旗标」⇒ 发件归属被改写成职位信箱"
+                elif cid == "--by(enable)":
+                    assert r.returncode == 0, (r.returncode, r.stderr)
+                    assert doc("task", "s63-old-0-en", "enable.json")["by"] == "", \
+                        "改前：enable.json 的审计字段被写成空 ⇒ 查不出谁放行的"
+                # --from(answer/cancel/control)：改前 rc=0 且写出信封/控制请求（归属同样被改写）
+                elif cid.startswith("--from("):
+                    assert r.returncode == 0, (cid, r.returncode, r.stderr)
+        assert tree(ws) != old_snap, "② 前提：改前副本确实在诱饵根里落了盘（否则做错态没构造出来）"
+
+        # ---- ③ 缺省臂：不传旗标 ⇒ 逐字不变；必填三枚不传 ⇒ argparse required（⛔ 空值口径）----
+        r = run(NEW, ["create", "--command", "true", "--workdir", ws, "--creator", "tester",
+                      "--reaper", "queue/dispatcher", "--restart-policy", "one-shot"])
+        name = r.stdout.strip()
+        assert r.returncode == 0 and re.fullmatch(r"[a-z0-9]{6}", name), \
+            "缺省臂：不传 --name 应照旧随机 id：%r rc=%d %s" % (name, r.returncode, r.stderr)
+        assert os.path.exists(os.path.join(ws, "agents", "task", name, "spec.json"))
+
+        r = run(NEW, ["create", "--name", "s63-new-noprof", "--command", "true",
+                      "--workdir", ws, "--creator", "tester", "--reaper", "queue/dispatcher",
+                      "--restart-policy", "one-shot"])
+        assert r.returncode == 0, "缺省臂：不传 --profile 应照旧一行 WARN 且照建：%s" % r.stderr
+        assert "WARN" in r.stderr and r.stdout.strip() == "s63-new-noprof", \
+            "缺省臂：--profile 缺省档的 WARN 逐字在场、stdout 仍是 taskId 裸串：%s" % r.stderr
+        assert doc("task", "s63-new-noprof", "spec.json")["command"] == "true", \
+            "缺省臂：不传 --profile ⇒ command 不拼前缀（既有裁定，⛔ 硬失败）"
+
+        r = run(NEW, ["create", "--name", "s63-new-prof-ok", "--command", "true",
+                      "--workdir", ws, "--creator", "tester", "--reaper", "queue/dispatcher",
+                      "--restart-policy", "one-shot", "--profile", S63_PROFILE])
+        assert r.returncode == 0, "缺省臂：合法 --profile 名仍照建：%s" % r.stderr
+        assert doc("task", "s63-new-prof-ok", "spec.json")["command"].startswith(
+            "DISPATCH_PROFILE=%s " % S63_PROFILE), "缺省臂：合法名仍拼前缀（S60 既有裁定）"
+
+        r = run(NEW, ["send", "queue/dispatcher", "--body", "s63-nofrom"])
+        assert r.returncode == 0 and last_env()["from"] == "queue/dispatcher", \
+            "缺省臂：不传 --from 仍回落职位信箱：%s" % r.stderr
+
+        for argv in (["create", "--name", "s63-new-req1", "--workdir", ws, "--creator", "t"],
+                     ["create", "--name", "s63-new-req2", "--command", "true", "--creator", "t"],
+                     ["enable", "task/s63-new-req3"]):
+            r = run(NEW, argv)
+            assert r.returncode == 2 and "required" in r.stderr, \
+                "缺省臂：必填旗标不传应是 argparse required（rc=2）：%s %s" % (argv[0], r.stderr)
+            assert "为空/纯空白" not in r.stderr, \
+                "缺省臂：「不传旗标」⛔ 命中空值口径（两档必须可区分）：%s" % r.stderr
+
+        # ---- ④ 格 B 两组「拒了 ⇒ 零落盘」（+ 做错态臂：改前拒了却留残骸）----
+        b_snap = tree(ws)
+        for bi, (val, label) in enumerate(BLANKS):
+            for opt in ("resources", "provides", "needs"):
+                r = run(NEW, ["create", "--name", "s63-new-b1-%s-%d" % (opt, bi),
+                              "--command", "true", "--workdir", ws, "--creator", "tester",
+                              "--%s" % opt, val])
+                assert r.returncode != 0, "格 B：create --%s %s（%s）应拒：%s" % (opt, repr(val), label, r.stderr)
+            assert tree(ws) == b_snap, "格 B：create 三枚调度字段拒后零落盘（%s）" % label
+        for opt in ("command", "workdir", "creator"):
+            argv = ["bot", "register", "--name", "s63-new-b2-" + opt]
+            for o, v in (("command", "true"), ("workdir", ws), ("creator", "tester")):
+                argv += ["--" + o, "" if o == opt else v]
+            r = run(NEW, argv)
+            assert r.returncode == 2, "格 B：bot register 缺 --%s 应 rc=2：%s" % (opt, r.stderr)
+        assert tree(ws) == b_snap, "格 B：bot register 三件拒后零落盘"
+
+        # 做错态臂（空串档）：改前 rc≠0 却已建出目录残骸 ⇒ ④ 的零落盘断言在改前会红
+        r = run(OLD, ["create", "--name", "s63-old-b1", "--command", "true", "--workdir", ws,
+                      "--creator", "tester", "--resources", ""])
+        assert r.returncode != 0, (r.returncode, r.stderr)
+        assert "task/s63-old-b1/" in tree(ws) and "task/s63-old-b1/inbox/" in tree(ws), \
+            "改前应留下 task/<名>/ + inbox/ 残骸（= ④ 的零落盘断言在改前会红）"
+        assert not os.path.exists(os.path.join(ws, "agents", "task", "s63-old-b1", "spec.json")), \
+            "改前的残骸形态 = 建了目录却没 spec.json"
+        r = run(OLD, ["bot", "register", "--name", "s63-old-b2", "--command", "",
+                      "--workdir", ws, "--creator", "tester"])
+        assert r.returncode == 2, (r.returncode, r.stderr)
+        assert "bot/s63-old-b2/" in tree(ws) and "bot/s63-old-b2/inbox/" in tree(ws), \
+            "改前应留下 bot/<名>/ + inbox/ 残骸（= ④ 的零落盘断言在改前会红）"
+
+        # ---- ⑤ --root 档报文逐字不变（reject_blank_root 委托 reject_blank_value 的安全性钉）----
+        for val, label in BLANKS:
+            rn = run(NEW, ["list"], root=val)
+            ro = run(OLD, ["list"], root=val)
+            assert (rn.returncode, rn.stderr) == (ro.returncode, ro.stderr), (
+                "--root %s（%s）的 rc 与报文须与改前逐字同值：new=(%d, %r) old=(%d, %r)"
+                % (repr(val), label, rn.returncode, rn.stderr, ro.returncode, ro.stderr))
+            assert rn.returncode == 2 and "为空/纯空白" in rn.stderr, (rn.returncode, rn.stderr)
+
+        # ---- ⑥ help 面：六枚旗标各自所在动词的 --help 逐枚写明空值拒绝口径 ----
+        for verb, flags in (("create", ["--name", "--command", "--workdir", "--profile"]),
+                            ("send", ["--from"]), ("enable", ["--by"])):
+            r = subprocess.run([sys.executable, NEW, verb, "--help"], capture_output=True,
+                               text=True, env=scrub_env(), timeout=60, cwd=cwd)
+            assert r.returncode == 0, r.stderr
+            flat = re.sub(r"\s+", "", r.stdout)      # argparse 会按宽度折行 ⇒ 去空白后比
+            for fl in flags:
+                assert fl in flat, "%s --help 须列出 %s" % (verb, fl)
+            assert flat.count("值为空/纯空白即拒") >= len(flags), (
+                "%s --help 须为 %d 枚旗标各写明一次空值拒绝口径，实得 %d 处：%s"
+                % (verb, len(flags), flat.count("值为空/纯空白即拒"), r.stdout))
+    finally:
+        _rm_scenario_root(S63BASE)
+
 def _scrub_inherited_env():
     """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
 
@@ -5436,6 +5810,20 @@ def main():
           "参与方、纯空白档口径指错成因 ⇒ 证明断言在改前会红）・**缺省臂**（不传旗标 ⇒ 照旧"
           " default_root() 且真文件的它仍 = 本仓父目录；同枚命令传空值 rc=2 ∕ 不传 rc=0 = 两档可区分）"
           "・**覆盖面**（--help 枚举的 13 个动词逐个 × 空值三形态均 rc=2 且命中口径）+ --help 写明口径", s62)
+    check("S63 agentctl 取值型旗标的空 ∕ 纯空白值硬拒（S61⑧/S62 的同族收口批；6 旗标 = create 的"
+          " --name/--command/--workdir/--profile ∪ send 的 --from（resolve_sender 单点 ⇒ 覆盖"
+          " answer/cancel/control）∪ enable 的 --by）：**逐格硬拒** ×空值三形态 = 27 枚 ⇒ rc=2"
+          " + 报文四要素（旗标名 ∪ repr(raw) ∪ 成因 ∪ 正确做法）+ 零副作用声明 + 零落盘（诱饵根"
+          " agents/ 递归清单同值）・**做错态构造**（git show 改前不可变 sha：同 27 枚均不命中口径，"
+          "空串档逐格给出具体产物 = 随机 id 顶掉调用方给的名字 ∕ workdir 被解析成调用方 cwd ∕"
+          " 空 command 逐字进 spec ∕ 人格静默降基线档且与不传旗标档逐字同款 ∕ 发件归属被改写成职位信箱 ∕"
+          " enable.json 审计字段被写成空）・**缺省臂**（不传旗标逐字不变：--name 随机 id ∕"
+          " --profile 一行 WARN 且照建、command 不拼前缀 ∕ --from 回落职位信箱；必填三枚不传 ="
+          " argparse required rc=2 且 ⛔ 命中空值口径 ⇒ 两档可区分）・**格 B 两组「拒了 ⇒ 零落盘」**"
+          "（create 的 --resources/--provides/--needs ×3 形态 ∧ bot register 的"
+          " --command/--workdir/--creator 空串档；做错态臂 = 改前 rc≠0 却留 task/+inbox ∨"
+          " bot/+inbox 残骸）・**--root 档报文逐字不变**（reject_blank_root 委托 reject_blank_value"
+          " 的安全性钉）・**help 面**（六枚旗标各自所在动词的 --help 逐枚写明口径）", s63)
     stop_runner()
     stop_scheduler()
 
