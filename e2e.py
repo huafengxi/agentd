@@ -145,13 +145,15 @@
       （异值 rc=2 且两侧值都在报文里、同值幂等不重复拼）/ 缺省一行 WARN 且照建
       （command 逐字原值；自带前缀不打 = 存量手写形态零回归）+ `create --help` 覆盖三格
   S61 `agentctl create --prompt-file`（任务书与登记同批落盘；消掉「`prompt.md` 必须与
-      `create` 写在同一个 shell 调用里」这条竞态绕行规则）七格：可读文件 ⇒ `prompt.md`
+      `create` 写在同一个 shell 调用里」这条竞态绕行规则）八格：可读文件 ⇒ `prompt.md`
       逐字在场（⛔ 渲染 ∨ 转义 ∨ 补尾换行）且 stdout 仍是 taskId 裸串 / **写点顺序钉**
       （AST 取 `cmd_create` 里两个原子写点的行号：prompt < spec ⇒ 调度方看见 spec 时
       prompt 必已在场，竞态窗结构上闭合）/ 拒分支 ×5（不存在 ∨ 是目录 ∨ 零字节 ∨
       纯空白 ∨ 非 UTF-8）rc=2 + 零落盘（⛔ 建了目录却没 prompt 的半成品）/ 缺省不传
       旗标行为逐字不变（⛔ 写 `prompt.md`）/ 已在场目录仍拒且不覆写既有任务书 /
-      `create --help` 覆盖三格 / 与 `--profile` 同用不互斥
+      `create --help` 覆盖三格 / 与 `--profile` 同用不互斥 / **空旗标值 ×3 硬拒**
+      （空串 ∨ 纯空白 ∨ 制表符加换行 ⇒ rc=2 + 零落盘，⛔ 静默降级成缺省档建出无
+      `prompt.md` 的任务；对照臂 = 同一枚名字不传旗标即照建）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -4934,7 +4936,7 @@ S61BASE = os.path.join(TMPBASE, "root-s61")   # 本场景自建根（专用临�
 
 def s61():
     """`agentctl create --prompt-file`（消掉「prompt.md 与 create 必须写在同一个 shell 调用里」
-    这条竞态绕行规则）七格：
+    这条竞态绕行规则）八格：
 
     ① **正常落盘**：可读文件 ⇒ rc=0 ∧ stdout 仍是 taskId 裸串（既有语义）∧ `prompt.md` 在场
       且内容**逐字**相同（多行/UTF-8/反引号/`$VAR`/引号全保留 ⇒ 钉「⛔ 渲染、⛔ 转义」）。
@@ -4944,11 +4946,15 @@ def s61():
     ③ **拒分支 ×5 + 零落盘**：路径不存在 ∨ 是目录 ∨ 零字节 ∨ 纯空白 ∨ 非 UTF-8 ⇒ rc=2 ∧
       stderr 点名 `--prompt-file` ∧ **不建 `task/<名>` 目录**（⛔ 半成品：建了却没 prompt）。
     ④ **缺省行为逐字不变**：不传旗标 ⇒ 无 `prompt.md`、spec 照建、stdout 仍是裸串
-      （存量调用方 = watcher 与 heartbeats/register，两者今天都是「create 先、写 prompt 后」）。
+      （缺省档合法：调用方自己落盘任务书 ∨ 本就不要任务书）。
     ⑤ **既有拒建语义不变**：已在场目录 + `--prompt-file` ⇒ 仍 `已存在` rc=2 且零落盘
       （不覆写已有任务目录里的 prompt.md）。
     ⑥ **help 面**：`create --help` 写明三格（写点在 spec.json 之前 / 拒分支零落盘 / 缺省不变）。
     ⑦ **与 `--profile` 同用不互斥**：前缀拼接照旧 ∧ prompt.md 照落。
+    ⑧ **空旗标值 ×3 硬拒**：`--prompt-file` 的值 = 空串 ∨ 三个空格 ∨ 制表符加换行
+      （给了旗标却不是路径 = 调用方 bug）⇒ rc=2 ∧ stderr 点名旗标与成因 ∧ 不建目录 ∧ 无 `spec.json`；⛔ 静默
+      `return None` 降级成缺省档（那会建出无 `prompt.md` 的任务：会话起来无事可做却照样报完成）。
+      对照臂 = 同一枚名字**不传**旗标即照建（钉「拒的是空值、⛔ 不是旗标本身」）。
     只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
     ws = os.path.join(S61BASE, "ws")
     os.makedirs(os.path.join(ws, "agents", "task"), exist_ok=True)
@@ -5082,6 +5088,25 @@ def s61():
         assert doc["command"] == "DISPATCH_PROFILE=s61-review true", doc["command"]
         with open(os.path.join(adir("s61-d"), "prompt.md"), encoding="utf-8") as f:
             assert f.read() == BODY, "两旗标同用 ⇒ prompt 仍逐字"
+
+        # ---- ⑧ 空/纯空白旗标值 ⇒ 硬拒（⛔ 静默降级成缺省档）----
+        for i, v in enumerate(("", "   ", "\t\n")):
+            nm = "s61-e%d" % i
+            r = create(nm, "--prompt-file", v)
+            assert r.returncode == 2, "旗标值 %r ⇒ 应拒（rc=2）：rc=%d %s" % (
+                v, r.returncode, r.stderr)
+            assert "--prompt-file" in r.stderr, "stderr 须点名该旗标（值=%r）：%s" % (v, r.stderr)
+            assert "为空/纯空白" in r.stderr, "stderr 须点名成因（值=%r）：%s" % (v, r.stderr)
+            assert "本次未创建任何目录/文件" in r.stderr, "须声明零副作用（值=%r）：%s" % (v, r.stderr)
+            no_dir(nm)
+            assert not os.path.exists(os.path.join(adir(nm), "spec.json")), \
+                "拒后无 spec.json（值=%r）" % v
+        # 对照臂：同一枚名字不传旗标 ⇒ 缺省档照建（钉「拒的是空值、⛔ 不是旗标本身」）
+        r = create("s61-e0")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == "s61-e0", r.stdout
+        assert not os.path.exists(os.path.join(adir("s61-e0"), "prompt.md")), "缺省档 ⛔ 写 prompt.md"
+        assert os.path.exists(os.path.join(adir("s61-e0"), "spec.json")), "spec 照建（缺省档逐字不变）"
     finally:
         _rm_scenario_root(S61BASE)
 
@@ -5188,7 +5213,8 @@ def main():
           "且 stdout 仍是 taskId 裸串・**写点顺序钉**（AST：prompt 写点行号 < spec.json 写点行号"
           " = 竞态窗结构上闭合）・拒分支 ×5（不存在/是目录/零字节/纯空白/非 UTF-8）rc=2 + 零落盘"
           "・缺省不传旗标行为逐字不变（⛔ 写 prompt.md）・已在场目录仍拒且不覆写既有任务书"
-          "・create --help 覆盖三格・与 --profile 同用不互斥", s61)
+          "・create --help 覆盖三格・与 --profile 同用不互斥・空旗标值 ×3（空串/纯空白/制表符加换行）"
+          "rc=2 + 零落盘（不建目录、无 spec.json）且同枚名字不传旗标即照建", s61)
     stop_runner()
     stop_scheduler()
 

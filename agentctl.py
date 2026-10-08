@@ -555,17 +555,22 @@ PROMPT_FILE_NAME = "prompt.md"           # 任务目录内的启动载荷文件�
 def read_prompt_file(raw):
     """`--prompt-file` 校验 + 读全文（**⛔ 渲染**：逐字搬运，不改一个字节）。
 
-    三格拒（`die` rc=2，调用位置在任何 `os.makedirs`/落盘之前 ⇒ **拒后零副作用**、
-    ⛔ 留下「建了目录却没 prompt」的半成品）：① 路径不可读（不存在 ∨ 是目录 ∨ 无权限）
-    ② 内容为空（零字节 ∨ 纯空白）—— 空任务书与没任务书是同一失效形态（会话起来无事可做
-    却照样报完成）③ 解码失败（非 UTF-8）。
-    未给旗标（None/空串）⇒ 返回 None，`cmd_create` 的落盘路径与现值逐字一致。
+    四格拒（`die` rc=2，调用位置在任何 `os.makedirs`/落盘之前 ⇒ **拒后零副作用**、
+    ⛔ 留下「建了目录却没 prompt」的半成品）：① **旗标值为空/纯空白**（给了旗标却没给路径
+    = 调用方 bug：它以为给了任务书，实际会建出无 `prompt.md` 的任务）② 路径不可读（不存在
+    ∨ 是目录 ∨ 无权限）③ 内容为空（零字节 ∨ 纯空白）—— 空任务书与没任务书是同一失效形态
+    （会话起来无事可做却照样报完成）④ 解码失败（非 UTF-8）。
+    **未给旗标**（`raw is None`）⇒ 返回 None，`cmd_create` 的落盘路径与现值逐字一致
+    （缺省档合法：调用方自己落盘任务书 ∨ 本就不要任务书）。
     @returns {str ∨ None} 文件全文"""
     if raw is None:
         return None
     s = str(raw).strip()
     if not s:
-        return None
+        die("--prompt-file 的值为空/纯空白（%r）⇒ 拒绝创建：调用方以为给了任务书，"
+            "实际会建出无 %s 的任务（会话起来无事可做却照样报完成）。正确做法 = 给一个"
+            "可读的任务书路径 ∨ 不给本旗标（缺省档不写该文件）。本次未创建任何目录/文件。"
+            % (raw, PROMPT_FILE_NAME), code=2)
     p = os.path.abspath(os.path.expanduser(s))
     try:
         with open(p, "r", encoding="utf-8") as f:
@@ -1011,8 +1016,9 @@ def main():
                         " spec.json 即可能同秒放行、会话封装在 spawn 后数十毫秒读 prompt ⇒ 分两次"
                         "调用会以 prompt 不可读死首代，而 one-shot 件首代失败即 final、restart 也救不回）。"
                         "本 CLI **⛔ 渲染**任务书正文（正文由调用方渲染好写进该文件，收录判据 ①）。"
-                        "拒分支（rc=2 + **零落盘**、⛔ 留半成品目录）：路径不可读 ∨ 内容为空"
-                        "（零字节/纯空白）∨ 非 UTF-8。**缺省不传 ⇒ 行为逐字不变**（不写该文件）"
+                        "拒分支（rc=2 + **零落盘**、⛔ 留半成品目录）：旗标值为空/纯空白 ∨ 路径"
+                        "不可读 ∨ 内容为空（零字节/纯空白）∨ 非 UTF-8。"
+                        "**缺省不传 ⇒ 行为逐字不变**（不写该文件）"
                         % (PROMPT_FILE_NAME, PROMPT_FILE_NAME))
     p.set_defaults(fn=cmd_create)
 
