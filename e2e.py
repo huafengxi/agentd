@@ -154,6 +154,17 @@
       `create --help` 覆盖三格 / 与 `--profile` 同用不互斥 / **空旗标值 ×3 硬拒**
       （空串 ∨ 纯空白 ∨ 制表符加换行 ⇒ rc=2 + 零落盘，⛔ 静默降级成缺省档建出无
       `prompt.md` 的任务；对照臂 = 同一枚名字不传旗标即照建）
+  S62 `agentctl --root` 的空 ∨ 纯空白旗标值硬拒（S61⑧ 的同族另一半；缺陷形态 = 显式传空值
+      被假值回落并进「不传旗标」那一档 ⇒ 静默落到缺省根 = 生产工作区根，探针/测试的对照臂
+      直接写进生产 agents 树并被 scheduler enable+spawn）四格：**无害诱饵**（专用临时根里造
+      够过 `require_workspace_root` 的诱饵工作区根，被测副本的 `default_root()` 也指向它）×
+      写侧两动词（create ∪ send）× 空值三形态 ⇒ rc=2 + 命中「值为空/纯空白」口径 + 零新增
+      （`agents/task/` 与 `agents/queue/*/inbox/` 条目数同值）/ **做错态构造**（`git show`
+      改前不可变 sha 到临时路径，同一诱饵根下空串档 rc=0 并建出参与方、纯空白档口径指错
+      成因 ⇒ 证明① 的断言在改前会红）/ **缺省臂**（不传旗标 ⇒ 照旧 `default_root()` 且真文件的
+      它仍 = 本仓父目录；同一枚命令传空值 rc=2 ∕ 不传 rc=0 = 两档可区分）/ **覆盖面**
+      （`--help` 枚举的 13 个动词逐个 × 空值三形态均 rc=2 且命中口径，⛔ 只在 create 一处收口）
+      + `--help` 写明空值拒绍口径
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -164,7 +175,10 @@ S59 自建临时工作区根夹具（含残骸；不起进程、不读主树 ROO
 S60 自建临时工作区根夹具（含 `bots/profiles/` 白名单枚举根；不起进程、不读主树 ROOT，
 收尾自清）→ **可单跑**；
 S61 自建临时工作区根夹具（含任务书正文与四类非法文件夹具；不起进程、不读主树 ROOT，
-收尾自清）→ **可单跑**。
+收尾自清）→ **可单跑**；
+S62 自建三棵诱饵根（显式 --root 的目标 ∪ 改后副本根 ∪ 改前副本根；不起进程、不读写主树
+ROOT，收尾自清）→ **可单跑**；例外 = ② 的做错态臂要 `git show` 改前不可变 sha 的对象（本仓
+必须是含该对象的 git checkout；取不到即断言失败并点名原因，⛔ 静默跳过）。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -5111,6 +5125,205 @@ def s61():
         _rm_scenario_root(S61BASE)
 
 
+# ------------- S62（agentctl --root：空/纯空白旗标值硬拒，与「不传旗标」可区分）
+
+S62BASE = os.path.join(TMPBASE, "root-s62")   # 本场景自建根（专用临时目录，不用生产树）
+# 改前版本的**不可变引用** = 本仓 `--root` 空值硬拒落地之前的那一笔（同族已修的另一半 =
+# `create --prompt-file` 空值硬拒）。② 的做错态臂用它证明 ①③ 的断言在改前会红。
+S62_PRE_FIX_SHA = "4d82a802419f4206b90a443e1efd5e95bb3df2db"
+
+
+def s62():
+    """`--root` 的空 ∨ 纯空白旗标值硬拒（同族已修的另一半 = S61⑧ 的 `--prompt-file`）四格：
+
+    ① **无害诱饵 × 写侧两动词 × 空值三形态**：在专用临时根里造一枚够过
+      `require_workspace_root` 的诱饵工作区根（含 `agents/` ∪ `env/host-id`），以中性目录为 cwd
+      跑 `--root ""` ∨ 纯空白 ∨ 制表符加换行 × {create, send} ⇒ rc=2 ∧ stderr 命中「值为空/
+      纯空白」口径 ∧ 零新增（`agents/task/` 与 `agents/queue/*/inbox/` 的条目数改前/改后同值）。
+      验「拒绍」类守卫一律用诱饵（⛔ 对真生产根跑创建类命令）：被测副本的 `default_root()`
+      也指向诱饵根 ⇒ 即使守卫漏了，落盘也只落到临时根。
+    ② **做错态构造**（证明① 的断言会红）：同一诱饵根下跑改前版本（`git show <不可变 sha>`
+      写到临时路径）⇒ 空串档 **rc=0 并建出参与方**（静默回落 `default_root()` = 副本所在根，
+      与 cwd 无关）；纯空白档虽 rc=2 但口径指错成因（「不是工作区根」而非「值为空」）。
+    ③ **缺省臂**（两档可区分）：不传旗标 ⇒ 照旧走 `default_root()`（在诱饵根下 `create` 照建、
+      rc=0）且真文件的 `default_root()` 仍 = 本仓父目录。钉的是「显式传空值」与「完全不传」
+      在代码里必须可区分：`a.root or default_root()` 一类**假值回落**把两档并成一档，改完仍会
+      合法回落（实例 2026-10-08：探针 `--root ""` ⇒ 生产 agents 树建出三枚参与方并被
+      scheduler enable+spawn）。
+    ④ **覆盖面 + help 面**：`--help` 枚举的 13 个动词逐个×空值三形态均 rc=2 且命中口径
+      （⛔ 只在 `create` 一处收口）；`--help` 写明空值拒绍口径。
+    只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
+    ws = os.path.join(S62BASE, "ws")            # 诱饵工作区根（显式 --root 的合法目标）
+    cwd = os.path.join(S62BASE, "cwd")          # 中性 cwd（本身不是工作区根）
+    newroot = os.path.join(S62BASE, "newroot")  # 改后副本的「本仓所在根」（= 其 default_root()）
+    oldroot = os.path.join(S62BASE, "oldroot")  # 改前副本的「本仓所在根」
+
+    def mkws(root):
+        """造够过 require_workspace_root 的诱饵工作区根（含 agents/ ∪ env/host-id）。"""
+        os.makedirs(os.path.join(root, "agents", "task"), exist_ok=True)
+        os.makedirs(os.path.join(root, "agents", "queue", "dispatcher", "inbox"), exist_ok=True)
+        os.makedirs(os.path.join(root, "env"), exist_ok=True)
+        with open(os.path.join(root, "env", "host-id"), "w") as f:
+            f.write("%s s62-canonical\n" % socket.gethostname())
+
+    mkws(ws)
+    mkws(newroot)
+    mkws(oldroot)
+    os.makedirs(cwd, exist_ok=True)
+
+    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系 ----
+    real = os.path.realpath(S62BASE)
+    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
+        "诱饵根必须在本套件临时基目录内：%s" % real
+    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
+        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
+        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
+
+    # ---- 改后副本（与被测真文件逐字同源）----
+    os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
+    NEW = os.path.join(newroot, "agentd", "agentctl.py")
+
+    # ---- 改前副本：从不可变 sha 取对象（⛔ 读工作树；⛔ 静默跳过）----
+    os.makedirs(os.path.join(oldroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        r = subprocess.run(["git", "-C", HERE, "show", "%s:%s" % (S62_PRE_FIX_SHA, fn)],
+                           capture_output=True, timeout=60)
+        assert r.returncode == 0, (
+            "做错态臂取不到改前版本（git -C %s show %s:%s）：rc=%d %s"
+            % (HERE, S62_PRE_FIX_SHA, fn, r.returncode, r.stderr.decode("utf-8", "replace").strip()))
+        with open(os.path.join(oldroot, "agentd", fn), "wb") as f:
+            f.write(r.stdout)
+    OLD = os.path.join(oldroot, "agentd", "agentctl.py")
+    # 两副本确实分属改前/改后（按守卫函数名判，⛔ 按行号）
+    with open(NEW, encoding="utf-8") as f:
+        assert "reject_blank_root" in f.read(), "改后副本应含空值守卫"
+    with open(OLD, encoding="utf-8") as f:
+        assert "reject_blank_root" not in f.read(), "改前副本 ⛔ 含空值守卫（sha 错）"
+
+    BLANKS = (("", "空串"), ("   ", "纯空白(3空格)"), ("\t\n", "制表符加换行"))
+    CREATE = ["create", "--name", "s62-x", "--command", "true", "--workdir", ws,
+              "--creator", "tester", "--reaper", "queue/dispatcher"]
+    SEND = ["send", "queue/dispatcher", "--body", "s62-body"]
+    # `--help` 枚举的 13 个动词（二级动词按 head 展开），各一枚「除 --root 外参数齐备」的形态
+    VERBS = {
+        "create": CREATE,
+        "create-bot": ["create-bot", "--name", "s62-cb"],
+        "bot": ["bot", "register", "--name", "s62-br", "--command", "true",
+                "--workdir", ws, "--creator", "tester"],
+        "topic": ["topic", "init", "s62-topic"],
+        "send": SEND,
+        "answer": ["answer", "task/s62-x", "--body", "s62-reply"],
+        "cancel": ["cancel", "task/s62-x", "--reason", "s62"],
+        "update": ["update", "task/s62-x", "--resources", '["s62-res"]'],
+        "ack": ["ack", "task/s62-x", "2026-01-01-00-00-00.000-s62.msg"],
+        "control": ["control", "task/s62-x", "stop", "--reason", "s62"],
+        "enable": ["enable", "task/s62-x", "--by", "tester"],
+        "status": ["status", "task/s62-x"],
+        "list": ["list"],
+    }
+
+    def run(ctl, root_val, args):
+        """root_val = None ⇒ **不传**该旗标（缺省档）；否则逐字传该值（含空串）。"""
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)             # from 归属不取宿主会话身份
+        argv = [sys.executable, ctl]
+        if root_val is not None:
+            argv += ["--root", root_val]
+        return subprocess.run(argv + args, capture_output=True, text=True,
+                              env=env, timeout=60, cwd=cwd)
+
+    def entries(root):
+        """(agents/task 顶层条目数, agents/queue/*/inbox 条目数)：零落盘的计数面。"""
+        t = os.path.join(root, "agents", "task")
+        q = os.path.join(root, "agents", "queue")
+        n_q = 0
+        if os.path.isdir(q):
+            for fam in os.listdir(q):
+                inb = os.path.join(q, fam, "inbox")
+                if os.path.isdir(inb):
+                    n_q += len(os.listdir(inb))
+        return (len(os.listdir(t)) if os.path.isdir(t) else 0), n_q
+
+    def snapshot():
+        return {"ws": entries(ws), "new": entries(newroot), "old": entries(oldroot)}
+
+    try:
+        # ---- ① 无害诱饵 × 写侧两动词 × 空值三形态：rc=2 + 口径 + 零新增 ----
+        before = snapshot()
+        for val, label in BLANKS:
+            for args in (CREATE, SEND):
+                r = run(NEW, val, args)
+                assert r.returncode == 2, (
+                    "--root %s（%s）× %s ⇒ 应硬拒 rc=2：rc=%d %s"
+                    % (repr(val), label, args[0], r.returncode, r.stderr))
+                assert "--root" in r.stderr, "stderr 须点名该旗标（%s）：%s" % (label, r.stderr)
+                assert "为空/纯空白" in r.stderr, "stderr 须点名成因（%s）：%s" % (label, r.stderr)
+                assert "本次未创建任何目录/文件" in r.stderr, \
+                    "须声明零副作用（%s）：%s" % (label, r.stderr)
+            assert snapshot() == before, \
+                "拒后零新增（%s）：前=%s 后=%s" % (label, before, snapshot())
+        assert not os.path.exists(os.path.join(newroot, "agents", "task", "s62-x")), \
+            "改后副本的 default_root() 下也不得长出参与方（空值 ⛔ 回落缺省根）"
+
+        # ---- ② 做错态构造：改前版本在同一诱饵根下会建出参与方 ⇒ ① 的断言在改前会红 ----
+        r = run(OLD, "", ["create", "--name", "s62-old", "--command", "true",
+                          "--workdir", ws, "--creator", "tester",
+                          "--reaper", "queue/dispatcher"])
+        assert r.returncode == 0, "做错态前提：改前版本空串档应 rc=0（静默回落）：%s" % r.stderr
+        old_dir = os.path.join(oldroot, "agents", "task", "s62-old")
+        assert os.path.isdir(old_dir), \
+            "改前版本应建出参与方（= ① 的零新增断言在改前会红）：%s" % old_dir
+        assert os.path.exists(os.path.join(old_dir, "spec.json")), "改前版本应写出 spec.json"
+        assert r.stdout.strip() == "s62-old", "改前版本还把 taskId 当成功回给了调用方：%r" % r.stdout
+        # 纯空白档：改前 rc=2 但口径指错成因 ⇒ ① 的「为空/纯空白」断言在改前同样会红
+        r = run(OLD, "   ", ["create", "--name", "s62-old2", "--command", "true",
+                             "--workdir", ws, "--creator", "tester",
+                             "--reaper", "queue/dispatcher"])
+        assert r.returncode == 2, (r.returncode, r.stderr)
+        assert "不是工作区根" in r.stderr and "为空/纯空白" not in r.stderr, \
+            "改前的纯空白档报错口径指错成因（应为「不是工作区根」）：%s" % r.stderr
+
+        # ---- ③ 缺省臂：不传旗标 ⇒ 走 default_root()，行为逐字不变（与① 可区分）----
+        r = run(NEW, None, ["create", "--name", "s62-noflag", "--command", "true",
+                            "--workdir", ws, "--creator", "tester",
+                            "--reaper", "queue/dispatcher"])
+        assert r.returncode == 0, "不传 --root 应照旧走缺省根：%s" % r.stderr
+        assert r.stdout.strip() == "s62-noflag", r.stdout
+        assert os.path.exists(os.path.join(newroot, "agents", "task", "s62-noflag", "spec.json")), \
+            "缺省根 = 副本所在根（%s），与 cwd（%s）无关" % (newroot, cwd)
+        import agentctl as _agentctl                # 真文件（只读直调，⛔ 跑它的写侧动词）
+        assert _agentctl.default_root() == os.path.dirname(HERE), \
+            "真文件的 default_root() 仍 = 本仓父目录：%s" % _agentctl.default_root()
+        # 两档可区分：同一枚命令，传空值 rc=2 / 不传 rc=0
+        r_blank = run(NEW, "", ["list"])
+        r_absent = run(NEW, None, ["list"])
+        assert (r_blank.returncode, r_absent.returncode) == (2, 0), \
+            "显式空值与不传旗标必须可区分：rc=%s / %s" % (r_blank.returncode, r_absent.returncode)
+
+        # ---- ④ 覆盖面（13 个动词 × 空值三形态）+ help 面 ----
+        snap = snapshot()
+        for val, label in BLANKS:
+            for verb, args in VERBS.items():
+                r = run(NEW, val, args)
+                assert r.returncode == 2, \
+                    "动词 %s × --root %s（%s）应硬拒 rc=2：rc=%d %s" % (
+                        verb, repr(val), label, r.returncode, r.stderr)
+                assert "为空/纯空白" in r.stderr, \
+                    "动词 %s × --root %s（%s）stderr 须命中空值口径：%s" % (
+                        verb, repr(val), label, r.stderr)
+        assert snapshot() == snap, "全动词覆盖跑后零新增：前=%s 后=%s" % (snap, snapshot())
+        r = subprocess.run([sys.executable, NEW, "--help"], capture_output=True, text=True,
+                           env=scrub_env(), timeout=60, cwd=cwd)
+        assert r.returncode == 0, r.stderr
+        assert "值为空/纯空白" in r.stdout, "--help 须写明空值拒绍口径：%s" % r.stdout
+    finally:
+        _rm_scenario_root(S62BASE)
+
+
 def _scrub_inherited_env():
     """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
 
@@ -5215,6 +5428,14 @@ def main():
           "・缺省不传旗标行为逐字不变（⛔ 写 prompt.md）・已在场目录仍拒且不覆写既有任务书"
           "・create --help 覆盖三格・与 --profile 同用不互斥・空旗标值 ×3（空串/纯空白/制表符加换行）"
           "rc=2 + 零落盘（不建目录、无 spec.json）且同枚名字不传旗标即照建", s61)
+    check("S62 agentctl --root 空/纯空白旗标值硬拒（S61⑧ 的同族另一半）：**无害诱饵**"
+          "（专用临时根里造够过 require_workspace_root 的诱饵工作区根，被测副本的 default_root()"
+          " 也指向它）× 写侧两动词（create ∪ send）× 空值三形态（空串/纯空白/制表符加换行）"
+          "⇒ rc=2 + 命中「值为空/纯空白」口径 + 零新增（agents/task 与 agents/queue/*/inbox 条目数同值）"
+          "・**做错态构造**（git show 改前不可变 sha 到临时路径：同一诱饵根下空串档 rc=0 并建出"
+          "参与方、纯空白档口径指错成因 ⇒ 证明断言在改前会红）・**缺省臂**（不传旗标 ⇒ 照旧"
+          " default_root() 且真文件的它仍 = 本仓父目录；同枚命令传空值 rc=2 ∕ 不传 rc=0 = 两档可区分）"
+          "・**覆盖面**（--help 枚举的 13 个动词逐个 × 空值三形态均 rc=2 且命中口径）+ --help 写明口径", s62)
     stop_runner()
     stop_scheduler()
 

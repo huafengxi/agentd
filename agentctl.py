@@ -32,9 +32,10 @@
 写信封与写控制请求的 `from` 归属一律走 `resolve_sender` 单点（显式 --from ＞ 环境
 AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 
-通用：--root <ROOT>（**工作区根**，如 <workspace-root> —— 不是 <workspace-root>/agents；<ROOT> 的 basename 为
-`agents` ∨ <ROOT>/agents 不在场，两者任一即拒绝且不静默建目录；<ROOT>/env/host-id 缺失
-只告警、登记不失败，口径同 `local_canonical_host`）。**缺省 = 本脚本所在仓的父目录**
+通用：--root <ROOT>（**工作区根**，如 <workspace-root> —— 不是 <workspace-root>/agents；<ROOT> 的值为
+空 ∨ 纯空白，∨ <ROOT> 的 basename 为 `agents`，∨ <ROOT>/agents 不在场，三者任一即拒绝且
+不静默建目录；<ROOT>/env/host-id 缺失只告警、登记不失败，口径同 `local_canonical_host`）。
+**缺省 = 本脚本所在仓的父目录**
 （现场发现，不依赖 cwd 与 env ⇒ 工作区内任何目录直接
 `python3 <WS>/agentd/agentctl.py <动词> …` 即可）；显式 --root
 只用于另一棵树（如测试临时树）。仅使用 python3 标准库。
@@ -84,10 +85,33 @@ def local_canonical_host(root):
     return hn, True
 
 
+def reject_blank_root(raw):
+    """`--root` 的值为空 ∨ 纯空白 ⇒ 硬拒（rc=2 + 零落盘），跑在任何路径解析之前。
+
+    判据射程 = **显式给了旗标却没给值**（典型成因 = 调用方的变量取值失败）。它必须与
+    「完全不传旗标」在代码里可区分：`raw or default_root()` 一类**假值回落**会把两档并成
+    一档 ⇒ 空值静默落到缺省根（= 本仓所在根 = 生产工作区根），探针/测试的对照臂直接写进
+    生产 agents 树并被 scheduler enable+spawn（实例 2026-10-08：`--root ""` ⇒ 生产树建出
+    task/probe-ctl ∪ probe-pos ∪ probe-a，三枚都发了 task_done 噪声通知）。纯空白值另有一档
+    静默降级：它非假值 ⇒ 被 `abspath(expanduser(v))` 解析成 cwd 下的怪路径，报错口径变成
+    「不是工作区根」（指错成因，且判定面随 cwd 漂移）。
+
+    ⛔ 先解析成路径再判：那时「值为空」这个成因已不可见（空值成了 cwd ∨ 缺省根）。
+    要缺省根请**不传**该旗标（`default_root()`，现场发现），⛔ 传空值。"""
+    if not raw.strip():
+        die("--root 的值为空/纯空白（%r）：给了旗标却没给值 = 调用方 bug（典型 = 上游变量"
+            "取值失败）。空值 ⛔ 静默降级——回落缺省根（本仓所在根 = 生产工作区根）会把"
+            "探针/测试的对照臂直接写进生产 agents 树并被 scheduler enable+spawn，解析成 cwd"
+            "下的路径则报错口径指错成因。要缺省根请**不传**该旗标；本次未创建任何目录/文件。"
+            % raw, code=2)
+
+
 def require_workspace_root(root):
     """--root 前置校验（错 root 可见性硬化）：root 必须是**工作区根**（如 <workspace-root>）。
 
     硬前置（任一命中即 die，**绝不静默建目录**）：
+      ⓪ root 的值为空 ∨ 纯空白 —— 判据与成因见 `reject_blank_root`；本条必须排在
+         expanduser/abspath **之前**（解析之后「值为空」这个成因已不可见）。
       ① basename(realpath(root)) == "agents" —— root 传成了 agents 树本身。本条**不依赖
          嵌套残骸是否在场**：残骸（`<工作区根>/agents/agents/`，即错 root 误用的产物）恰好
          满足 ②，只留 ② 会被它自我击穿（同类误用只报一行软 WARN 就放行、写侧 makedirs
@@ -109,6 +133,7 @@ def require_workspace_root(root):
     回退时的「补一行」告警各管一面：那行说机器映射，本行说 root 是不是工作区根）。
 
     返回归一化后的绝对路径（expanduser + abspath；对既有绝对路径入参是 no-op）。"""
+    reject_blank_root(root)
     r = os.path.abspath(os.path.expanduser(root))
     if os.path.basename(os.path.realpath(r)) == "agents":
         die("--root %r 不是工作区根：你传的是 agents 树本身（basename=agents）。"
@@ -964,10 +989,11 @@ def main():
     ap = argparse.ArgumentParser(prog="agentctl")
     ap.add_argument("--root", default=None,
                     help="工作区根（如 <workspace-root>），不是 <workspace-root>/agents："
-                         "basename 为 agents ∨ "
-                         "<root>/agents 不在场即拒绝（不静默建目录）；<root>/env/host-id "
+                         "值为空/纯空白 ∨ basename 为 agents ∨ "
+                         "<root>/agents 不在场即拒绝（rc=2、不静默建目录）；<root>/env/host-id "
                          "不在场只告警（登记不失败）。"
-                         "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）")
+                         "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）；"
+                         "要缺省根请**不传**本旗标 —— 传空值 ⛔ 回落缺省根（= 静默写生产树）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("create", help="写 spec.json 创建参与方")
@@ -1153,8 +1179,12 @@ def main():
     p.set_defaults(fn=cmd_list)
 
     a = ap.parse_args()
-    # 错 root 前置拒绝（不静默建嵌套树）；缺省值 = 现场发现（本仓父目录）
-    a.root = require_workspace_root(a.root or default_root())
+    # 错 root 前置拒绝（不静默建嵌套树）；缺省值 = 现场发现（本仓父目录）。
+    # 三档必须可区分：不传旗标（None）⇒ default_root()；显式非空 ⇒ 交前置校验；
+    # 显式空 ∨ 纯空白 ⇒ require_workspace_root 的硬前置 ⓪ 拒（rc=2 + 零落盘）。
+    # ⛔ 写回 `a.root or default_root()`：假值回落会把「显式空值」并进「不传旗标」那一档
+    # ⇒ 空值静默落到生产工作区根（判据与实例 = reject_blank_root）。
+    a.root = require_workspace_root(a.root if a.root is not None else default_root())
     a.fn(a)
 
 
