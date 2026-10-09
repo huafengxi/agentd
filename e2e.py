@@ -5113,7 +5113,7 @@ def s61():
         assert r.returncode == 0, r.stderr
         assert r.stdout.strip() == "s61-c", r.stdout
         assert not os.path.exists(os.path.join(adir("s61-c"), "prompt.md")), \
-            "不传旗标 ⇒ ⛔ 写 prompt.md（存量调用方行为逐字不变）"
+            "不传旗标 ⇒ ⛔ 写 prompt.md（缺省档合法 = 调用方自己落盘任务书 ∨ 本就不要任务书）"
         assert os.path.exists(os.path.join(adir("s61-c"), "spec.json")), "spec 照建"
 
         # ---- ⑤ 已在场目录 + --prompt-file 仍拒（既有拒建语义不变、⛔ 覆写）----
