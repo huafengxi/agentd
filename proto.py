@@ -78,18 +78,35 @@ def exclusive_write_json(path: str, obj) -> bool:
     **先到先得、先到者永久胜出** ⇒ 对侧已落的强档（带 `claimedTs`）不会被本侧降档；字节形态与
     `atomic_write_json` 逐字同款（`indent=1` + 尾换行）⇒ 换写点不改盘上形态。
 
+    落盘姿势 = 同目录 temp 写满 + `flush()`/`os.fsync()` 后 `os.link(tmp, path)`：`link(2)` 对已存在
+    的名字返回 `EEXIST` ⇒ 与 `O_EXCL` 同一档「判定与创建是同一个内核动作」的排他，且目标名**要么
+    不在场、要么已是完整内容**。耐久性口径与 `atomic_write` 平价（同为文件级 fsync；两者都不 fsync
+    父目录）。⛔ 直建目标名再填内容（`open(path, "x")` 后 write）：那档留下「名字已占用 ∧ 内容 0
+    字节/半截」的可观察窗（进程在 create 与 write 之间被杀即永久留一枚 0 字节件），与「存在性即
+    确认」+「弱档 = 零字节 ack」两判据叠加 ⇒ 一枚 ack 可停在「在场但不可读」。
+
     ⛔ 退回 `os.path.exists` 的 check-then-write：那档「在场」按 stat 判（跟随符号链接 ⇒ 悬空链接
     判「不在场」并用 rename 吃掉占位），且判定与写之间有 TOCTOU 窗（两进程同扫一个信箱时后写者
-    覆盖先写者）。`O_EXCL` 的「在场」= **名字被占用**，判定与创建是同一个内核动作。
+    覆盖先写者）。排他创建的「在场」= **名字被占用**（悬空符号链接也算占用）。
     """
     d = os.path.dirname(path) or "."
     os.makedirs(d, exist_ok=True)
+    tmp = os.path.join(d, ".tmp-%s-%s" % (os.getpid(), rand_suffix(6)))
     try:
-        with open(path, "x", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             f.write(json.dumps(obj, ensure_ascii=False, indent=1) + "\n")
-    except FileExistsError:
-        return False
-    return True
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return False
+        return True
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def read_json(path: str):

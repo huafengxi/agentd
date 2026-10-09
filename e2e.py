@@ -223,7 +223,7 @@
       WARN，按旗标名归一化后逐行同值 ∧ 两列各自措辞分别钉住）/ **做错态**（①–⑧ 的同一条断言
       跑在改前副本上逐格必须 FAIL；缺陷面 26 枚 = 30 − E2 版本无关 4 枚）+ 改前具体产物 /
       **help 面**（七格硬拒旗标逐枚写明口径；**E5 是兜底档 ⇒ 其 help ⛔ 出现「即拒」串**）
-  S66 `agentctl ack` 的写语义 = **排他创建**（`O_EXCL`）与「落的件恒非强档」五格（缺陷形态 =
+  S66 `agentctl ack` 的写语义 = **排他创建**（名字被占用即 `EEXIST`）与「落的件恒非强档」五格（缺陷形态 =
       check-then-write：`os.path.exists` 判「在场」⇒ 跟随符号链接（悬空链接的占位被 rename
       吃掉）且判定与写之间有 TOCTOU 窗（两进程同扫一个信箱时后写者覆盖先写者 ⇒ 可把已落
       的强档降成弱档））：**强档在场 ⇒ 不覆写**（预置带 `claimedTs` 的强档、mtime 固定到过去 ⇒
@@ -234,9 +234,10 @@
       自报值 = 假强档）/ **幂等重跑**（第二次 `already-acked`、字节与 mtime 不变 ⇒ 重复 ack 不刷新
       档位）/ **源码形态钉**（AST：`cmd_ack` 函数体内存在性判定调用零枚（按调用节点判、⛔ 按源码
       字串判 = 会把注释里点名禁用形态的合法文档误判成回流）∧ 它对 `proto.*` 的写点
-      实现体含 `O_EXCL` ∨ `open(..., "x")`；写点动态解析 ⇒ helper 改名不需改本臂）/ **做错态** =
+      **实现体**（剔除 docstring ⇒ 标记判据只被代码满足、⛔ 被描述机制的文字满足）含排他创建标记
+      （`O_EXCL` ∨ `open(..., "x")` ∨ `os.link`；写点动态解析 ⇒ helper 改名不需改本臂）/ **做错态** =
       区分面两枚（悬空链接 ∪ 源码形态）的同一条断言在改前不可变 sha 副本上逐格 FAIL 并打印读数；
-      回归面三枚如实报「两列同绿」+ 判据（check-then-write 与 O_EXCL 在「普通文件在场 ∕ 不在场」
+      回归面三枚如实报「两列同绿」+ 判据（check-then-write 与排他创建在「普通文件在场 ∕ 不在场」
       两档单进程不可区分 ⇒ 要求它们红就是造恒真断言；两进程竞态那一档的窗不可从外部拉开 ⇒
       统计型竞态臂必 flaky、⛔ 入套件，同一枚内核保证由悬空链接档钉住）
 
@@ -6900,33 +6901,37 @@ def s65():
         _rm_scenario_root(S65BASE)
 
 
-# ------------- S66（ack 动词的排他创建 O_EXCL：不覆写 ∕ 名字占用判据 ∕ 恒非强档）
+# ------------- S66（ack 动词的排他创建 EEXIST：不覆写 ∕ 名字占用判据 ∕ 恒非强档）
 
 S66BASE = os.path.join(TMPBASE, "root-s66")   # 本场景自建根（专用临时目录，不用生产树）
 
 # S66 的改前锚：本批（ack 排他创建）收口前的 agentd 仓 HEAD（**不可变引用**；⛔ 工作树，⛔ HEAD~n 相对量）
 S66_PRE_FIX_SHA = "ecc05b54865d2f1a1273ba1cffc5d7136205692d"
 S66_PID = "task/s66-ack"
-# 「写点实现是排他创建」的标记（⑤ 用；按实现体判 ⇒ 写点函数改名不需改本臂）
-S66_EXCL_MARKS = ("O_EXCL", '"x"', "'x'")
-# 区分面（做错态必须在改前副本上 FAIL）与回归面（两列同绿）分开点名：check-then-write 与 O_EXCL
+# 「写点实现是排他创建」的标记（⑤ 用；按**实现体**判、剔除 docstring ⇒ 写点函数改名不需改本臂，
+# 且标记只能被代码满足）：`O_EXCL` ∨ `open(..., "x")` = 直建目标名的排他档；`os.link` = temp 写满后
+# 链接到目标名的排他档（`link(2)` 对已存在的名字返回 EEXIST ⇒ 同一枚「判定与创建不可分」内核保证，
+# 另带「目标名要么不在场、要么已是完整内容」）。
+S66_EXCL_MARKS = ("O_EXCL", '"x"', "'x'", "os.link")
+# 区分面（做错态必须在改前副本上 FAIL）与回归面（两列同绿）分开点名：check-then-write 与排他创建
 # 在「普通文件已在场 ∕ 不在场」两档**单进程不可区分**（前者同样打印 already-acked 且不覆写）⇒
 # ①③④ 结构上不可能是红的，要求它们红 = 造恒真断言。区分面只可能是「名字被占用而
-# `os.path.exists` 判不到」的档（= ② 悬空符号链接：stat 跟随链接得 ENOENT，而 O_EXCL 按名字占用
+# `os.path.exists` 判不到」的档（= ② 悬空符号链接：stat 跟随链接得 ENOENT，而排他创建按名字占用
 # 得 EEXIST）∪ 源码形态（= ⑤）。两进程同窗竞争那一档的窗口不可从外部拉开（判定与写之间无
 # 同步点）⇒ 做成统计型竞态臂只能是 flaky，⛔ 入套件；同一枚内核保证由 ② 钉住。
 S66_RED_CELLS = ("dangling", "srcshape")
 
 
 def s66():
-    """`ack` 动词的写语义 = **排他创建**（`O_EXCL`）与「落的件恒非强档」五格：
+    """`ack` 动词的写语义 = **排他创建**（名字被占用即 `EEXIST`）与「落的件恒非强档」五格：
 
     ① **强档在场 ⇒ 不覆写**（回归钉，两列同绿）：预置一枚带 `claimedTs` 的强档 ack（mtime 固定
       到过去）后跑 `agentctl ack` ⇒ rc=0 ∧ stdout `already-acked` ∧ 字节与 mtime 逐字不变
       （`claimedTs` 未被吃掉）。
-    ② **名字被悬空符号链接占用 ⇒ 判「在场」**（区分钉）：`O_EXCL` 的「在场」= 名字被占用，而
-      `os.path.exists` 跟随符号链接得 ENOENT ⇒ 改后 = `already-acked` ∧ 链接逐字不动 ∧ 链接目标
-      仍不被创建；改前 = `acked` ∧ 占位被 rename 换成弱档普通文件。
+    ② **名字被悬空符号链接占用 ⇒ 判「在场」**（区分钉）：排他创建的「在场」= 名字被占用
+      （`O_EXCL` ∕ `link(2)` 同一档：名字存在即 EEXIST、不跟随链接），而 `os.path.exists` 跟随
+      符号链接得 ENOENT ⇒ 改后 = `already-acked` ∧ 链接逐字不动 ∧ 链接目标仍不被创建；
+      改前 = `acked` ∧ 占位被 rename 换成弱档普通文件。
     ③ **首写档 = `{id, ts}` 且无 `claimedTs`**（两列同值）：钉住「`ack` 动词落的件恒非强档」——
       `claimedTs` 的机制语义 = 推送注入被会话消费的时刻，只在 receiver 侧在飞表里（手写路径没有
       这个事件可锚）⇒ 自报值 = 假强档，⛔ 补。
@@ -6935,9 +6940,10 @@ def s66():
     ⑤ **源码形态钉**（区分钉）：AST 取 `cmd_ack` 函数体 ⇒ (i) 存在性判定调用零枚
       （check-then-write 零回流 = TOCTOU 窗与跟随链接的判据分叉一起消；按调用节点判、⛔ 按源码
       字串判 = 会把注释里点名禁用形态的合法文档误判成回流）；(ii) 它对 `proto.*` 的
-      写点调用的**实现体**必须含排他创建标记（`O_EXCL` ∨ `open(..., "x")`）——写点按 AST 动态
-      解析、⛔ 钉死函数名（改名不需改本臂）。改前副本上 (i)(ii) 均 FAIL（写点 =
-      `atomic_write_json` = temp+rename，无排他语义）。
+      写点调用的**实现体**必须含排他创建标记（`O_EXCL` ∨ `open(..., "x")` ∨ `os.link`），且实现体
+      **剔除 docstring**（docstring 里点名禁用形态与描述本函数机制都是合法文档 ⇒ 计入会让标记判据
+      被文字而非代码满足 = 恒绿）——写点按 AST 动态解析、⛔ 钉死函数名（改名不需改本臂）。改前副本上
+      (i)(ii) 均 FAIL（写点 = `atomic_write_json` = temp+rename，无排他语义）。
     ⑥ **做错态**：②⑤ 的**同一条断言**跑在改前副本（`git show` 不可变 sha）上逐格必须 FAIL 并打印
       读数；①③④ 如实报「两列同绿」+ 判据（单进程不可区分档 ⇒ 要求它们红就是恒真断言）。
 
@@ -6950,6 +6956,16 @@ def s66():
     newroot = os.path.join(S66BASE, "newroot")   # 改后副本的「本仓所在根」
     oldroot = os.path.join(S66BASE, "oldroot")   # 改前副本的同形根
     cwd = os.path.join(S66BASE, "cwd")           # 中性 cwd（本身不是工作区根）
+
+    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系（在任何写入之前）----
+    real = os.path.realpath(S66BASE)
+    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
+        "诱饵根必须在本套件临时基目录内：%s" % real
+    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
+        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
+        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
 
     def mkws(root, canonical, fixture=True):
         """造够过 require_workspace_root 的诱饵工作区根（+ 一枚夹具 task，⛔ 经写侧动词造）。"""
@@ -6970,16 +6986,6 @@ def s66():
     mkws(newroot, "s66-newroot", fixture=False)
     mkws(oldroot, "s66-oldroot", fixture=False)
     os.makedirs(cwd, exist_ok=True)
-
-    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系（在任何写入之前）----
-    real = os.path.realpath(S66BASE)
-    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
-        "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
-        rp = os.path.realpath(prod)
-        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
-        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
-        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
@@ -7107,7 +7113,16 @@ def s66():
             psrc = f.read()
         fn = next(n for n in ast.walk(ast.parse(src))
                   if isinstance(n, ast.FunctionDef) and n.name == "cmd_ack")
-        impls = {f.name: ast.get_source_segment(psrc, f)
+        def impl_body(f):
+            """函数**实现体**源码（剔除 docstring）：标记判据只被代码满足，⛔ 被描述机制的文字满足。"""
+            body = f.body
+            if (body and isinstance(body[0], ast.Expr)
+                    and isinstance(getattr(body[0], "value", None), ast.Constant)
+                    and isinstance(body[0].value.value, str)):
+                body = body[1:]
+            return "\n".join(ast.get_source_segment(psrc, st) or "" for st in body)
+
+        impls = {f.name: impl_body(f)
                  for f in ast.parse(psrc).body if isinstance(f, ast.FunctionDef)}
         writes = sorted({n.func.attr for n in ast.walk(fn)
                          if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
@@ -7168,7 +7183,7 @@ def s66():
             "回归面 %s 应两列同绿（单进程不可区分档），改前列实得 FAIL：%s"
             % (same, [(k, pre[k][1]) for k in same if not pre[k][0]]))
         print("  [S66 做错态] 区分面 %d 枚（%s）在改前副本 %s 上 FAIL（读数见上）；回归面 %d 枚（%s）"
-              "两列同绿 = check-then-write 与 O_EXCL 在「普通文件在场 ∕ 不在场」两档单进程不可区分"
+              "两列同绿 = check-then-write 与排他创建在「普通文件在场 ∕ 不在场」两档单进程不可区分"
               % (len(S66_RED_CELLS), "+".join(S66_RED_CELLS), S66_PRE_FIX_SHA[:8],
                  len(same), "+".join(same)), flush=True)
     finally:
@@ -7324,11 +7339,12 @@ def main():
           " ⇒ rc ∪ 落盘产物 ∪ stdout 逐字同值，含 E5；两枚授权字面变更按旗标名归一化）・"
           "**做错态**（同一条断言跑在改前副本上逐格 FAIL；缺陷面 26 枚 = 30 − E2 版本无关 4 枚）"
           " + 改前具体产物・**help 面**（七格硬拒逐枚写明口径；E5 的 --reason ⛔ 出现「即拒」串）", s65)
-    check("S66 ack 动词的排他创建（O_EXCL）：强档在场不覆写（rc ∕ stdout already-acked ∕ 字节 ∕"
-          " mtime 四面）・名字被悬空符号链接占用 ⇒ 按名字占用判「在场」（区分钉：改前 rename 吃掉"
-          " 占位并落弱档）・首写档 = {id, ts} 且无 claimedTs（钉「恒非强档」）・幂等重跑不刷新・"
-          " 源码形态钉（AST：cmd_ack 内存在性判定调用零枚 ∧ proto.* 写点实现含 O_EXCL ∨"
-          " open(...,'x')，写点动态解析）・做错态 = 区分面两枚的同一条断言在改前不可变 sha 副本上"
+    check("S66 ack 动词的排他创建（名字被占用即 EEXIST）：强档在场不覆写（rc ∕ stdout"
+          " already-acked ∕ 字节 ∕ mtime 四面）・名字被悬空符号链接占用 ⇒ 按名字占用判「在场」"
+          "（区分钉：改前 rename 吃掉 占位并落弱档）・首写档 = {id, ts} 且无 claimedTs（钉「恒非强档」）"
+          "・幂等重跑不刷新・ 源码形态钉（AST：cmd_ack 内存在性判定调用零枚 ∧ proto.* 写点实现体"
+          "（剔除 docstring）含 O_EXCL ∨ open(...,'x') ∨ os.link，写点动态解析）・做错态 = 区分面两枚"
+          " 的同一条断言在改前不可变 sha 副本上"
           " FAIL（回归面三枚如实报两列同绿 + 判据）", s66)
     stop_runner()
     stop_scheduler()
