@@ -19,7 +19,10 @@
   D7 顺序核：放行路径 = authorize 在 rmtree **之前**；四条拒绝路径 = rmtree 零调用
   D8 源码面非执行核证：`safe_rmtree` 体内 authorize 的调用行号 < rmtree 的调用行号，
      且模块源码里 `ignore_errors` ∕ `except` 零命中（⛔ 吞错即失去防线）
-  D9 符号链接形态：授权根内的 symlink 指向授权根外 ⇒ realpath 解穿后按 D3 拒绝
+  D9 符号链接形态：授权根内的 symlink 指向**根内真树** ∪ `authorized_root` 给 symlink 本身
+     ⇒ realpath 解穿后目标 == 授权根 ⇒ 拒绝、真树逐字节仍在场
+  D10 符号链接指向授权根外：授权根内的 symlink 指向同基目录的兄弟真树 ∪ `authorized_root`
+     给授权根 ⇒ realpath 解穿后按「不在授权根内部」拒绝、两棵树逐字节仍在场
 
 仅标准库（本仓测试面无 pytest）。用法：python3 agentd/test_safe_delete.py
 """
@@ -257,8 +260,23 @@ def d9():
        and ident(os.path.join(root, "real")) == before, (deleted, why))
 
 
+def d10():
+    base, root = mkroot("d10")
+    auth = tree(root, "auth")            # 授权根（一棵）
+    victim = tree(root, "victim")        # 授权根**外**的兄弟真树（同一 mkdtemp 基目录内）
+    link = os.path.join(auth, "link")
+    os.symlink(victim, link)             # 授权根内的 symlink → 授权根外那棵树
+    before_auth, before_victim = ident(auth), ident(victim)
+    deleted, why = SD.safe_rmtree(link, authorized_root=auth)   # 解穿后 target ∉ 授权根
+    ok("D10 符号链接指向授权根外：realpath 解穿后拒绝（闸「目标不在授权根内部」）、"
+       "授权根与根外真树两棵都逐字节仍在场"
+       "（⛔ 按路径字面判 ⇒ 会放行，进而删掉授权根外的真树）",
+       deleted is False and "不在授权根内部" in why
+       and ident(auth) == before_auth and ident(victim) == before_victim, (deleted, why))
+
+
 def main():
-    for fn in (d1, d2, d3, d4, d5, d6, d7, d8, d9):
+    for fn in (d1, d2, d3, d4, d5, d6, d7, d8, d9, d10):
         fn()
     print("\n==== safe_delete 单测：%d passed, %d failed" % (PASS, FAIL))
     cleanup()
