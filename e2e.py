@@ -48,7 +48,7 @@
       spawn 前 noop；reload 正交语义由 restart 既有场景（S3/S4）覆盖
   S39 topic 协作容器（设计稿 dispatch/docs/design/topic-design.md）：寻址四族（文法/直落/
       扫描面隔离）+ agentctl send 投递闭环（目录自动创建/信封字段/文件名格式）+
-      GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律 2026-09-06 经用户拍板移除，；
+      GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律 2026-09-06 经用户拍板移除；
       topic/dispatcher 受 PROTECTED_SYSTEM_PATHS 缺省拒删、--force 审计旁路可删）
   S40 agentctl 脚手架：topic init 标准布局（topic.md 骨架 + inbox/ + watcher/
       订阅登记）与拒绝面 + bot register --subscribes（协议 §4.1 通道 B 写入口：新建/只改一字段/
@@ -192,9 +192,12 @@
       判据逐件点名，rc 与既有空串档同值 = 2；「spec 已在场 ⇒ 只改 subscribes」分支逐字不变）
       × 空值三形态 = 30 枚 ⇒ rc ∧ 报文四要素（旗标名 ∪ `repr(raw)` ∪ 成因 ∪ 正确做法）∧ 零副作用
       声明 ∧ 零落盘（诱饵根 `agents/` 递归清单同值）/ **缺省臂两列**（改前 = `git show` 不可变 sha
-      副本 ∕ 改后 = 工作树：不传旗标 ⇒ rc ∪ 落盘 spec ∪ stdout 逐字同值；本批唯一授权的字面变更
-      = A1 的 reaper WARN 措辞「未声明」→「本次调用未传」+ 空值被拒提示，断言「除该行外逐行同值
-      ∧ WARN 条数同值」）/ **哨兵 `none`（`proto.NO_REAPER`）仍合法** ∪ **真值 ref 逐字写入** ∪
+      副本 ∕ 改后 = 工作树：不传旗标 ⇒ rc ∪ 落盘 spec ∪ stdout 逐字同值；A1 缺省臂授权的字面
+      变更共两枚 = `--reaper` 的 WARN 措辞「未声明」→「本次调用未传」（恒断言）∪
+      `--restart-policy` 的同族措辞（**仅当该臂两列都打该行时才断言** ⇒ 由调用点按 argv 定）
+      + 空值被拒提示，断言「除按旗标名归一化掉的授权行外逐行同值 ∧ WARN 条数同值」
+      （谓词单点 = 本场景的 `warn_pair`））/ **哨兵 `none`（`proto.NO_REAPER`）仍合法** ∪
+      **真值 ref 逐字写入** ∪
       **B1 `--subscribes` 零改动证明**（空值 = 文档化清空语义、S40③ 钉住 ⇒ ⛔ 动；两副本 ×3 形态
       × 两分支 ⇒ rc ∪ stderr ∪ `spec.subscribes` ∪ stdout 逐字同值）/ **做错态**（①–④ 的**同一条
       断言**跑在改前副本上逐格必须 AssertionError 并打印读数 + 改前具体产物 = spec 无 reaper 键 ∧
@@ -2293,7 +2296,7 @@ def s39():
     """topic 协作容器（设计稿 dispatch/docs/design/topic-design.md §8）：
     寻址四族（文法/直落/扫描面隔离）+ agentctl send 投递闭环（目录自动创建、
     信封字段、文件名格式）+ GC 删除清单通道接受 topic/ 与 bot/（bot 不朽铁律
-    2026-09-06 经用户拍板移除，；topic/dispatcher 缺省拒删、--force 审计旁路可删）。"""
+    2026-09-06 经用户拍板移除；topic/dispatcher 缺省拒删、--force 审计旁路可删）。"""
     import proto
     # a) 寻址：文法 + 直落（无存在性试探，目录不在场也解析）
     assert proto.is_valid_participant_id("topic/t1")
