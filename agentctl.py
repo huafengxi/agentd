@@ -1397,9 +1397,9 @@ def main():
     p.add_argument("--body-file", dest="body_file",
                    help="正文取自文件（长文/含引号换行走此道，不经 shell 断词）；`-` = stdin")
     p.add_argument("--ref", help="reply 必填：所答 ask 的 id。**任何 type 下**传了本旗标就 trim 判"
-                                 "非空：空 ∕ 纯空白同样无效（拒、rc=1、零落盘）——空白 ref 会写出"
-                                 "关联不到任何 ask 的孤儿答复（提问方永远等不到）；非 reply 档"
-                                 "不需要关联就**不传**本旗标")
+                                 "非空 ⇒ 值为空/纯空白即拒（rc=1、零落盘）：空白 ref 会写出关联"
+                                 "不到任何 ask 的孤儿答复（提问方永远等不到），纯空白同样无效；"
+                                 "非 reply 档不需要关联就**不传**本旗标")
     p.add_argument("--deliver", choices=list(proto.DELIVER_MODES), default=None,
                    help="投递方式（§6.6，与 type 正交）：steer = 立即介入运行中会话的当前轮；"
                         "缺省不写字段 = followUp（排队等当前轮结束）")

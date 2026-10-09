@@ -6854,10 +6854,11 @@ def s65():
                                 (["enable", "--help"], "--note")):
             seg = flaghelp(verb_argv, flag)
             if flag == "--ref":
-                # E4 = r2 A3 的既有拒绝面扩面：其 help 用既有口径串（rc=1，⛔ 写成 rc=2 口径）
-                assert "纯空白同样无效" in seg and "rc=1" in seg, \
-                    "%s 的 %s help 须写明既有拒绝口径（rc=1）：%s" % (
-                        " ".join(verb_argv), flag, seg)
+                # E4 = r2 A3 的既有拒绝面扩面：口径串与其余七格同款（REJECT），但 rc 是既有
+                # 守卫的现值码 1（⛔ 写成 rc=2 口径）；S64 钉的「纯空白同样无效」逐字保留。
+                assert REJECT in seg and "纯空白同样无效" in seg and "rc=1" in seg, \
+                    "%s 的 %s help 须写明「%s」且 rc 为既有现值码 1（S64 钉的既有串逐字保留）：%s" % (
+                        " ".join(verb_argv), flag, REJECT, seg)
                 assert "任何type下" in seg, \
                     "%s 的 --ref help 须写明拒绝面已扩到非 reply 档：%s" % (
                         " ".join(verb_argv), seg)
@@ -6870,7 +6871,7 @@ def s65():
             "control 的 --reason help 须写明兜底文案口径：%s" % seg
         assert REJECT not in seg, \
             "control 的 --reason 不是拒绝面 ⇒ 其 help ⛔ 出现「%s」：%s" % (REJECT, seg)
-        print("  [S65 help 面] 七格硬拒旗标（E1 ∪ E2 两动词 ∪ E3 ∪ E4 既有口径 ∪ E6 ∪ E7 ∪ "
+        print("  [S65 help 面] 七格硬拒旗标（E1 ∪ E2 两动词 ∪ E3 ∪ E4（rc=1 档）∪ E6 ∪ E7 ∪ "
               "E8 两动词）逐枚写明空值拒绝口径；E5 的 --reason 钉兜底文案且不出现拒绝面口径",
               flush=True)
     finally:
