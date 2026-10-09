@@ -255,7 +255,9 @@ def queue_inbox(root: str, name: str) -> str:
 POSITION_TOPIC = "dispatcher"
 POSITION_PID = QUEUE_DIR + "/" + POSITION_TOPIC
 # 系统主题豁免名单（单一事实源 攒批 5）：按设计无策展 owner 的系统主题
-# （报表侧不出主持人链接；gc 侧不可删）。agents-sync/gc.py 的 PROTECTED_SYSTEM_PATHS 是同一
+# （报表侧不出主持人链接；gc 侧**缺省**不可删——保护语义 = 缺省拒删类，`gc.py add --force`
+# 的审计标记（#FORCED:）解除本类，本体见下方 PROTECTED_SYSTEM_PATHS 注释）。
+# agents-sync/gc.py 的 PROTECTED_SYSTEM_PATHS 是同一
 # 名单的 hub 侧副本（该脚本刻意保持 stdlib-only、不 import 本模块），两侧由 e2e S41 的
 # 同源断言钉住——将来新增系统主题只改一侧即变红。
 PROTECTED_SYSTEM_TOPICS = (POSITION_TOPIC,)

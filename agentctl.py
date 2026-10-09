@@ -46,7 +46,7 @@ AGENT_SELF ＞ 回落职位信箱），不按动词分叉。
 后果 = 调用方的意图被丢弃 ∨ 被换成别的东西 ∨ 被逐字写进落盘正文，而登记侧读数看不出差异）。
 
 **删除铁律**：本 CLI 只做创建/登记，不提供任何删除动作——agents/ 内目录清理一律走
-`agents-sync/gc.py add` 删除清单通道（bot/ 族还需 --force 审计旁路），绝不直接 rm。
+`agents-sync/gc.py add` 删除清单通道（缺省拒删类需 `--force` 审计标记），绝不直接 rm。
 """
 import argparse
 import json
