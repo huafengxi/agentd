@@ -71,6 +71,27 @@ def atomic_write_json(path: str, obj) -> None:
     atomic_write(path, json.dumps(obj, ensure_ascii=False, indent=1) + "\n")
 
 
+def exclusive_write_json(path: str, obj) -> bool:
+    """排他创建写 JSON（§4.6 终态 ack 的写语义）：目标名已被占用 ⇒ **不覆写**、返回 False。
+
+    与推送确认侧（TS `core.ts` 的 `writeFileSync(..., {flag:"wx"})`）同族同判据：竞争同一文件名时
+    **先到先得、先到者永久胜出** ⇒ 对侧已落的强档（带 `claimedTs`）不会被本侧降档；字节形态与
+    `atomic_write_json` 逐字同款（`indent=1` + 尾换行）⇒ 换写点不改盘上形态。
+
+    ⛔ 退回 `os.path.exists` 的 check-then-write：那档「在场」按 stat 判（跟随符号链接 ⇒ 悬空链接
+    判「不在场」并用 rename 吃掉占位），且判定与写之间有 TOCTOU 窗（两进程同扫一个信箱时后写者
+    覆盖先写者）。`O_EXCL` 的「在场」= **名字被占用**，判定与创建是同一个内核动作。
+    """
+    d = os.path.dirname(path) or "."
+    os.makedirs(d, exist_ok=True)
+    try:
+        with open(path, "x", encoding="utf-8") as f:
+            f.write(json.dumps(obj, ensure_ascii=False, indent=1) + "\n")
+    except FileExistsError:
+        return False
+    return True
+
+
 def read_json(path: str):
     """读 JSON；不存在或半截（解析失败）返回 None —— 下轮重试（§11.6）。"""
     try:

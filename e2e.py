@@ -223,6 +223,22 @@
       WARN，按旗标名归一化后逐行同值 ∧ 两列各自措辞分别钉住）/ **做错态**（①–⑧ 的同一条断言
       跑在改前副本上逐格必须 FAIL；缺陷面 26 枚 = 30 − E2 版本无关 4 枚）+ 改前具体产物 /
       **help 面**（七格硬拒旗标逐枚写明口径；**E5 是兜底档 ⇒ 其 help ⛔ 出现「即拒」串**）
+  S66 `agentctl ack` 的写语义 = **排他创建**（`O_EXCL`）与「落的件恒非强档」五格（缺陷形态 =
+      check-then-write：`os.path.exists` 判「在场」⇒ 跟随符号链接（悬空链接的占位被 rename
+      吃掉）且判定与写之间有 TOCTOU 窗（两进程同扫一个信箱时后写者覆盖先写者 ⇒ 可把已落
+      的强档降成弱档））：**强档在场 ⇒ 不覆写**（预置带 `claimedTs` 的强档、mtime 固定到过去 ⇒
+      rc=0 ∧ stdout `already-acked` ∧ 字节与 mtime 逐字不变）/ **名字被悬空符号链接占用 ⇒ 判
+      「在场」**（区分钉：改后 = 链接逐字不动 ∧ 目标仍不被创建；改前 = `acked` ∧ 占位被换成弱档
+      普通文件）/ **首写档 = `{id, ts}` 且无 `claimedTs`**（钉住「`ack` 动词落的件恒非强档」：
+      该字段的机制语义 = 推送注入被会话消费的时刻，只在 receiver 侧在飞表里 ⇒ 手写路径无事件可锚，
+      自报值 = 假强档）/ **幂等重跑**（第二次 `already-acked`、字节与 mtime 不变 ⇒ 重复 ack 不刷新
+      档位）/ **源码形态钉**（AST：`cmd_ack` 函数体内存在性判定调用零枚（按调用节点判、⛔ 按源码
+      字串判 = 会把注释里点名禁用形态的合法文档误判成回流）∧ 它对 `proto.*` 的写点
+      实现体含 `O_EXCL` ∨ `open(..., "x")`；写点动态解析 ⇒ helper 改名不需改本臂）/ **做错态** =
+      区分面两枚（悬空链接 ∪ 源码形态）的同一条断言在改前不可变 sha 副本上逐格 FAIL 并打印读数；
+      回归面三枚如实报「两列同绿」+ 判据（check-then-write 与 O_EXCL 在「普通文件在场 ∕ 不在场」
+      两档单进程不可区分 ⇒ 要求它们红就是造恒真断言；两进程竞态那一档的窗不可从外部拉开 ⇒
+      统计型竞态臂必 flaky、⛔ 入套件，同一枚内核保证由悬空链接档钉住）
 
 场景前置依赖（单跑部分场景时注意，否则会把缺夹具的 FAIL 误读成回归）：S15 读 S14 的通知产物、
 S37 会清场前序遗留的非终态参与方；S44 自建隔离树（S44ROOT），
@@ -244,6 +260,9 @@ S64 同 S62/S63 的三诱饵根形态（另含 `bots/profiles/` 白名单枚举�
 S65 同 S62/S63/S64 的三诱饵根形态（另含 `bots/profiles/` 白名单枚举根 ∪ task spec ∪ topic ∪
 控制请求 ∪ enable.json 夹具；不起进程、不读写主树 ROOT、**全程零删除类命令**，收尾自清）→
 **可单跑**；例外同 S62（⑩ 的做错态臂要 `git show` 改前不可变 sha）。
+S66 同 S62–S65 的诱饵根形态（两列各自的 ws + 两枚副本根；含 task spec ∪ inbox/ack ∪ 悬空符号链接
+夹具；不起进程、不读写主树 ROOT、**全程零删除类命令**，收尾自清）→ **可单跑**；例外同 S62（⑥ 的
+做错态臂要 `git show` 改前不可变 sha）。
 
 平台兼容（mac）：① Linux-only 依赖走平台感知——/proc/<pid>/environ 只在
 Linux 在场，且 macOS 无等价替代（ps -Eww/eww 不暴露他进程环境，SIP；等价手段需 ctypes
@@ -6881,6 +6900,281 @@ def s65():
         _rm_scenario_root(S65BASE)
 
 
+# ------------- S66（ack 动词的排他创建 O_EXCL：不覆写 ∕ 名字占用判据 ∕ 恒非强档）
+
+S66BASE = os.path.join(TMPBASE, "root-s66")   # 本场景自建根（专用临时目录，不用生产树）
+
+# S66 的改前锚：本批（ack 排他创建）收口前的 agentd 仓 HEAD（**不可变引用**；⛔ 工作树，⛔ HEAD~n 相对量）
+S66_PRE_FIX_SHA = "ecc05b54865d2f1a1273ba1cffc5d7136205692d"
+S66_PID = "task/s66-ack"
+# 「写点实现是排他创建」的标记（⑤ 用；按实现体判 ⇒ 写点函数改名不需改本臂）
+S66_EXCL_MARKS = ("O_EXCL", '"x"', "'x'")
+# 区分面（做错态必须在改前副本上 FAIL）与回归面（两列同绿）分开点名：check-then-write 与 O_EXCL
+# 在「普通文件已在场 ∕ 不在场」两档**单进程不可区分**（前者同样打印 already-acked 且不覆写）⇒
+# ①③④ 结构上不可能是红的，要求它们红 = 造恒真断言。区分面只可能是「名字被占用而
+# `os.path.exists` 判不到」的档（= ② 悬空符号链接：stat 跟随链接得 ENOENT，而 O_EXCL 按名字占用
+# 得 EEXIST）∪ 源码形态（= ⑤）。两进程同窗竞争那一档的窗口不可从外部拉开（判定与写之间无
+# 同步点）⇒ 做成统计型竞态臂只能是 flaky，⛔ 入套件；同一枚内核保证由 ② 钉住。
+S66_RED_CELLS = ("dangling", "srcshape")
+
+
+def s66():
+    """`ack` 动词的写语义 = **排他创建**（`O_EXCL`）与「落的件恒非强档」五格：
+
+    ① **强档在场 ⇒ 不覆写**（回归钉，两列同绿）：预置一枚带 `claimedTs` 的强档 ack（mtime 固定
+      到过去）后跑 `agentctl ack` ⇒ rc=0 ∧ stdout `already-acked` ∧ 字节与 mtime 逐字不变
+      （`claimedTs` 未被吃掉）。
+    ② **名字被悬空符号链接占用 ⇒ 判「在场」**（区分钉）：`O_EXCL` 的「在场」= 名字被占用，而
+      `os.path.exists` 跟随符号链接得 ENOENT ⇒ 改后 = `already-acked` ∧ 链接逐字不动 ∧ 链接目标
+      仍不被创建；改前 = `acked` ∧ 占位被 rename 换成弱档普通文件。
+    ③ **首写档 = `{id, ts}` 且无 `claimedTs`**（两列同值）：钉住「`ack` 动词落的件恒非强档」——
+      `claimedTs` 的机制语义 = 推送注入被会话消费的时刻，只在 receiver 侧在飞表里（手写路径没有
+      这个事件可锚）⇒ 自报值 = 假强档，⛔ 补。
+    ④ **幂等重跑**：同一名连跑两次 ⇒ 第二次 `already-acked`、字节与 mtime 不变（重复 ack 不刷新
+      档位，⛔ 指望它覆写）。
+    ⑤ **源码形态钉**（区分钉）：AST 取 `cmd_ack` 函数体 ⇒ (i) 存在性判定调用零枚
+      （check-then-write 零回流 = TOCTOU 窗与跟随链接的判据分叉一起消；按调用节点判、⛔ 按源码
+      字串判 = 会把注释里点名禁用形态的合法文档误判成回流）；(ii) 它对 `proto.*` 的
+      写点调用的**实现体**必须含排他创建标记（`O_EXCL` ∨ `open(..., "x")`）——写点按 AST 动态
+      解析、⛔ 钉死函数名（改名不需改本臂）。改前副本上 (i)(ii) 均 FAIL（写点 =
+      `atomic_write_json` = temp+rename，无排他语义）。
+    ⑥ **做错态**：②⑤ 的**同一条断言**跑在改前副本（`git show` 不可变 sha）上逐格必须 FAIL 并打印
+      读数；①③④ 如实报「两列同绿」+ 判据（单进程不可区分档 ⇒ 要求它们红就是恒真断言）。
+
+    台架纪律：三诱饵根（改后列的 ws ∪ 改前列的 ws ∪ 两枚副本根）+ 逐格唯一 msgid + 全程零删除类
+    命令；只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。例外 =
+    做错态臂要 `git show` 改前不可变 sha 的对象（本仓必须是含该对象的 git checkout；取不到即断言
+    失败并点名原因，⛔ 静默跳过）。"""
+    ws_new = os.path.join(S66BASE, "ws-new")     # 改后列的诱饵工作区根（显式 --root 的目标）
+    ws_old = os.path.join(S66BASE, "ws-old")     # 改前列的同形诱饵根（两列夹具互不干扰）
+    newroot = os.path.join(S66BASE, "newroot")   # 改后副本的「本仓所在根」
+    oldroot = os.path.join(S66BASE, "oldroot")   # 改前副本的同形根
+    cwd = os.path.join(S66BASE, "cwd")           # 中性 cwd（本身不是工作区根）
+
+    def mkws(root, canonical, fixture=True):
+        """造够过 require_workspace_root 的诱饵工作区根（+ 一枚夹具 task，⛔ 经写侧动词造）。"""
+        os.makedirs(os.path.join(root, "agents", "task"), exist_ok=True)
+        os.makedirs(os.path.join(root, "env"), exist_ok=True)
+        with open(os.path.join(root, "env", "host-id"), "w") as f:
+            f.write("%s %s\n" % (socket.gethostname(), canonical))
+        if not fixture:
+            return
+        d = os.path.join(root, "agents", "task", S66_PID.split("/")[1], "inbox", "ack")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(root, "agents", "task", S66_PID.split("/")[1], "spec.json"), "w") as f:
+            json.dump({"command": "true", "workdir": root, "restartPolicy": "one-shot",
+                       "creator": "task/s66-tester", "name": S66_PID.split("/")[1]}, f)
+
+    mkws(ws_new, "s66-new")
+    mkws(ws_old, "s66-old")
+    mkws(newroot, "s66-newroot", fixture=False)
+    mkws(oldroot, "s66-oldroot", fixture=False)
+    os.makedirs(cwd, exist_ok=True)
+
+    # ---- 诱饵根身份断言：专用临时根，与三枚生产根无同值/祖先/内含关系（在任何写入之前）----
+    real = os.path.realpath(S66BASE)
+    assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
+        "诱饵根必须在本套件临时基目录内：%s" % real
+    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+        rp = os.path.realpath(prod)
+        assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
+        assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
+        assert not rp.startswith(real + os.sep), "生产根 %s ⛔ 在诱饵根内部" % rp
+
+    # ---- 改后副本（与被测真文件逐字同源）----
+    os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
+    NEW = os.path.join(newroot, "agentd", "agentctl.py")
+
+    # ---- 改前副本：从不可变 sha 取对象（⛔ 读工作树；取不到即断言失败，⛔ 静默跳过）----
+    os.makedirs(os.path.join(oldroot, "agentd"), exist_ok=True)
+    for fn in ("agentctl.py", "proto.py"):
+        r = subprocess.run(["git", "-C", HERE, "show", "%s:%s" % (S66_PRE_FIX_SHA, fn)],
+                           capture_output=True, timeout=60)
+        assert r.returncode == 0, (
+            "做错态臂取不到改前版本（git -C %s show %s:%s）：rc=%d %s"
+            % (HERE, S66_PRE_FIX_SHA, fn, r.returncode,
+               r.stderr.decode("utf-8", "replace").strip()))
+        with open(os.path.join(oldroot, "agentd", fn), "wb") as f:
+            f.write(r.stdout)
+    OLD = os.path.join(oldroot, "agentd", "agentctl.py")
+
+    # ---- 两列不同源（特征词：改后 ≥1 ∕ 改前 = 0）⇒ 断言非恒真 ----
+    with open(NEW, encoding="utf-8") as f:
+        new_src = f.read()
+    with open(OLD, encoding="utf-8") as f:
+        old_src = f.read()
+    MARK = "exclusive_write_json"
+    assert new_src.count(MARK) >= 1, "改后副本应含排他写点 %r（否则工作树未改）" % MARK
+    assert old_src.count(MARK) == 0, "改前副本 ⛔ 含 %r（sha 错 = 做错态不会红）" % MARK
+    assert "if os.path.exists(p):" in old_src, "改前副本应是 check-then-write 形态（sha 错）"
+    print("  [S66 两列不同源] 特征词 %r 计数：改前 %s = %d ∕ 改后 工作树 = %d"
+          % (MARK, S66_PRE_FIX_SHA[:8], old_src.count(MARK), new_src.count(MARK)), flush=True)
+
+    def ackdir(ws):
+        return os.path.join(ws, "agents", "task", S66_PID.split("/")[1], "inbox", "ack")
+
+    def run_ack(ctl, ws, msgid):
+        env = scrub_env()
+        env.pop("AGENT_SELF", None)
+        return subprocess.run([sys.executable, ctl, "--root", ws, "ack", S66_PID, msgid],
+                              capture_output=True, text=True, env=env, timeout=60, cwd=cwd)
+
+    def snapshot(p):
+        """(形态, 字节 ∨ None, lstat mtime_ns)：「不覆写」的强核法（悬空链接读字节会抛 ⇒ 先判 link）。"""
+        if not os.path.lexists(p):
+            return ("absent", None, None)
+        if os.path.islink(p):
+            return ("symlink->%s" % os.readlink(p), None, os.lstat(p).st_mtime_ns)
+        with open(p, "rb") as f:
+            return ("file", f.read(), os.lstat(p).st_mtime_ns)
+
+    def c_strong(ctl, ws, tag):
+        """① 强档在场 ⇒ 不覆写（rc ∕ stdout ∕ 字节 ∕ mtime 四面）。"""
+        mid = "2026-01-01-00-00-00.000-s66-%s-strong" % tag
+        p = os.path.join(ackdir(ws), mid)
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"id": mid, "ts": "2026-01-01T00:00:00+0800",
+                                "claimedTs": "2026-01-01T00:00:00+0800"},
+                               ensure_ascii=False, indent=1) + "\n")
+        os.utime(p, ns=(1700000000 * 10 ** 9, 1700000000 * 10 ** 9))
+        before = snapshot(p)
+        r = run_ack(ctl, ws, mid)
+        after = snapshot(p)
+        assert r.returncode == 0, "rc=%d stderr=%s" % (r.returncode, r.stderr.strip())
+        assert r.stdout.strip() == "already-acked", "stdout=%r" % r.stdout.strip()
+        assert after == before, "强档必须逐字不动：before=%r after=%r" % (before, after)
+        assert b"claimedTs" in after[1], "claimedTs 被吃掉：%r" % after[1]
+        return ("rc=0 stdout='already-acked' 字节 %dB 未变（claimedTs 在场）mtime_ns=%d 未变"
+                % (len(after[1]), after[2]))
+
+    def c_dangling(ctl, ws, tag):
+        """② 名字被悬空符号链接占用 ⇒ O_EXCL 判「在场」（区分钉）。"""
+        mid = "2026-01-01-00-00-00.000-s66-%s-dangling" % tag
+        p = os.path.join(ackdir(ws), mid)
+        target = os.path.join(ackdir(ws), "s66-target-%s" % tag)
+        os.symlink(target, p)
+        before = snapshot(p)
+        r = run_ack(ctl, ws, mid)
+        after = snapshot(p)
+        assert r.returncode == 0, "rc=%d stderr=%s" % (r.returncode, r.stderr.strip())
+        assert r.stdout.strip() == "already-acked", (
+            "名字被占用 ⇒ 判「在场」不覆写；实得 stdout=%r、盘上 %s ⇒ %r"
+            % (r.stdout.strip(), after[0], after[1]))
+        assert after == before, "占位必须逐字不动（仍是悬空链接、无弱档落盘）：before=%r after=%r" % (
+            before, after)
+        assert not os.path.lexists(target), "链接目标被创建 = 写侧跟随了符号链接：%s" % target
+        return ("rc=0 stdout='already-acked' 占位逐字不动（%s、mtime_ns=%d）∧ 链接目标仍不在场"
+                % (after[0], after[2]))
+
+    def c_fresh(ctl, ws, tag):
+        """③ 首写档 = {id, ts} 且无 claimedTs（钉「恒非强档」）。"""
+        mid = "2026-01-01-00-00-00.000-s66-%s-fresh" % tag
+        r = run_ack(ctl, ws, mid)
+        p = os.path.join(ackdir(ws), mid)
+        assert r.returncode == 0, "rc=%d stderr=%s" % (r.returncode, r.stderr.strip())
+        assert r.stdout.strip() == "acked", "stdout=%r" % r.stdout.strip()
+        with open(p, encoding="utf-8") as f:
+            doc = json.load(f)
+        assert sorted(doc) == ["id", "ts"], (
+            "落盘字段集恒 {id, ts}（`claimedTs` 补不出真值 ⇒ ⛔ 自报值造假强档）；实得 %s"
+            % sorted(doc))
+        assert doc["id"] == mid, "id=%r ≠ msgid=%r" % (doc["id"], mid)
+        return "rc=0 stdout='acked' 落盘 %d 键 = %s（无 claimedTs ⇒ 非强档）" % (
+            len(doc), sorted(doc))
+
+    def c_idem(ctl, ws, tag):
+        """④ 幂等重跑：第二次 already-acked、字节与 mtime 不变。"""
+        mid = "2026-01-01-00-00-00.000-s66-%s-idem" % tag
+        r1 = run_ack(ctl, ws, mid)
+        p = os.path.join(ackdir(ws), mid)
+        mid_snap = snapshot(p)
+        r2 = run_ack(ctl, ws, mid)
+        after = snapshot(p)
+        assert (r1.returncode, r2.returncode) == (0, 0), "rc=%d/%d" % (r1.returncode, r2.returncode)
+        assert (r1.stdout.strip(), r2.stdout.strip()) == ("acked", "already-acked"), \
+            "stdout=%r/%r" % (r1.stdout.strip(), r2.stdout.strip())
+        assert after == mid_snap, "重跑不得改动盘上件：%r → %r" % (mid_snap, after)
+        return "两次 rc=0、stdout='acked'→'already-acked'、字节与 mtime_ns 逐字不变"
+
+    def c_srcshape(ctl, ws, tag):
+        """⑤ 源码形态钉：写点实现 = 排他创建 ∧ check-then-write 零回流（区分钉）。"""
+        d = os.path.dirname(os.path.abspath(ctl))
+        with open(os.path.join(d, "agentctl.py"), encoding="utf-8") as f:
+            src = f.read()
+        with open(os.path.join(d, "proto.py"), encoding="utf-8") as f:
+            psrc = f.read()
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, ast.FunctionDef) and n.name == "cmd_ack")
+        impls = {f.name: ast.get_source_segment(psrc, f)
+                 for f in ast.parse(psrc).body if isinstance(f, ast.FunctionDef)}
+        writes = sorted({n.func.attr for n in ast.walk(fn)
+                         if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                         and isinstance(n.func.value, ast.Name) and n.func.value.id == "proto"})
+        excl = [w for w in writes if w in impls
+                and any(m in (impls[w] or "") for m in S66_EXCL_MARKS)]
+        # (i) 按 **AST 调用节点** 判、⛔ 按源码字串：注释里点名禁用形态是合法文档，字串判会把它
+        #     误判成回流（实测：改后正文的「⛔ 退回 os.path.exists 的 check-then-write」注释使字串判假红）。
+        bad = []
+        exists_calls = [n for n in ast.walk(fn)
+                        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                        and n.func.attr == "exists"]
+        if exists_calls:
+            bad.append("cmd_ack 含 %d 处存在性判定调用（check-then-write：TOCTOU 窗 + 跟随符号链接）"
+                       % len(exists_calls))
+        if not excl:
+            bad.append("proto.* 写点 %s 无一含排他创建标记 %s" % (writes, list(S66_EXCL_MARKS)))
+        assert not bad, "；".join(bad)
+        return "写点 = proto.%s（实现含 %s）∧ cmd_ack 内存在性判定调用 = 0 枚" % (
+            excl[0], [m for m in S66_EXCL_MARKS if m in impls[excl[0]]])
+
+    CELLS = (
+        ("strong", "① 强档在场 ⇒ 不覆写", c_strong),
+        ("dangling", "② 名字被悬空符号链接占用 ⇒ 判「在场」", c_dangling),
+        ("fresh", "③ 首写档 = {id, ts} 且无 claimedTs", c_fresh),
+        ("idem", "④ 幂等重跑", c_idem),
+        ("srcshape", "⑤ 源码形态钉（写点 = 排他创建 ∧ check-then-write 零回流）", c_srcshape),
+    )
+
+    def column(ctl, ws, tag):
+        out = {}
+        for key, _label, fn in CELLS:
+            try:
+                out[key] = (True, fn(ctl, ws, tag))
+            except AssertionError as e:
+                out[key] = (False, str(e))
+        return out
+
+    try:
+        post = column(NEW, ws_new, "post")
+        pre = column(OLD, ws_old, "pre")
+        for key, label, _fn in CELLS:
+            print("  [S66 改后] %s ⇒ %s：%s" % (label, "PASS" if post[key][0] else "FAIL",
+                                                post[key][1]), flush=True)
+        bad = [(k, post[k][1]) for k, _l, _f in CELLS if not post[k][0]]
+        assert not bad, "改后列必须 %d 格全绿，实得 FAIL：%s" % (len(CELLS), bad)
+        # ⑥ 做错态：区分面必须红，回归面如实报两列同绿（⛔ 要求它们红 = 恒真断言）
+        for key, label, _fn in CELLS:
+            print("  [S66 改前 %s] %s ⇒ %s：%s"
+                  % (S66_PRE_FIX_SHA[:8], label, "PASS" if pre[key][0] else "FAIL", pre[key][1]),
+                  flush=True)
+        not_red = [k for k in S66_RED_CELLS if pre[k][0]]
+        assert not not_red, (
+            "区分面 %s 必须在改前副本上 FAIL（否则本臂照不到写语义），实得仍 PASS：%s"
+            % (list(S66_RED_CELLS), not_red))
+        same = [k for k, _l, _f in CELLS if k not in S66_RED_CELLS]
+        assert all(pre[k][0] for k in same), (
+            "回归面 %s 应两列同绿（单进程不可区分档），改前列实得 FAIL：%s"
+            % (same, [(k, pre[k][1]) for k in same if not pre[k][0]]))
+        print("  [S66 做错态] 区分面 %d 枚（%s）在改前副本 %s 上 FAIL（读数见上）；回归面 %d 枚（%s）"
+              "两列同绿 = check-then-write 与 O_EXCL 在「普通文件在场 ∕ 不在场」两档单进程不可区分"
+              % (len(S66_RED_CELLS), "+".join(S66_RED_CELLS), S66_PRE_FIX_SHA[:8],
+                 len(same), "+".join(same)), flush=True)
+    finally:
+        _rm_scenario_root(S66BASE)
+
+
 def _scrub_inherited_env():
     """入口自洗继承来的身份族（t-zqm0；就地改 os.environ）。
 
@@ -7029,6 +7323,12 @@ def main():
           " ⇒ rc ∪ 落盘产物 ∪ stdout 逐字同值，含 E5；两枚授权字面变更按旗标名归一化）・"
           "**做错态**（同一条断言跑在改前副本上逐格 FAIL；缺陷面 26 枚 = 30 − E2 版本无关 4 枚）"
           " + 改前具体产物・**help 面**（七格硬拒逐枚写明口径；E5 的 --reason ⛔ 出现「即拒」串）", s65)
+    check("S66 ack 动词的排他创建（O_EXCL）：强档在场不覆写（rc ∕ stdout already-acked ∕ 字节 ∕"
+          " mtime 四面）・名字被悬空符号链接占用 ⇒ 按名字占用判「在场」（区分钉：改前 rename 吃掉"
+          " 占位并落弱档）・首写档 = {id, ts} 且无 claimedTs（钉「恒非强档」）・幂等重跑不刷新・"
+          " 源码形态钉（AST：cmd_ack 内存在性判定调用零枚 ∧ proto.* 写点实现含 O_EXCL ∨"
+          " open(...,'x')，写点动态解析）・做错态 = 区分面两枚的同一条断言在改前不可变 sha 副本上"
+          " FAIL（回归面三枚如实报两列同绿 + 判据）", s66)
     stop_runner()
     stop_scheduler()
 

@@ -1004,11 +1004,17 @@ def cmd_ack(a):
     require_pid(a.participant)
     require_not_retired(a.participant)
     p = os.path.join(proto.inbox_path(a.root, a.participant), "ack", a.msgid)
-    if os.path.exists(p):
-        print("already-acked")
+    # 写点 = **排他创建**（§4.6；判据与实现单点 = proto.exclusive_write_json）：目标名已被占用即
+    # 不覆写 ⇒ 与推送确认侧（TS `core.ts` 的 `wx`）同族，竞争同一文件名时先到先得、先到者永久胜出
+    # （对侧已落的强档不被本侧降档）。⛔ 退回 `os.path.exists` 的 check-then-write：那档判「在场」
+    # 跟随符号链接（悬空链接的占位会被 rename 吃掉），且判定与写之间有 TOCTOU 窗。
+    # 落盘字段集恒 `{id, ts}`：`claimedTs` 的机制语义 = 推送注入被会话消费的时刻，只在 receiver 侧
+    # 在飞表里（手写路径没有这个事件可锚）⇒ 本动词落的件**恒非强档**、只构成消费证据（三档判据
+    # 本体 = agent-file-protocol.md「送达真值与档位判据」节）。
+    if proto.exclusive_write_json(p, {"id": a.msgid, "ts": proto.now_ts()}):
+        print("acked")
         return
-    proto.atomic_write_json(p, {"id": a.msgid, "ts": proto.now_ts()})
-    print("acked")
+    print("already-acked")
 
 
 def write_control_req(root, pid_, action, sender, reason=None, inject=None):
