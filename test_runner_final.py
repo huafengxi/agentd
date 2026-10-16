@@ -13,7 +13,7 @@
   F2 该档案被 `notify_tick` 发出终态通知（信封落 reaper 自家信箱 ∧ `notified.json` 落盘 ∧ 幂等）
   F3 其 `provides` 被 scheduler 解析为 `success` ⇒ 依赖它 `needs` 的任务放行（+ 抹掉 final 的对照）
   F4 存量自愈：预造「stale/127 ∧ final=false」档案，一轮 `service()` ⇒ final=true（只收口不换代）
-  F5 常驻体（`AGENTD_RESIDENT=1`）到代终态 ⇒ final 仍为 false（常驻语义不变）
+  F5 常驻体（`resident=true`）到代终态 ⇒ final 仍为 false（常驻语义不变）
   F6 `restartPolicy=auto` 的非常驻体到代终态 ⇒ final 仍为 false **且自愈仍触发**（换代 running）
   F7 回归对照：`one-shot` 非常驻 ⇒ final；`one-shot` 常驻 ⇒ final；`manual` 非常驻 ⇒ final
   F8 两个不得被破坏的既有分支：他机任务只读（零写入）∧ 已 final 的吸收态早退（零写入）
@@ -284,8 +284,8 @@ def f4():
 def f5():
     root = mkroot()
     r = mkrunner(root)
-    cmd = "AGENTD_RESIDENT=1 exec sleep 30"
-    pid_, _adir, spec = mktask(root, "f5", command=cmd, pid=terminal_doc())
+    cmd = "exec sleep 30"
+    pid_, _adir, spec = mktask(root, "f5", command=cmd, extra={"resident": True}, pid=terminal_doc())
     ok("F5 夹具前提：判为常驻（runner 转调的单点与 scheduler 单点同结论）",
        R.spec_is_resident(spec) is True and S.is_resident(spec) is True, spec)
     for _ in range(3):
@@ -341,7 +341,7 @@ def f7():
     ok("F7 one-shot 非常驻到代终态 ⇒ final（既有行为不回归）",
        pdoc(root, a).get("final") is True, pdoc(root, a))
     b, _bd, _bs = mktask(root, "f7-res-oneshot",
-                         command="AGENTD_RESIDENT=1 exec true", policy="one-shot",
+                         command="exec true", policy="one-shot", extra={"resident": True},
                          pid=terminal_doc(status="exited", exitcode=0))
     r.service(b)
     ok("F7 one-shot 的常驻体 ⇒ 仍 final（显式 one-shot = 第一代终止即生命周期终结）",

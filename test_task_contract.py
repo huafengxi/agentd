@@ -60,7 +60,7 @@ class TaskContractTests(unittest.TestCase):
         for key, value in (("command", ""), ("host", None), ("needs", [2]),
                            ("workdir", "relative"), ("restartPolicy", "unknown"),
                            ("reaper", "../bad"), ("extra", "ignored"),
-                           ("profile", "executor")):
+                           ("profile", "executor"), ("resident", "true"), ("resident", 1)):
             req = copy.deepcopy(base)
             req["spec"][key] = value
             invalid.append(req)
@@ -93,6 +93,28 @@ class TaskContractTests(unittest.TestCase):
         home = Path(json.loads(run.stdout)["agentDir"])
         self.assertEqual(json.loads((home / "spec.json").read_text()), declaration)
         self.assertEqual((home / "prompt.md").read_bytes(), body.read_bytes())
+
+    def test_resident_registration_adapters_and_immutable_bot_update(self):
+        cli = Path(__file__).with_name("agentctl.py")
+        for family in ("task", "bot"):
+            args = ["create"] if family == "task" else ["bot", "register"]
+            run = subprocess.run([sys.executable, str(cli), "--root", str(self.root),
+                                  *args, "--name", "resident-" + family, "--resident",
+                                  "--command", "true", "--workdir", "/tmp", "--creator", "tester"],
+                                 text=True, capture_output=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            path = self.root / "agents" / family / ("resident-" + family) / "spec.json"
+            self.assertIs(json.loads(path.read_text())["resident"], True)
+            if family == "bot":
+                before = path.read_bytes()
+                run = subprocess.run([sys.executable, str(cli), "--root", str(self.root),
+                                      "bot", "register", "--name", "resident-bot", "--resident",
+                                      "--subscribes", "topic/sample"], text=True, capture_output=True)
+                self.assertEqual(run.returncode, 2)
+                self.assertEqual(path.read_bytes(), before)
+        declaration = dict(spec(), resident=True)
+        result = registration.register_task(str(self.root), "json-resident", declaration)
+        self.assertIs(json.loads((Path(result["agentDir"]) / "spec.json").read_text())["resident"], True)
 
     def test_concurrent_creation_has_one_winner(self):
         ctx = multiprocessing.get_context("spawn")
@@ -148,7 +170,10 @@ class TaskContractTests(unittest.TestCase):
         proto.atomic_write_json(str(home / "control/stop.req"), {"action": "stop"})
         self.assertTrue(task_state.provider_canceled(doc, str(self.root), "task/sample"))
         self.assertFalse(task_state.provider_idle(doc, str(self.root), "task/sample"))
-        self.assertTrue(task_state.is_resident({"command": "AGENTD_RESIDENT=1 true"}))
+        self.assertTrue(task_state.is_resident({"resident": True, "command": "true"}))
+        for value in (None, False, 1, "true", "1"):
+            self.assertFalse(task_state.is_resident({"resident": value}))
+        self.assertFalse(task_state.is_resident({"command": "echo AGENTD_RESIDENT=1"}))
         self.assertFalse(task_state.is_resident(spec()))
 
 

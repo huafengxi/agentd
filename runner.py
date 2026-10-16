@@ -644,8 +644,10 @@ class Runner:
         # 子任务内禁止再分发（对齐旧系统 spawn 注入子任务身份 + 子任务防递归 guard 语义）。
         # 常驻会话不注入（用户拍板调整）：常驻本质 = 调度员身份，
         # 扩展侧三处 AGENTD_TASK 连锁（工厂惰性化/防递归/时长 guard）天然不触发，
-        # 扩展代码零改动；识别口径 = spec.command 内嵌 `AGENTD_RESIDENT=1` 前缀。
-        if not spec_is_resident(spec):
+        # 扩展代码零改动；识别口径 = spec.resident，env 只向子进程传递声明。
+        if spec_is_resident(spec):
+            env["AGENTD_RESIDENT"] = "1"
+        else:
             env["AGENTD_TASK"] = "1"
             # 子端 ask 写侧收件面（项 1）：复用 resolve_reaper 单点经 env 交子端取值
             # （ask 收件面 = 该与终态通知同源；reaper 不可达 → 回落职位信箱带 note）。

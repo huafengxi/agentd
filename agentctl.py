@@ -302,6 +302,8 @@ def cmd_create(a):
     spec = {"command": command,
             "workdir": portable_path(os.path.abspath(os.path.expanduser(a.workdir))),
             "creator": a.creator}
+    if getattr(a, "resident", False):
+        spec["resident"] = True
     if a.restart_policy:
         if a.restart_policy not in ("manual", "auto", "one-shot"):
             die("restartPolicy 取值须为 manual|auto|one-shot")
@@ -842,6 +844,8 @@ def cmd_bot_register(a):
     # 才收得掉）。既在场分支不受影响（makedirs 时机不动 ⇒ 补齐 inbox/ 的行为零回归）。
     if not os.path.exists(spath):
         require_bot_spec_trio(a)
+    if os.path.exists(spath) and getattr(a, "resident", False):
+        die("spec.json 已在场：--resident 仅用于新建声明（常驻属性不可变）", code=2)
     os.makedirs(os.path.join(bdir, "inbox"), exist_ok=True)
     if os.path.exists(spath):
         if reaper or description:
@@ -869,6 +873,8 @@ def cmd_bot_register(a):
     spec = {"command": a.command,
             "workdir": portable_path(os.path.abspath(os.path.expanduser(a.workdir))),
             "creator": a.creator}
+    if getattr(a, "resident", False):
+        spec["resident"] = True
     if a.restart_policy:
         if a.restart_policy not in ("manual", "auto", "one-shot"):
             die("restartPolicy 取值须为 manual|auto|one-shot")
@@ -1281,6 +1287,8 @@ def main():
                         "值为空/纯空白即拒（rc=2、零落盘）：空值会被并进「没给旗标」那一档 ⇒ "
                         "指定的收尾方被静默丢弃，要缺省回落请**不传**本旗标"
                         % (", ".join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
+    p.add_argument("--resident", action="store_true",
+                   help="声明常驻监督（spec.resident=true；与 profile.form 无关）")
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default=None,
                    help='写入 spec `restartPolicy`（§4.1）；缺省（= **不传**本旗标）= 不写该键 ⇒ '
@@ -1357,6 +1365,8 @@ def main():
     p.add_argument("--creator", help="新建 spec 必备：登记方（路径式 id 或任务名）。值为空/纯空白"
                                      "即拒（rc=2、零落盘）：空白值会写进审计字段 spec.creator ⇒ "
                                      "查不出登记方")
+    p.add_argument("--resident", action="store_true",
+                   help="声明常驻监督（spec.resident=true；与 profile.form 无关）")
     p.add_argument("--restart-policy", choices=["", "manual", "auto", "one-shot"],
                    default=None,
                    help='写入 spec `restartPolicy`（§4.1）；缺省（= **不传**本旗标）= 不写该键 ⇒ '

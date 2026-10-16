@@ -35,7 +35,7 @@
     多机阶段 2；占位/资源/能力表本就是全局语义）∧ 有 spec ∧ 无 enable ∧ 无 pid.json，
     按 (spec mtime, 目录名) 升序
     = 到达序；**允许越位**——等资源/能力的候补不阻塞后面条件满足的候补（旧系统同语义）。
-  - 常驻豁免（设计 §2.5.2）：spec.command 内嵌 `AGENTD_RESIDENT=1`
+  - 常驻豁免（设计 §2.5.2）：spec.resident=true
     的候补（is_resident）——不计入占位数、不检查资源交集、不受占位上限约束，候补判定与
     host 存活检查保留，即时写 enable 放行（运行期同样不入占位面）。
   - 无参数任务 ⇔ resources=["serial"] ∧ needs=[]：彼此严格 FIFO 串行，行为与一期

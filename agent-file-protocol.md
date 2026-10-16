@@ -189,6 +189,7 @@ agents/<participantId>/
 |---|---|---|---|
 | `command` | string | ✅ | 完整启动命令：裸 bash 命令串（写方不加 `bash -c`，运行方显式以 `bash -c` 执行）；可引用自家目录内任何应用层文件。路径可移植：不得内嵌登记机 `$HOME` 绝对前缀——自家目录/工作区根引用 runner 注入的 `$AGENT_HOME`/`$AGENT_ROOT`，执行机运行时展开 |
 | `workdir` | string | ✅ | 外部工作目标目录（agent 的 cwd）：协议不管理其中任何文件。路径可移植：`$HOME` 内路径登记侧归一化为 `~/...` 落盘、非 home 路径保持绝对，运行方以 `expanduser` 展开 |
+| `resident` | boolean | ➖ | `true` 声明常驻监督；缺失或 `false` 为普通任务。不占调度槽位、免互斥资源且豁免 hang 监督（§7.2）；与人格装配的 profile.form 无关。登记入口 `create` / `bot register` 用 `--resident`，JSON 登记只接受布尔值 |
 | `restartPolicy` | string（`manual` \| `auto` \| `one-shot`） | ➖ | `manual` 崩溃后不自动重启、等人工控制；`auto` 崩溃自愈——只对崩溃三态且未 `final` 者自动重拉；`one-shot` 第一代终止即 final（常驻体亦然）。本字段只管自愈、不管收口：非常驻参与方到代终态一律 `final`（判据 = `@agentd#conventions`）。分两档：① 运行时语义 = 字段缺失 ⇒ 不自动重启（行为等同 `manual`；判据逐字 = `runner.py` 的 `spec.get("restartPolicy") == "auto"`），但缺键与 `manual` 仍 `final`、仍发终态通知；② 登记侧 = dispatch 登记路径恒写 `one-shot`（任务形态）、CLI（`agentctl create`/`bot register`）给了才写（不代填缺省值，未给 ⇒ 键不在场 + 登记当场一行 WARN 点名缺省的后果与补法） |
 | `creator` | string | ✅ | 创建者身份 = 回信地址 = 真实登记方（审计用）；终态通知的投递不由它推导（收件面 = `reaper`） |
 | `reaper` | string | ➖ | 通知域扩展字段：终态通知的唯一收尾方（读报告验收、遗留进 todo、销账）。取值 = 两段路径式参与方 id ∨ 无收件方哨兵 `none`（= 到终态不发通知信封，⛔ 不是回落；合法性单点 = `proto.is_reaper_value`，用于无人收尾的一次性会话；其失败信号由登记方自己读退出码处置）。登记侧分两档：dispatch 登记路径恒写（缺省推导 = `creator`）、非法值拒绝登记；CLI（`agentctl create`/`bot register`）给了才写（不代填缺省值，未给时只在登记当场打一行 WARN）⇒ 缺字段在 CLI 路径是正常形态而非异常（note 是信息不是缺陷信号）；两档均非法值拒绝登记。运行侧解析不到目录 ∨ 无消费者 → 回落职位信箱并在信封 `body.note` 点名成因。终态通知与子端 ask 的写侧收件面同源消费本字段（哨兵档下 ask 仍回落职位信箱：ask 必须有收件面；`@dispatch#lifecycle`） |
@@ -197,8 +198,8 @@ agents/<participantId>/
 | `subscribes` | array of string | ➖ | 消息域扩展字段：登记期订阅意图——每项为 `topic/<id>`，该会话的 receiver 把对应 topic 全量日志信箱纳入监视面（共享式多订阅，ack 两态 §4.6）。只承载登记期意图：运行期增删订阅走 topic 的 `watcher/<裸名>` 条目，不改本不可变档。非 `topic/` 族与非法 id 一律忽略并留降级日志（`task/`、`bot/`、`queue/` 信箱不得被第三方会话绑定，防抢收）。写入口与硬校验 = `@agentd#usage`；主持人口径 = `@topics#moderator-carrier` |
 
 - **两个目录模型**：① `workdir` 属外部世界，协议不管理其中任何文件；② 应用层产物没有独立目录概念——agent 自家目录一身二任（协议文件容器 + 报告等产物的默认家园），协议对其中非协议文件一律无视（单写者：报告由 agent 自己写，§10.1）。
-- **协议与启动内容的边界**：提示词、权限、工具清单等启动内容文件（如 `prompt.md`）是应用层普通文件，与报告同等地位；`spec.json` 只保留进程管理必需的结构化字段（`command`/`workdir`/`restartPolicy`/`creator`），启动载荷组装归实现。➖ 的可选扩展字段（`host`/`createdByHost`/`subscribes`/`reaper`）不属这个最小集：它们是叠加层的结构化声明，缺失即零感知。
-- **命令前缀标记惯例**：`command` 可内嵌 `VAR=1` env 前缀声明进程形态标记（经 `bash -c` 天然生效、识别靠命令串匹配，零字段扩展）：`AGENTD_RESIDENT=1` = 常驻会话（不占调度槽位/免互斥资源、豁免 hang 监督，§7.2）。
+- **协议与启动内容的边界**：提示词、权限、工具清单等启动内容文件（如 `prompt.md`）是应用层普通文件，与报告同等地位；`spec.json` 只保留进程管理必需的结构化字段（`command`/`workdir`/`restartPolicy`/`creator`），启动载荷组装归实现。➖ 的可选扩展字段（`resident`/`host`/`createdByHost`/`subscribes`/`reaper`）不属这个最小集：它们是叠加层的结构化声明，缺失即零感知。
+- **常驻声明与执行环境**：监督和调度只读取 `resident`，不解析 `command`。runner 为常驻进程注入 `AGENTD_RESIDENT=1`、不注入 `AGENTD_TASK`；普通任务只注入 `AGENTD_TASK=1`。环境变量是 runner 向子进程传递声明的执行接口，不是声明来源；启动命令不得覆盖这两个身份变量。
 
 ### 4.2 `pid.json`（runner 写，全协议唯一可变档，final 后停写）
 
@@ -470,7 +471,7 @@ runner 作为系统发送方（`from` = 保留裸名 `agentd`，§2.2）写的 i
 
 协议只定义职责，不定义部署：runner 可以是「每 agent 一个 wrapper 进程」、「每机一个中央守护（监督本机全部 agent）」、甚至与 creator 同进程——只要三条职责（写档案、消费控制、生死判罚）被满足。
 
-现行生产形态（每机中央守护 + 任务/常驻两形态的会话封装脚本 + 观测 socket 透传）= `@agentd#deploy` 与 §11.12；封装脚本对 runner 而言只是命令本体，生命周期所有权不旁落。常驻形态由 `AGENTD_RESIDENT=1` 标记（§4.1）：无完成收敛（pi 退出即代终止事实，崩溃自愈归 runner）、初始引导可选、会话名钉死（收件按会话名直落自家信箱），其余逐字复用任务形态。
+现行生产形态（每机中央守护 + 任务/常驻两形态的会话封装脚本 + 观测 socket 透传）= `@agentd#deploy` 与 §11.12；封装脚本对 runner 而言只是命令本体，生命周期所有权不旁落。常驻形态由 `spec.resident=true` 声明（§4.1），runner 经 `AGENTD_RESIDENT=1` 传给封装脚本：无完成收敛（pi 退出即代终止事实，崩溃自愈归 runner）、初始引导可选、会话名钉死（收件按会话名直落自家信箱），其余逐字复用任务形态。
 
 ---
 

@@ -109,7 +109,7 @@ class SchedulingTests(unittest.TestCase):
         a = self.task("a", resources=["repo"])
         b = self.task("b", resources=["repo"])
         c = self.task("c", resources=["other"])
-        resident = self.task("resident", command="AGENTD_RESIDENT=1 true", resources=["repo"])
+        resident = self.task("resident", resident=True, resources=["repo"])
         with patch.object(scheduling, "host_runner_alive", return_value=(True, "fresh", False)):
             scheduler.Scheduler(str(self.root), ["test"], max_concurrent=2, all_hosts=True).tick()
         self.assertTrue((a / "enable.json").exists())
@@ -128,10 +128,18 @@ class SchedulingTests(unittest.TestCase):
                 ({"needs": [], "resources": []}, {}, set(), None, "host")):
             decision = scheduling.evaluate_gate(dict(spec, **extra), [], held, providers, limit, probe)
             self.assertEqual(decision.code, expected)
-        resident = dict(spec, command="AGENTD_RESIDENT=1 true", needs=[])
+        resident = dict(spec, resident=True, needs=[])
         decision = scheduling.evaluate_gate(resident, ["occupied"], {"repo"}, {}, 0,
                                             lambda spec: (True, "fresh", False))
         self.assertTrue(decision.ready)
+
+    def test_command_text_cannot_bypass_resource_or_slot_gate(self):
+        spec = dict(command="echo AGENTD_RESIDENT=1", host="test", resources=["repo"])
+        probe = lambda spec: (True, "fresh", False)
+        for extra, held, limit, expected in (({}, {"repo"}, 1, "resources"),
+                                             ({"resident": False}, set(), 0, "slots")):
+            decision = scheduling.evaluate_gate(dict(spec, **extra), [], held, {}, limit, probe)
+            self.assertEqual(decision.code, expected)
 
     def test_read_only_entry_points_do_not_import_writer_modules(self):
         code = ("import sys;sys.path.insert(0,sys.argv[1]);import report,needscheck;"

@@ -2037,7 +2037,7 @@ def _register_resident_bot(name, command):
     botdir = os.path.join(ROOT, "agents", "bot", name)
     os.makedirs(os.path.join(botdir, "inbox"), exist_ok=True)
     proto.atomic_write_json(os.path.join(botdir, "spec.json"), {
-        "command": command, "workdir": ROOT, "name": "e2e resident " + name,
+        "command": command, "resident": True, "workdir": ROOT, "name": "e2e resident " + name,
         "restartPolicy": "auto", "creator": "tester",
         "host": "e2ehost", "createdByHost": "e2ehost"})
     return "bot/" + name
@@ -2071,7 +2071,7 @@ def s37():
         # ---- a) spawn 环境：无 AGENTD_TASK ----
         a = _register_resident_bot(
             "s37-env",
-            'AGENTD_RESIDENT=1 printenv > "$AGENT_HOME/envprobe" && exec sleep 60')
+            'printenv > "$AGENT_HOME/envprobe" && exec sleep 60')
         ctl("enable", a, "--by", "e2e")
         wait_until(lambda: (pdoc(a) or {}).get("status") == "running", "S37a running")
         probe_f = wait_file(os.path.join(adir_of(a), "envprobe"),
@@ -2085,11 +2085,11 @@ def s37():
         assert envmap.get("AGENT_SELF") == a, envmap.get("AGENT_SELF")
         assert envmap.get("AGENT_HOME") == adir_of(a), envmap.get("AGENT_HOME")
         assert envmap.get("AGENT_ROOT") == ROOT, envmap.get("AGENT_ROOT")
-        assert envmap.get("AGENTD_RESIDENT") == "1", "命令内嵌前缀应在场"
+        assert envmap.get("AGENTD_RESIDENT") == "1", "runner 应按 spec.resident 注入环境"
 
         n1 = create(["--name", "s37-n1"], policy="one-shot", command="sleep 60")
         wait_until(lambda: (pdoc(n1) or {}).get("status") == "running", "S37c n1 running")
-        r = _register_resident_bot("s37-res", "AGENTD_RESIDENT=1 exec sleep 60")
+        r = _register_resident_bot("s37-res", "exec sleep 60")
         tick_scheduler("--max-concurrent", "1")  # n1 已占满 1/1 → 常驻仍即时放行
         wait_until(lambda: os.path.exists(
             os.path.join(ROOT, "agents", "bot", "s37-res", "enable.json")),
@@ -2500,12 +2500,12 @@ def s40():
     assert ddoc2["subscribes"] == ["topic/s40-only2"], ddoc2
 
     # ⑤ 主题节「主持人」列（合成 fixture，临时树内；不读现网真实信箱/topic.md 正文）
-    sess_cmd = ("DISPATCH_PROFILE=moderator AGENTD_RESIDENT=1 exec python3 "
+    sess_cmd = ("DISPATCH_PROFILE=moderator exec python3 "
                 "\"$AGENT_ROOT/agent-platform/pi-wrap/pi-rpc-wrap.py\"")
     ctl("bot", "register", "--name", "s40-host", "--subscribes", "topic/" + tid,
-        "--command", sess_cmd, "--workdir", ROOT, "--creator", "task/s40",
+        "--resident", "--command", sess_cmd, "--workdir", ROOT, "--creator", "task/s40",
         "--host", "mac")          # 通道 B + 他机 host（链接前缀跨机正确性）
-    ctl("bot", "register", "--name", "s40-wonly", "--command", sess_cmd,
+    ctl("bot", "register", "--name", "s40-wonly", "--resident", "--command", sess_cmd,
         "--workdir", ROOT, "--creator", "task/s40", "--host", "nv1")
     ctl("bot", "register", "--name", "s40-script", "--subscribes", "topic/" + tid,
         "--command", "exec bash test-fixture-loop.sh", "--workdir", ROOT,
@@ -2519,7 +2519,7 @@ def s40():
     sysdir = os.path.join(ROOT, "agents", "topic", _proto.POSITION_TOPIC)
     os.makedirs(os.path.join(sysdir, "watcher"), exist_ok=True)
     open(os.path.join(sysdir, "watcher", "dev-dispatcher"), "w").close()
-    ctl("bot", "register", "--name", "dev-dispatcher", "--command", sess_cmd,
+    ctl("bot", "register", "--name", "dev-dispatcher", "--resident", "--command", sess_cmd,
         "--workdir", ROOT, "--creator", "task/s40", "--host", "dev")
 
     rtext, _rtasks = _report.build_report(ROOT, time.time())
@@ -3016,13 +3016,13 @@ def _s44_create(name, policy="one-shot", enable=True, resident=False):
     """隔离树登记夹具：直写 spec.json（本机认领）+ enable.json（放行）。
     runner 对 enable.json 只判存在性（写入口在调度方/agentctl，§14.2），夹具直写等价。
     `policy` 为假值 ⇒ `restartPolicy` 键**整个不写**（CLI 缺省形态）；`resident=True` ⇒
-    命令前缀 `AGENTD_RESIDENT=1`（常驻体：不因代终态被收口，判据单点 = `scheduler.is_resident`）
+    结构化字段 `resident=true`（常驻体：不因代终态被收口，判据单点 = `scheduler.is_resident`）
     ——⑦ 用它构造「代终态 ∧ 生命周期仍开放」的档案（非常驻者会被 runner 每轮幂等收口，
     该形态只余常驻体与 auto 两类载体；auto 会被自愈换代 ⇒ 只有常驻体可用）。"""
     d = _s44_dir(name)
     os.makedirs(os.path.join(d, "inbox"), exist_ok=True)
     cmd = FAKE_CMD % (os.path.join(HERE, "fakeagent.py"), S44ROOT)
-    spec = {"command": ("AGENTD_RESIDENT=1 " + cmd) if resident else cmd,
+    spec = {"command": cmd, "resident": resident,
             "workdir": S44ROOT, "creator": "tester",
             "host": "e2ehost", "createdByHost": "e2ehost"}
     if policy:

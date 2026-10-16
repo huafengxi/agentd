@@ -8,7 +8,7 @@ import proto
 
 SPEC_KEYS = frozenset({"command", "workdir", "creator", "restartPolicy", "name",
                        "reaper", "createdAt", "host", "createdByHost", "resources",
-                       "provides", "needs", "profile"})
+                       "provides", "needs", "profile", "resident"})
 
 
 def register_task(root, name, spec, prompt=None):
@@ -29,6 +29,8 @@ def register_task(root, name, spec, prompt=None):
             raise ValueError("spec.%s 必须为非空字符串" % key)
     if not os.path.isabs(os.path.expanduser(spec["workdir"])):
         raise ValueError("spec.workdir 必须为绝对路径或 ~/ 路径")
+    if "resident" in spec and type(spec["resident"]) is not bool:
+        raise ValueError("spec.resident 必须为布尔值")
     if "name" in spec and not isinstance(spec["name"], str):
         raise ValueError("spec.name 必须为字符串")
     if "restartPolicy" in spec and spec["restartPolicy"] not in ("manual", "auto", "one-shot"):

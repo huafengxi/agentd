@@ -160,7 +160,7 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 ## 约定赋值与实现口径
 
-- **final**：代终态每轮幂等收口；one-shot 收口，非 auto 且非常驻收口。auto 留生命周期开放以自愈；常驻体经 stop/散会收口。常驻判据单点 `task_state.is_resident`。已 final 吸收早退，他机档案只读。
+- **final**：代终态每轮幂等收口；one-shot 收口，非 auto 且非常驻收口。auto 留生命周期开放以自愈；常驻体经 stop/散会收口。常驻声明为 `spec.resident=true`（CLI：`--resident`），判据单点 `task_state.is_resident`；runner 注入 `AGENTD_RESIDENT=1`，不解析启动命令。已 final 吸收早退，他机档案只读。
 - **reaper**：`Runner.resolve_reaper` 是运行侧单点。none 不发终态通知，ask 仍需回落收件面；合法目标必须目录在场且有活 pid、watcher 条目或 subscribes 声明，否则回落职位信箱并附 note。回落面无条件可写。creator 只供审计，登记恒写 reaper。
 - **ask 路由**：runner 经 `AGENTD_ASK_INBOX`/`AGENTD_ASK_NOTE` 注入解析结果；子端仅接受同 root 内路径，身份变量须洗刷，不能传进孙进程。读侧扫职位信箱 ∪ reaper；两侧同源单点为 `proto.ask_scan_inboxes` / `core.askScanInboxes`，调用侧规程 = `@ask-playbook`。
 - **通知幂等**：先写信封后写 notified.json，按 (参与方, 收件方) 判重，complete 短路。两写之间崩溃可能重复一条，接受 at-least-once。冷启抑制本次从未见非终态、且 endedAt 早于启动纪元宽限窗的旧通知；缺/坏 endedAt 也抑制。孤儿接管或本次 stop 收口是新事件，照发。实现单点 `Runner.notify_tick`。
