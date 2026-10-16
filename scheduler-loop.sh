@@ -41,15 +41,15 @@ HOST_ID="$(awk -v h="$(hostname)" '!/^[[:space:]]*#/ && $1==h {print $2; exit}' 
 [ -n "$HOST_ID" ] || HOST_ID="$(hostname)"
 
 # The caller supplies its concurrency policy; otherwise use the CLI default.
-SCHEDULER_ARGS=()
+set --
 if [ -n "${AGENTD_MAX_CONCURRENT:-}" ]; then
-  SCHEDULER_ARGS+=(--max-concurrent "$AGENTD_MAX_CONCURRENT")
+  set -- --max-concurrent "$AGENTD_MAX_CONCURRENT"
 fi
 
 while :; do
   python3 "$SCHEDULER" --root "$WS" --all-hosts \
     --host "$HOST_ID" --aliases "$(hostname)" \
-    "${SCHEDULER_ARGS[@]}" \
+    "$@" \
     --interval 0.5 --log-file "$LOG" --log-level INFO >> "$LOG" 2>&1 &
   CHILD=$!
   wait "$CHILD" 2>/dev/null
