@@ -1,5 +1,12 @@
 # agentd source recovery — task rd6-a-171006
 
+**Historical accepted-baseline record below.** The reviewed task-tab incremental
+projection and its separate standalone adaptation are documented in
+[delta-README.md](delta-README.md), with delta-map/net-paths/test-results JSON.
+verify.py checks both layers without rewriting this historical evidence. The
+original Bash3.2 gap described below was subsequently supplemented by independent
+baseline review; this increment does not change helper/shell code.
+
 Candidate source only. No production references, profiles, service activation,
 installer, or caller preconfiguration are supplied here. Original main remains
 an ancestor; original remote identities remain reachable through preserve refs.

@@ -52,7 +52,12 @@ def verify(source=None, origin=None):
     refs = load('source-refs.json')
     mapping = load('source-map.json')
     adaptation = load('adaptations.json')
-    target = tree(REPO, 'HEAD')
+    # Historical recovery metadata is immutable evidence for the accepted pin.
+    # Later reviewed deltas have a separate full mapping and verifier below.
+    delta_file = DATA / 'delta-map.json'
+    delta = json.loads(delta_file.read_text()) if delta_file.exists() else None
+    historical_revision = delta['accepted_baseline'] if delta else 'HEAD'
+    target = tree(REPO, historical_revision)
     for repo in [REPO] + ([Path(origin)] if origin else []):
         git(repo, 'merge-base', '--is-ancestor', refs['original_main'], 'HEAD')
         for ref, oid in refs['preserved_target_refs'].items():
@@ -125,7 +130,11 @@ def verify(source=None, origin=None):
         assert baseline == tree(REPO, refs['original_main'])
     if origin:
         assert git(origin, 'rev-parse', 'refs/heads/main') == git(REPO, 'rev-parse', 'HEAD')
-    print(json.dumps({'PASS': True, 'source_records': len(mapping['records']),
+    if delta:
+        from delta_verify import verify_delta
+        verify_delta(source)
+    print(json.dumps({'PASS': True, 'historical_revision': historical_revision,
+                      'source_records': len(mapping['records']),
                       'projected_commits': sum(bool(r['Target-Commit']) for r in mapping['records']),
                       'path_checks': len(net), 'adapted_paths': len(adaptation['changes']),
                       'source_verified': bool(source), 'origin_verified': bool(origin)}, indent=2))

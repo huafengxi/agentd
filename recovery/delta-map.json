@@ -1,0 +1,115 @@
+{
+  "taskId": "rd6-a-delta-182939",
+  "accepted_baseline": "9625bdc15f853e49a6312d20dc429e23330e3d89",
+  "previous_source_freeze": "4ac4631fbdbf27f3c400805b233dc1d7a9892d46",
+  "frozen_source": "1f650e88357b29908526245f6b7ccae2d5540464",
+  "source_repo": "agent-platform",
+  "records": [
+    {
+      "Source-Repo": "agent-platform",
+      "Source-Commit": "1f650e88357b29908526245f6b7ccae2d5540464",
+      "Source-Parent": "4ac4631fbdbf27f3c400805b233dc1d7a9892d46",
+      "taskId": "rd6-a-delta-182939",
+      "changes": [
+        {
+          "Source-Path": "agentd/report.py",
+          "Target-Path": "report.py",
+          "source_before": {
+            "mode": "100755",
+            "blob": "9ba8577409e1741ae48492fd3a7cb9a8e9f89fd2"
+          },
+          "source_after": {
+            "mode": "100755",
+            "blob": "beaf583e75463966b50ede2006ddc38edfc14b42"
+          },
+          "target_before": {
+            "mode": "100755",
+            "blob": "049f3c5d3c601be53b547b30fcc6ae22fc1b6895"
+          },
+          "deleted": false,
+          "target_after": {
+            "mode": "100755",
+            "blob": "d2debbfc32679bff097b45e8c0602fd220168489"
+          }
+        },
+        {
+          "Source-Path": "agentd/test_wait_state.py",
+          "Target-Path": "test_wait_state.py",
+          "source_before": null,
+          "source_after": {
+            "mode": "100644",
+            "blob": "1196c8d882081040528b84b2df4f0699afb6fec7"
+          },
+          "target_before": null,
+          "deleted": false,
+          "target_after": {
+            "mode": "100644",
+            "blob": "1196c8d882081040528b84b2df4f0699afb6fec7"
+          }
+        },
+        {
+          "Source-Path": "agentd/wait_state.py",
+          "Target-Path": "wait_state.py",
+          "source_before": null,
+          "source_after": {
+            "mode": "100644",
+            "blob": "3450676ae66e4babfe7a009964277fde1e993e69"
+          },
+          "target_before": null,
+          "deleted": false,
+          "target_after": {
+            "mode": "100644",
+            "blob": "3450676ae66e4babfe7a009964277fde1e993e69"
+          }
+        }
+      ],
+      "unrelated": [
+        {
+          "Source-Path": "pi-wrap/pi-rpc-wrap.py",
+          "old": {
+            "mode": "100644",
+            "blob": "f34a227e1f30d9469cb5b963aa3ac1711bc671ee"
+          },
+          "new": {
+            "mode": "100644",
+            "blob": "3352209d825a61e77abc6bc62412f7eb8f92f4af"
+          },
+          "reason": "pi-wrap owned; existing P task handles separately"
+        }
+      ],
+      "Target-Commit": "78b87f722bb9220dd7297de0268e79063e09b823"
+    }
+  ],
+  "baseline_refs": "9625bdc15f853e49a6312d20dc429e23330e3d89 refs/heads/main\n4d82a802419f4206b90a443e1efd5e95bb3df2db refs/heads/preserve/source-remotes/github/main\n50b8e7fc84c4ea287cdab4206219b337eb3e8fb8 refs/heads/preserve/source-remotes/origin/main\n",
+  "adaptation": {
+    "commit": "f98d917a0ce8c1b8d353da135a1ebaf2d887a547",
+    "parent": "78b87f722bb9220dd7297de0268e79063e09b823",
+    "changes": [
+      {
+        "Target-Path": "report.py",
+        "projected": {
+          "mode": "100755",
+          "blob": "d2debbfc32679bff097b45e8c0602fd220168489"
+        },
+        "adapted": {
+          "mode": "100755",
+          "blob": "32048b18e5c351f5f4e00150ed1d7503e2dc4b17"
+        },
+        "reason": "Reviewed task-tab delta retains accepted realpath import; independent adaptation locates reply CLI beside real source rather than deployment path."
+      },
+      {
+        "Target-Path": "test_wait_state.py",
+        "projected": {
+          "mode": "100644",
+          "blob": "1196c8d882081040528b84b2df4f0699afb6fec7"
+        },
+        "adapted": {
+          "mode": "100644",
+          "blob": "20a416cb276ec2a798582b9742d5e04236f5805c"
+        },
+        "reason": "Reviewed new tests adapted to explicit frozen wrapper input, standalone helper/src widget layout, single candidate protocol identity, and actual displayed reply command."
+      }
+    ]
+  },
+  "coverage": "All first-parent source commits after accepted freeze through frozen_source; pi-wrap-only path explicitly unrelated, handled by existing P task. No working-tree files imported."
+}
