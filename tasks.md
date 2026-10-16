@@ -1,6 +1,6 @@
 <!--
 每报表小节一个 cmd widget：单独 run/refresh 互不牵连（替代原整页 15s 刷新）；
-页面带 `_v=autorun` 打开自动执行。采集与渲染口径 = `agentd/report.py`（一行未改，仅加小节切片后处理）。
+页面带 `_v=autorun` 打开自动执行；命令路径相对调用方工作区根（同本仓 README 的 CLI 调用约定）。采集与渲染口径 = `agentd/report.py`（一行未改，仅加小节切片后处理）。
 末节「旧 task 清理」是本页唯一含**变更**动作的一节（感叹号前缀的手动 widget，autorun/run-all 跳过）：
 候选判据、保留期缺省值与删除动作都住主仓的 `dash/gc-tasks.py`（单文件两子命令：`report` 只读取数 / `run --yes` 变更），
 本页只引用、不写死政策取值（改保留期不产生本仓 diff）。
@@ -8,34 +8,34 @@
 
 ## 异常与阻塞
 
-${python3 "$(dirname "$src")/report.py" -s abnormal}
+${python3 agent-platform/agentd/report.py -s abnormal}
 
 ## 未终态任务
 
-${python3 "$(dirname "$src")/report.py" -s active}
+${python3 agent-platform/agentd/report.py -s active}
 
 ## 最近终态
 
-${python3 "$(dirname "$src")/report.py" -s recent}
+${python3 agent-platform/agentd/report.py -s recent}
 
 <details>
 <summary>基础设施与状态统计</summary>
 
 ## 基础设施健康
 
-${python3 "$(dirname "$src")/report.py" -s system}
+${python3 agent-platform/agentd/report.py -s system}
 
 ## 状态统计
 
-${python3 "$(dirname "$src")/report.py" -s stats}
+${python3 agent-platform/agentd/report.py -s stats}
 
 ## bot 状态
 
-${python3 "$(dirname "$src")/report.py" -s bots}
+${python3 agent-platform/agentd/report.py -s bots}
 
 ## topic
 
-${python3 "$(dirname "$src")/report.py" -s topics}
+${python3 agent-platform/agentd/report.py -s topics}
 
 </details>
 
