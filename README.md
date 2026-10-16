@@ -34,6 +34,8 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 
 共享生命周期与交付判据归 `task_state.py`。`scheduling.py` 提供只读任务快照、调度视图与结构化门禁结果；scheduler、report 与 needscheck 使用同一接口，放行记录只由 scheduler 写入。快照是单轮观察结果，不提供跨文件事务保证。
 
+Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用宿主 Python 解释器；页面命令通过 shell 接口的 `src` 定位报告脚本。两者与工作区目录布局无关。
+
 `task_labels.py` 承载 provider 状态文案；报表与 JSON 检查工具按结构化依赖结果渲染，不从日志文本还原决策。
 
 ## 文件

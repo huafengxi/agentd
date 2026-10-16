@@ -8,34 +8,34 @@
 
 ## 异常与阻塞
 
-${agentd/report.py -s abnormal}
+${python3 "$(dirname "$src")/report.py" -s abnormal}
 
 ## 未终态任务
 
-${agentd/report.py -s active}
+${python3 "$(dirname "$src")/report.py" -s active}
 
 ## 最近终态
 
-${agentd/report.py -s recent}
+${python3 "$(dirname "$src")/report.py" -s recent}
 
 <details>
 <summary>基础设施与状态统计</summary>
 
 ## 基础设施健康
 
-${agentd/report.py -s system}
+${python3 "$(dirname "$src")/report.py" -s system}
 
 ## 状态统计
 
-${agentd/report.py -s stats}
+${python3 "$(dirname "$src")/report.py" -s stats}
 
 ## bot 状态
 
-${agentd/report.py -s bots}
+${python3 "$(dirname "$src")/report.py" -s bots}
 
 ## topic
 
-${agentd/report.py -s topics}
+${python3 "$(dirname "$src")/report.py" -s topics}
 
 </details>
 
