@@ -1,0 +1,41 @@
+{
+  "taskId": "rd6-a-171006",
+  "source_adaptation_commit": "06735ba3abd37f5204bd118fe57dec044cdf46ba",
+  "environment": "Linux; caller-provided conda Python 3.13; isolated HOME/TMPDIR; no models",
+  "command": "python recovery/run-tests.py",
+  "root_scripts": {
+    "test_platform_paths.py": "PASS",
+    "test_report_slots.py": "PASS",
+    "test_runner_final.py": "PASS",
+    "test_runner_lock.py": "PASS",
+    "test_runner_notify.py": "PASS",
+    "test_safe_delete.py": "PASS (only harmless self-created deletion fixtures)",
+    "test_scheduling.py": "PASS",
+    "test_task_contract.py": "PASS",
+    "test_web_report.py": "PASS"
+  },
+  "e2e": {
+    "command": "python -B e2e.py --core",
+    "result": "PASS",
+    "checks": 50,
+    "excluded_cross_repo_scenarios": ["S33", "S34", "S39", "S41", "S49", "S50", "S53"],
+    "explicit_caller_context_subassertion_skips": ["S58 TS constants", "S58 caller default workspace discovery", "S59 caller workspace readonly regression"],
+    "real_models_called": false
+  },
+  "portable": {
+    "command": "python -I -S -B portable/test_portable.py",
+    "result": "PASS",
+    "tests": 10,
+    "coverage": ["POSIX doctor/demo/ctl", "real shell final/exit/report", "build/unpack root-level allowlist", "zero downloader/install executable trap hits", "environment isolation", "no bytecode", "literal ~/$ root", "relative root anchored to package", "real/relative/symlink entries", "readonly doctor and source", "no legacy installer/example"]
+  },
+  "shell": {
+    "local_interpreter": "Bash 4.4.20(1)-release",
+    "local_fixture": "PASS: true/relative/symlink entry, spaces, helper default/override, positional concurrency argv",
+    "actual_bash_3_2": "NOT VERIFIED",
+    "resource": "rsh mac fixture submission exit 125 (worker not registered); subsequent lists omit mac; no claim that physical host is offline",
+    "resolution": "dispatcher resource reply: no verified alternate resource; report actual unmet criterion, no install/download/service/channel repair, no waiting residence",
+    "criterion_waived": false
+  },
+  "scope": "candidate source only; no deployment or caller activation",
+  "full_requested_matrix_pass": false
+}

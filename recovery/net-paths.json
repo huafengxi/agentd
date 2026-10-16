@@ -1,0 +1,808 @@
+[
+  {
+    "Target-Path": ".gitignore",
+    "Source-Path": "agentd/.gitignore",
+    "original": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "README.md",
+    "Source-Path": "agentd/README.md",
+    "original": {
+      "mode": "100644",
+      "blob": "5564920af8a9985c72c7453c15bef3bd2d781519"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "362aeb086f26eaed94371ff5aad91d0dc22c21f3"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "362aeb086f26eaed94371ff5aad91d0dc22c21f3"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "3a9e1b7f464e81b79f549b9aa76e8ebe33792876"
+    },
+    "deleted": false,
+    "adaptation": "Standalone ownership/root/release and offline validation docs; root README boundary and portable sections incorporated, not six-module deployment instructions.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "agent-file-protocol.md",
+    "Source-Path": "agentd/agent-file-protocol.md",
+    "original": {
+      "mode": "100644",
+      "blob": "46f17614384efef8ea2a114fdadb8a6fb883e009"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "26a5db4cd2bf0d650e0035e4a3f9120f0ef931ce"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "26a5db4cd2bf0d650e0035e4a3f9120f0ef931ce"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "26a5db4cd2bf0d650e0035e4a3f9120f0ef931ce"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "agentctl.py",
+    "Source-Path": "agentd/agentctl.py",
+    "original": {
+      "mode": "100644",
+      "blob": "02acbdc25b9eefb648662e0a87e9ed5bae256fae"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "fea66348a1d7cc969398f878cb5c5f1e773b51df"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "fea66348a1d7cc969398f878cb5c5f1e773b51df"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "559d606bb551062cb9a4034563aa8af4d4e64aae"
+    },
+    "deleted": false,
+    "adaptation": "Real source directory imports local proto/registration/helper; no parent or sibling fallback.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "agentd4web.py",
+    "Source-Path": "agentd/agentd4web.py",
+    "original": {
+      "mode": "100644",
+      "blob": "6927ba1abaf88509d91a35ffec98edbe605aabd6"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "eb2a92199d1c73dc82647655cd86bc70f59d3d1e"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "eb2a92199d1c73dc82647655cd86bc70f59d3d1e"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "eb2a92199d1c73dc82647655cd86bc70f59d3d1e"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "e2e.py",
+    "Source-Path": "agentd/e2e.py",
+    "original": {
+      "mode": "100644",
+      "blob": "f6addfd057bc775c02ce74a2deaec316ad407fc6"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "a4ea4f8d583708b71cdcca31a03ea6e0ba531d60"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "a4ea4f8d583708b71cdcca31a03ea6e0ba531d60"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "7158cc618876c06aff1c5ca289c8d557deb03a87"
+    },
+    "deleted": false,
+    "adaptation": "Local imports and fixture helper copies; self-created authorization root and safe cleanup; standalone default with explicit integration/live opt-ins.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "envscrub.py",
+    "Source-Path": "agentd/envscrub.py",
+    "original": {
+      "mode": "100644",
+      "blob": "68d5c402dc98bdeacdcd6dc92b7988ac95636f4b"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "68d5c402dc98bdeacdcd6dc92b7988ac95636f4b"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "68d5c402dc98bdeacdcd6dc92b7988ac95636f4b"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "68d5c402dc98bdeacdcd6dc92b7988ac95636f4b"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "fakeagent.py",
+    "Source-Path": "agentd/fakeagent.py",
+    "original": {
+      "mode": "100644",
+      "blob": "c9001565ce2216c4ced227c1a2d9b0dcbcdbf8f5"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "c9001565ce2216c4ced227c1a2d9b0dcbcdbf8f5"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "c9001565ce2216c4ced227c1a2d9b0dcbcdbf8f5"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "c9001565ce2216c4ced227c1a2d9b0dcbcdbf8f5"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "loop.sh",
+    "Source-Path": "agentd/loop.sh",
+    "original": {
+      "mode": "100755",
+      "blob": "56f1b6e2eb50c1cf2ca385919100211ad67ad2ad"
+    },
+    "source_frozen": {
+      "mode": "100755",
+      "blob": "ec02b8f1338e32aa64e64c6941bffe7a6a1b864b"
+    },
+    "projected": {
+      "mode": "100755",
+      "blob": "ec02b8f1338e32aa64e64c6941bffe7a6a1b864b"
+    },
+    "delivered": {
+      "mode": "100755",
+      "blob": "fd9e32ede09e64a541047ac1e217838dc1535e25"
+    },
+    "deleted": false,
+    "adaptation": "Resolve real/relative/symlink entry in Bash 3.2 syntax and invoke same-repo helper.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "needscheck.py",
+    "Source-Path": "agentd/needscheck.py",
+    "original": {
+      "mode": "100644",
+      "blob": "439fcf95f8cbe0ab9c3334ecd4efeb9069747b31"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "2b2c487c58cd1b959fa1c33a58297b2ae5b4e2cc"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "2b2c487c58cd1b959fa1c33a58297b2ae5b4e2cc"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "3b58d3ce824944f4d465a011e11c9e525e0e70d6"
+    },
+    "deleted": false,
+    "adaptation": "Import helper from real local directory, not parent unified repo.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "platform_paths.py",
+    "Source-Path": "platform_paths.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "fac7d40d7846eaf80865215c413071d3a7627d1a"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "fac7d40d7846eaf80865215c413071d3a7627d1a"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "339caf789b0fab083187a36b8f3a3d1c5898d37a"
+    },
+    "deleted": false,
+    "adaptation": "Local contract v1: nonempty expanded/absolute override first, default real source repository parent; drop marker/MODULES integration assumptions. Portable is independent.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/README.md",
+    "Source-Path": "portable/README.md",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "45d3851cfa5e19c5a38f3244bb46616543ec10a2"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "45d3851cfa5e19c5a38f3244bb46616543ec10a2"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "e0197102d69876de52e873820e5168e541247c78"
+    },
+    "deleted": false,
+    "adaptation": "Standalone layout, package prefix and symlink usage docs, no fixed source deployment URL.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/build.py",
+    "Source-Path": "portable/build.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "5c733527f6b6eefc933b70fc6c3da7bc2742da1a"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "5c733527f6b6eefc933b70fc6c3da7bc2742da1a"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "277002a86c546b062e3e24d66b207e7ee12e8711"
+    },
+    "deleted": false,
+    "adaptation": "Archive prefix agentd-minimal for standalone package.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/cli.py",
+    "Source-Path": "portable/cli.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "a16d9e838cf90a6fb5243a7d1e7f6ff15212b052"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "a16d9e838cf90a6fb5243a7d1e7f6ff15212b052"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "240571bc3e7d53f2eae18aed66ff318ac0b9bdfc"
+    },
+    "deleted": false,
+    "adaptation": "Locate root-level agentctl and runner; configure() narrow root logic untouched.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/files.json",
+    "Source-Path": "portable/files.json",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "ad32168a38b6b62c2cd5cd9d686b7d403c5730ba"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "ad32168a38b6b62c2cd5cd9d686b7d403c5730ba"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "6a8c42373197a865a4473af0b85919ea85e71a58"
+    },
+    "deleted": false,
+    "adaptation": "Allowlist root-level runtime files; no unified repo required.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/run.sh",
+    "Source-Path": "portable/run.sh",
+    "original": null,
+    "source_frozen": {
+      "mode": "100755",
+      "blob": "709747e4b16cab4ec1a80f91bd1b600f826e0479"
+    },
+    "projected": {
+      "mode": "100755",
+      "blob": "709747e4b16cab4ec1a80f91bd1b600f826e0479"
+    },
+    "delivered": {
+      "mode": "100755",
+      "blob": "5ae39ceb6cea4245105c41982aac2951ea24a29e"
+    },
+    "deleted": false,
+    "adaptation": "POSIX real/relative/symlink entry resolution; preserve env -i and -I -S -B.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "portable/test_portable.py",
+    "Source-Path": "portable/test_portable.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "2f10a3afbc768c1216e91aefbda8aca3dc42abb8"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "2f10a3afbc768c1216e91aefbda8aca3dc42abb8"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "a76e3c9bba5c53444830d4bb393a28fa3e836783"
+    },
+    "deleted": false,
+    "adaptation": "Adapt prefix; add literal ~/$ override, symlink launcher, offline executable traps and bytecode absence.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "proto.py",
+    "Source-Path": "agentd/proto.py",
+    "original": {
+      "mode": "100644",
+      "blob": "d30c7b21feedaa1891b3d37bd7eae56c2f617c47"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "d30c7b21feedaa1891b3d37bd7eae56c2f617c47"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "d30c7b21feedaa1891b3d37bd7eae56c2f617c47"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "4d31ef23dfc596ed437242bcb373955d09eb07bf"
+    },
+    "deleted": false,
+    "adaptation": "Doc-only replace absolute example protocol path with local file reference.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "registration.py",
+    "Source-Path": "agentd/registration.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "de16967b655ff76d80c5a463d79c93cffbfe6d35"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "de16967b655ff76d80c5a463d79c93cffbfe6d35"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "de16967b655ff76d80c5a463d79c93cffbfe6d35"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "report.py",
+    "Source-Path": "agentd/report.py",
+    "original": {
+      "mode": "100755",
+      "blob": "20aae89211c002a2abacde039d6db9a57531fbda"
+    },
+    "source_frozen": {
+      "mode": "100755",
+      "blob": "9ba8577409e1741ae48492fd3a7cb9a8e9f89fd2"
+    },
+    "projected": {
+      "mode": "100755",
+      "blob": "9ba8577409e1741ae48492fd3a7cb9a8e9f89fd2"
+    },
+    "delivered": {
+      "mode": "100755",
+      "blob": "049f3c5d3c601be53b547b30fcc6ae22fc1b6895"
+    },
+    "deleted": false,
+    "adaptation": "Import local helper from real directory, leave rendering/scheduling predicates intact.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "runner.py",
+    "Source-Path": "agentd/runner.py",
+    "original": {
+      "mode": "100644",
+      "blob": "f6f41bb17b61f220e1de47f7489cf0642126bbd4"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "8b69801845b29c8609348678ed7ad55a3bfc35f6"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "8b69801845b29c8609348678ed7ad55a3bfc35f6"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "99688554fba4465612eda92b8f90786027750495"
+    },
+    "deleted": false,
+    "adaptation": "Real-directory local imports only, no runner/lifecycle policy changes.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "safe_delete.py",
+    "Source-Path": "agentd/safe_delete.py",
+    "original": {
+      "mode": "100644",
+      "blob": "2e76743307cf6fe3da49e4c124c6e52ebf70d917"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "2e76743307cf6fe3da49e4c124c6e52ebf70d917"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "2e76743307cf6fe3da49e4c124c6e52ebf70d917"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "2e76743307cf6fe3da49e4c124c6e52ebf70d917"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "scheduler-loop.sh",
+    "Source-Path": "agentd/scheduler-loop.sh",
+    "original": {
+      "mode": "100755",
+      "blob": "f0f6651cc925470d168174eb0d88b308572a2917"
+    },
+    "source_frozen": {
+      "mode": "100755",
+      "blob": "04e83cd916da1f1a103fbda72a988e450fe32573"
+    },
+    "projected": {
+      "mode": "100755",
+      "blob": "04e83cd916da1f1a103fbda72a988e450fe32573"
+    },
+    "delivered": {
+      "mode": "100755",
+      "blob": "2b342573fe0011f044ad4dee3cf5d9a0e9ac601c"
+    },
+    "deleted": false,
+    "adaptation": "Resolve real/relative/symlink entry in Bash 3.2 syntax and invoke same-repo helper, unchanged concurrency argv assembly.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "scheduler.py",
+    "Source-Path": "agentd/scheduler.py",
+    "original": {
+      "mode": "100644",
+      "blob": "907eba02f3e8d513dbfbc7b56815660025c3ab35"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "215df103c6b1bda5451fcdc5b32d4c6b79cef349"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "215df103c6b1bda5451fcdc5b32d4c6b79cef349"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "a0ee272ec54149127de92a2d2e4fab00c6ce9986"
+    },
+    "deleted": false,
+    "adaptation": "Real-directory local imports only; no scheduling policy changes.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "scheduling.py",
+    "Source-Path": "agentd/scheduling.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "6f5ef4c9d69aa7f9a363f206b482705e6f4fe9be"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "6f5ef4c9d69aa7f9a363f206b482705e6f4fe9be"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "6f5ef4c9d69aa7f9a363f206b482705e6f4fe9be"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "task_labels.py",
+    "Source-Path": "agentd/task_labels.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "029dcc3ea3b58a99166009fe4931d8963fdba272"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "029dcc3ea3b58a99166009fe4931d8963fdba272"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "029dcc3ea3b58a99166009fe4931d8963fdba272"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "task_state.py",
+    "Source-Path": "agentd/task_state.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "85d9d1ad576776c29a1cce93114873af5288a714"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "85d9d1ad576776c29a1cce93114873af5288a714"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "85d9d1ad576776c29a1cce93114873af5288a714"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "tasks.md",
+    "Source-Path": "agentd/tasks.md",
+    "original": {
+      "mode": "100644",
+      "blob": "5cd6210ab1992d6c10fa3a864f89f3d17cc97ad2"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "ea3ee9f1b39d3770025df2aa76fba3b4680823b9"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "ea3ee9f1b39d3770025df2aa76fba3b4680823b9"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "3305630c71f927521fc452ef507df1e441713dff"
+    },
+    "deleted": false,
+    "adaptation": "Retain seven report section widgets; use source-relative report with src supplied by host. Remove caller-specific GC/deployment/policy prose and executable GC widgets (caller-owned, not agentd behavior).",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_platform_paths.py",
+    "Source-Path": "test_platform_paths.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "42f1e3419ba1007398cd431ecc19d313e2bb53a5"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "42f1e3419ba1007398cd431ecc19d313e2bb53a5"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "caa945091c1e1c9428e100953de0af9c28e2c413"
+    },
+    "deleted": false,
+    "adaptation": "Independent local contract v1 fixtures for override/default/CLI precedence, spaces, cwd and true/symlink entries; no six-module manifest.",
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_report_slots.py",
+    "Source-Path": "agentd/test_report_slots.py",
+    "original": {
+      "mode": "100644",
+      "blob": "2ea4854960566a13ffa15c54d4a0a7e73fe25251"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "bb410287d7b5f21f9a3f80e50e3befaee9065ef8"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "bb410287d7b5f21f9a3f80e50e3befaee9065ef8"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "bb410287d7b5f21f9a3f80e50e3befaee9065ef8"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_runner_final.py",
+    "Source-Path": "agentd/test_runner_final.py",
+    "original": {
+      "mode": "100644",
+      "blob": "c4efed4233cb1bc608dc9a340268861d9d142ab4"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "b4bc9d3be9887062c26ae236a1833474c14d7995"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "b4bc9d3be9887062c26ae236a1833474c14d7995"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "b4bc9d3be9887062c26ae236a1833474c14d7995"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_runner_lock.py",
+    "Source-Path": "agentd/test_runner_lock.py",
+    "original": {
+      "mode": "100644",
+      "blob": "d16730a4507848ae82c43cae8a4c8df273d27106"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "d16730a4507848ae82c43cae8a4c8df273d27106"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "d16730a4507848ae82c43cae8a4c8df273d27106"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "d16730a4507848ae82c43cae8a4c8df273d27106"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "test_runner_notify.py",
+    "Source-Path": "agentd/test_runner_notify.py",
+    "original": {
+      "mode": "100644",
+      "blob": "bf87a8811d9c9d851392b4e2d52351b2eb91022a"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "bf87a8811d9c9d851392b4e2d52351b2eb91022a"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "bf87a8811d9c9d851392b4e2d52351b2eb91022a"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "bf87a8811d9c9d851392b4e2d52351b2eb91022a"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "test_safe_delete.py",
+    "Source-Path": "agentd/test_safe_delete.py",
+    "original": {
+      "mode": "100644",
+      "blob": "dc5b25bafd0183dd293ebf7eafce2a4c1d1412a9"
+    },
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "dc5b25bafd0183dd293ebf7eafce2a4c1d1412a9"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "dc5b25bafd0183dd293ebf7eafce2a4c1d1412a9"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "dc5b25bafd0183dd293ebf7eafce2a4c1d1412a9"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": false
+  },
+  {
+    "Target-Path": "test_scheduling.py",
+    "Source-Path": "agentd/test_scheduling.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "1eb19cbd9124f3da8102d7d7a92f454f55dfb75f"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "1eb19cbd9124f3da8102d7d7a92f454f55dfb75f"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "1eb19cbd9124f3da8102d7d7a92f454f55dfb75f"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_task_contract.py",
+    "Source-Path": "agentd/test_task_contract.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "83a855f5b1aecbd613552718e30e9a9389074f3d"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "83a855f5b1aecbd613552718e30e9a9389074f3d"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "83a855f5b1aecbd613552718e30e9a9389074f3d"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  },
+  {
+    "Target-Path": "test_web_report.py",
+    "Source-Path": "agentd/test_web_report.py",
+    "original": null,
+    "source_frozen": {
+      "mode": "100644",
+      "blob": "94ae0445425391af467f9814fb2703d4171265af"
+    },
+    "projected": {
+      "mode": "100644",
+      "blob": "94ae0445425391af467f9814fb2703d4171265af"
+    },
+    "delivered": {
+      "mode": "100644",
+      "blob": "94ae0445425391af467f9814fb2703d4171265af"
+    },
+    "deleted": false,
+    "adaptation": null,
+    "net_changed": true
+  }
+]
