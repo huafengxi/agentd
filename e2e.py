@@ -207,6 +207,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from platform_paths import workspace_root
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 # pi-rpc-wrap.py（与它的替身 fakepi_rpc.py、验证矩阵 test_wrap.py）住在兄弟仓
 # pi-wrap/；proto.py 反过来是那个仓从本仓 import 的单点。PI_WRAP_DIR 可改指。
@@ -217,7 +220,7 @@ WRAP = os.path.join(PI_WRAP_DIR, "pi-rpc-wrap.py")
 # 路径 ⇒ 单点在此，可由 AGENTD_EXT_REL 注入（与 pi-wrap/pi-rpc-wrap.py 的 EXT_DIR_REL 同名同口径）。
 EXT_REL = os.environ.get("AGENTD_EXT_REL") or "pi-core/agent/extensions/agentd"
 EXT_PARTS = tuple(EXT_REL.split("/"))
-EXT_DIR = os.path.abspath(os.path.join(HERE, "..", *EXT_PARTS))
+EXT_DIR = os.path.abspath(os.path.join(workspace_root(__file__), *EXT_PARTS))
 # 继承面洗刷（t-zqm0）：名单单一事实源 = 同目录 envscrub.py（与 runner.py /
 # serviced/serviced.py / w/ext/sessiond/proc.py 同源），本文件 ⛔ 不复制第二份名单。
 # 入口就地洗 os.environ（_scrub_inherited_env），其后所有子进程 env 一律经 scrub_env()
@@ -4690,7 +4693,7 @@ def s58():
 
         # ---- ⑥ --root 缺省 = 现场发现（不依赖 cwd/env）----
         # 读真工作区树（只读动词 list）：本仓单独 checkout 时无树可读 → 显式 skip。
-        ws = os.path.dirname(HERE)
+        ws = workspace_root(__file__)
         if not os.path.isdir(os.path.join(ws, "agents")):
             platform_skip("S58⑥ --root 缺省现场发现",
                           "本仓不在工作区树内（父目录无 agents/）：%s" % ws)
@@ -4728,7 +4731,7 @@ def _rm_scenario_root(d):
     base = os.path.realpath(TMPBASE)
     assert real != base and real.startswith(base + os.sep), \
         "拒绝清理：场景根不在本套件临时基目录内：%s（base=%s）" % (real, base)
-    for prod in (os.path.dirname(HERE), HERE):
+    for prod in (workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "拒绝清理：场景根等于生产根 %s" % rp
         assert not rp.startswith(real + os.sep), \
@@ -4747,7 +4750,7 @@ def s59():
     ③ `env/host-id` 软前置未被升硬：缺该文件的临时根只 WARN、rc=0，登记回退 hostname 非空
       （既有裁定：映射缺失不阻塞登记；S22④/S27③ 同族）。
     只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
-    prod_ws = os.path.dirname(HERE)                       # 真工作区根（本仓单独 checkout 时不是）
+    prod_ws = workspace_root(__file__)                       # 真工作区根（本仓单独 checkout 时不是）
     ws = os.path.join(S59BASE, "ws")                      # 自建「工作区根 + 残骸在场」
     os.makedirs(os.path.join(ws, "agents", "task", "s59-plain"), exist_ok=True)
     os.makedirs(os.path.join(ws, "agents", "agents", "bot", "s59-victim", "inbox"),
@@ -5148,7 +5151,7 @@ def s62():
     real = os.path.realpath(S62BASE)
     assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
         "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+    for prod in (os.path.expanduser("~"), workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
         assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
@@ -5156,6 +5159,8 @@ def s62():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
+                    os.path.join(newroot, "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5234,7 +5239,7 @@ def s62():
         assert os.path.exists(os.path.join(newroot, "agents", "task", "s62-noflag", "spec.json")), \
             "缺省根 = 副本所在根（%s），与 cwd（%s）无关" % (newroot, cwd)
         import agentctl as _agentctl                # 真文件（只读直调，⛔ 跑它的写侧动词）
-        assert _agentctl.default_root() == os.path.dirname(HERE), \
+        assert _agentctl.default_root() == workspace_root(__file__), \
             "真文件的 default_root() 仍 = 本仓父目录：%s" % _agentctl.default_root()
         # 两档可区分：同一枚命令，传空值 rc=2 / 不传 rc=0
         r_blank = run(NEW, "", ["list"])
@@ -5292,7 +5297,7 @@ def s63():
     real = os.path.realpath(S63BASE)
     assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
         "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+    for prod in (os.path.expanduser("~"), workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
         assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
@@ -5300,6 +5305,8 @@ def s63():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
+                    os.path.join(newroot, "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5523,7 +5530,7 @@ def s64():
     real = os.path.realpath(S64BASE)
     assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
         "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+    for prod in (os.path.expanduser("~"), workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
         assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
@@ -5531,6 +5538,8 @@ def s64():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
+                    os.path.join(newroot, "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5840,7 +5849,7 @@ def s65():
     real = os.path.realpath(S65BASE)
     assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
         "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+    for prod in (os.path.expanduser("~"), workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
         assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
@@ -5848,6 +5857,8 @@ def s65():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
+                    os.path.join(newroot, "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -6282,7 +6293,7 @@ def s66():
     real = os.path.realpath(S66BASE)
     assert real.startswith(os.path.realpath(TMPBASE) + os.sep), \
         "诱饵根必须在本套件临时基目录内：%s" % real
-    for prod in (os.path.expanduser("~"), os.path.dirname(HERE), HERE):
+    for prod in (os.path.expanduser("~"), workspace_root(__file__), HERE):
         rp = os.path.realpath(prod)
         assert real != rp, "诱饵根 ⛔ 等于生产根 %s" % rp
         assert not real.startswith(rp + os.sep), "诱饵根 ⛔ 在生产根 %s 内部" % rp
@@ -6308,6 +6319,8 @@ def s66():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
+                    os.path.join(newroot, "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")

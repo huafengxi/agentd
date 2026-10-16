@@ -14,7 +14,8 @@
 # 日志：runner 自身经 --log-file 写 run/logs/agentd.log；loop 自身的启停记录也写同一文件。
 set -u
 
-WS="$(cd "$(dirname "$0")/.." && pwd)"
+MODULE_DIR="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
+WS="$(python3 "${MODULE_DIR}/../platform_paths.py" "$0")" || exit 1
 RUNNER="$WS/agentd/runner.py"
 LOG="$WS/run/logs/agentd.log"
 mkdir -p "$WS/run/logs"

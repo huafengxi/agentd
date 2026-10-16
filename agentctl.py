@@ -183,13 +183,16 @@ def require_workspace_root(root):
     return r
 
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from platform_paths import workspace_root
+
 def default_root():
-    """缺省工作区根 = 本仓所在根（布局固定为 `<root>/agentd/agentctl.py` ⇒ 上两级）。
+    """缺省工作区根由平台布局或调用方安装入口现场发现。
 
     现场发现、不依赖 cwd 与 env：会话里从任何工作目录调用都解析到同一个根（收录判据 ①
     的「现场发现 ∨ 调用方注入」两档里的前者）。本仓单独 checkout（父目录无 `agents/`）时
     该值过不了 `require_workspace_root` 的硬前置 ⇒ 报「不是工作区根」，此时显式传 `--root`。"""
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return workspace_root(__file__)
 
 
 def portable_path(p):

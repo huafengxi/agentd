@@ -18,15 +18,17 @@ anchors:
 
 # agentd — Agent 文件通信协议生产核心
 
+平台仓入口与统一安装契约见 [agent-platform](../README.md)。
+
 Python 标准库实现。协议字段、寻址、单写者、控制与终态谓词的权威 = [agent-file-protocol.md](agent-file-protocol.md)；本文承载实现入口与运行约定。按名引用 `@名#锚点` 在调用方工作区解析，独立阅读可按对应节名查找。
 
 ## 收录判据
 
-本仓只住协议级机制：文件布局与寻址、信封与 ack、终态谓词、调度、进程监督及 CLI。任务政策正文、人格资产、启动命令与部署值由调用方注入或现场发现；改部署或政策措辞不得产生本仓 diff。
+本模块只住协议级机制：文件布局与寻址、信封与 ack、终态谓词、调度、进程监督及 CLI。任务政策正文、人格资产、启动命令与部署值由调用方注入或现场发现；改部署或政策措辞不得产生本模块 diff。
 
 `agentctl create --prompt-file` 只逐字搬入调用方已渲染的 UTF-8 正文，原子写 prompt 后再写 spec，不渲染模板。`spec.command` 由调用方提供；机器身份从调用方根下 `env/host-id` 查表。
 
-pi extension 只承载事件钩、会话消息注入与会话树读写；纯文件读写与状态查询放 CLI，使门禁对会话、脚本、人一致生效。调用方的政策与人格装配不进入本仓。
+pi extension 只承载事件钩、会话消息注入与会话树读写；纯文件读写与状态查询放 CLI，使门禁对会话、脚本、人一致生效。调用方的政策与人格装配不进入本模块。
 
 ## 文件
 
@@ -42,11 +44,11 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 | `envscrub.py` / `safe_delete.py` | 进程环境身份洗刷 / 临时测试根安全删除，契约见模块头 |
 | `e2e.py` / `test_*.py` / `fakeagent.py` | 回归与测试负载，覆盖面取各文件头 |
 
-会话封装由兄弟 `pi-wrap/` 仓承担；任务树由调用方管理，不入本仓 git。
+会话封装由兄弟 `pi-wrap/` 模块承担；任务树由调用方管理，不入本模块 git。
 
 ## 用法
 
-脚本的 `--root` 是工作区根（其下已有 `agents/`），缺省为本仓父目录，与 cwd/env 无关。以下从工作区根执行；其它 cwd 使用脚本绝对路径。
+脚本的 `--root` 是工作区根（其下已有 `agents/`），缺省为本模块父目录，与 cwd/env 无关。以下从工作区根执行；其它 cwd 使用脚本绝对路径。
 
 ```bash
 python3 agentd/agentctl.py --help
@@ -162,6 +164,6 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 CLI 参数与覆盖场景取 `e2e.py` 文件头；runner 生命周期、通知与报表分别有 `test_runner_final.py`、`test_runner_notify.py`、`test_report_slots.py`；本机互斥回归见 `test_runner_lock.py`。用临时根运行，禁止测试负载落生产树；并发改代码时用完整快照隔离。
 
-外部测试有界运行并保留真实退出码。调用方扩展测试及 opt-in 真 pi 注入探针住扩展 tests/；收件闸门的三态判据与探针入口 = `@notify-and-delivery`。封装与人格装配测试住 pi-wrap，资产与名字引用校验住调用方 bots，不在本仓复制步骤。
+外部测试有界运行并保留真实退出码。调用方扩展测试及 opt-in 真 pi 注入探针住扩展 tests/；收件闸门的三态判据与探针入口 = `@notify-and-delivery`。封装与人格装配测试住 pi-wrap，资产与名字引用校验住调用方 bots，不在本模块复制步骤。
 
 历史测试基线、环境戳与事故来源可按固定版本 `02ed2173:README.md` 取证；当前行为以上述权威与代码为准。
