@@ -106,10 +106,19 @@ def provider_success(doc, root, pid_):
     无状态语义不变：判定只读文件，重启重扫即恢复（§14.5）。"""
     if not proto.life_terminal(doc):
         return False
-    if doc.get("status") == "exited" and doc.get("exitcode") == 0:
-        return _report_present(root, pid_)
-    if doc.get("status") == "stale" and doc.get("exitcode") == 127:
-        return _report_present(root, pid_)
-    return False
+    return classify_provider(doc, _report_present(root, pid_)) == "success"
 
 
+def classify_provider(doc, has_report, stopped=False):
+    """Classify a provider from observed facts; no filesystem access."""
+    if not proto.life_terminal(doc):
+        return "pending"
+    status, code = doc.get("status"), doc.get("exitcode")
+    if has_report and ((status == "exited" and code == 0) or
+                       (status == "stale" and code == proto.EXITCODE_STALE)):
+        return "success"
+    if stopped or provider_canceled(doc):
+        return "canceled"
+    if status == "exited" and code == 0 and not has_report:
+        return "idle"
+    return "failed"

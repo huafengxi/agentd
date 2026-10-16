@@ -69,150 +69,12 @@ from task_state import (is_resident, report_nonempty, stop_requested,
 log = logging.getLogger("agentd.scheduler")
 
 SCHEDULER_ID = "agentd-scheduler"      # enable.json 的 by 字段（调度方标识，§14.2）
-DEFAULT_RESOURCES = ["serial"]         # resources 缺省语义（旧系统缺省，串行手段）
-DEFAULT_MAX_CONCURRENT = 4             # 全局占位上限（缺省，拍板 2026-08-27）
-
-# ---- 放行门禁第四条件：目标主机存活判定 ----
-# 数据源 = 每机探活锁 <root>/agents/run/agentd.<host>.lock（proto.agentd_lock_path 单点，
-# DESIGN-multimachine §4.4：runner 心跳式定期刷新 updatedAt，别机按新鲜度判存活，
-# 停更即自然判死；锁经星型同步汇聚到全局树，允许 ≤1 周期滞后）。
-# 阈值推导（复用现网既有口径，不新造标准）：
-#   心跳周期 = runner.py 的 LOCK_REFRESH_INTERVAL（现值 5s；⛔ 为取该常量 import runner——
-#   模块级 import 会执行它的模块体，把本不相关的运行半边拉成本服务的运行时依赖）；
-#   同步滞后 ≤1 周期 = 轮询兜底 interval 15s（ssh-sync 缺省）+ rsync 耗时（DESIGN §2.3）；
-#   DESIGN §4.4 口径「判活阈值（以分钟计）」；
-#   60s ≥ 数个心跳周期 + 一整同步周期 + rsync 耗时，另吸收中等跨机时钟偏差
-#   （updatedAt 用写方本机时钟写、读方本机时钟比，余量由阈值承担）。
-HOST_ALIVE_THRESHOLD = 60.0  # 秒：updatedAt 陈旧度超过该值 → 判目标机无存活 runner
-
-
-def host_lock_path(root, host):
-    """探活锁路径（单点 = proto.agentd_lock_path，任务）。"""
-    return proto.agentd_lock_path(root, host)
-
-
-def _parse_ts(ts):
-    """解析 proto.now_ts 格式时间戳（%Y-%m-%d-%H-%M-%S[.mmm]，写方本机时钟）→ epoch。
-    与 now_ts 的 strftime localtime 口径对称（mktime 按本机时钟解释）；
-    解析失败/非字符串 → None（按不存活证据处理）。"""
-    if not isinstance(ts, str):
-        return None
-    try:
-        return time.mktime(time.strptime(ts[:19], "%Y-%m-%d-%H-%M-%S"))
-    except ValueError:
-        return None
-
-
-def host_runner_alive(root, host_names, threshold=HOST_ALIVE_THRESHOLD):
-    """目标主机存活判定（放行门禁第四条件）。
-
-    host_names: 候补锁名集合（规范名/别名；任一锁新鲜即存活——覆盖「别名登记、
-                规范名持锁」的错配）。返回 (alive, reason, warn)：
-      alive=True  → reason = 判活依据（日志/审计用）；
-      alive=False → reason ∈ lock stale / lock missing / lock unreadable，
-                    warn=True 当 missing/unreadable（存量异常，需求：保守+WARNING）。
-    证据优先级（多候补锁时）：有可解析者取最新一条（最新仍陈旧 → stale）；
-    无可解析但有文件 → unreadable；全缺 → missing。"""
-    stale_best = None      # (age, host, updatedAt)：可解析但陈旧者中最新的一条
-    saw_file = False
-    for h in host_names:
-        p = host_lock_path(root, h)
-        if not os.path.exists(p):
-            continue
-        saw_file = True
-        doc = proto.read_json(p)
-        epoch = _parse_ts(doc.get("updatedAt")) if isinstance(doc, dict) else None
-        if epoch is None:
-            continue  # 半截/坏 JSON/缺字段：证据不足，继续找其他候补锁
-        age = time.time() - epoch
-        if age <= threshold:
-            return True, "host %s lock fresh (age %.0fs)" % (h, age), False
-        if stale_best is None or age < stale_best[0]:
-            stale_best = (age, h, doc.get("updatedAt"))
-    if stale_best is not None:
-        age, h, upd = stale_best
-        return False, "lock stale: host=%s updatedAt=%s age=%.0fs" % (h, upd, age), False
-    if saw_file:
-        return False, "lock unreadable: %s" % ",".join(
-            host_lock_path(root, h) for h in host_names), True
-    return False, "lock missing: no agentd.<host>.lock for %s" % ",".join(host_names), True
-
-
-# ---------- spec 调度字段规范化 ----------
-
-def _str_list(v):
-    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
-
-
-def normalize_sched_fields(spec):
-    """从 spec 取调度三元组（缺失按缺省语义）。返回 {resources, provides, needs}。"""
-    spec = spec if isinstance(spec, dict) else {}
-    resources = spec.get("resources")
-    return {
-        "resources": _str_list(resources) if resources is not None
-        else list(DEFAULT_RESOURCES),
-        "provides": _str_list(spec.get("provides")),
-        "needs": _str_list(spec.get("needs")),
-    }
-
-
-# eval_needs 的 wait 原因串标记：同能力已有 success 但仍按 pending 等待（日志/审计锚点）
-PENDING_OVER_SUCCESS_MARK = "ignoring older success provider"
-
-
-def caps_pending_over_success(needs, providers_by_cap):
-    """needs 中「同能力既有未终态 provider 又有旧 success」的 cap = eval_needs 判 wait 且
-    PENDING_OVER_SUCCESS_MARK 成立的形态（判据单点：tick 据此升 WARNING、report.py 据此
-    呈现卡点与恢复路径，三处不再靠解析 reason 串对齐）。
-    返回 [(cap, pending_ids, success_ids)]；无命中返回 []。纯函数、只读。"""
-    out = []
-    for cap in needs or []:
-        provs = providers_by_cap.get(cap) or []
-        pending = [t for t, st in provs if st == "pending"]
-        ok = [t for t, st in provs if st == "success"]
-        if pending and ok:
-            out.append((cap, pending, ok))
-    return out
-
-
-def eval_needs(needs, providers_by_cap):
-    """能力依赖判定（三态语义沿用旧系统 evalNeeds；provider 态扩面 + pending 优先 =）。
-
-    providers_by_cap: {cap: [(taskId, state)]}，state ∈
-      {"success","pending","failed","canceled","idle"}（后两态见 _scan：canceled = 调度员
-      主动取消，idle = 空跑 exit0∧无报告；两者都不满足依赖，但都不叫「失败」——
-      日志/报表文案分开呈现，避免把取消与空跑说成实施失败）。
-    返回 ("ok"|"wait"|"unsat", reasons[])：
-      ok    = 每个能力都有成功 provider 且无未终态 provider；
-      wait  = 某能力存在未终态 provider（等待其完成）——**优先于**同能力的旧 success：
-              重发场景下新的真实施覆盖旧的交付，防「旧的假成功」提前放行依赖者
-              （恢复路径：把 pending provider 取消/落地终态，即回到 success 判定）；
-      unsat = 某能力无 provider，或 provider 全部终态且无成功者（failed/canceled/idle 任意组合）
-              （不放行，成功 provider 出现后每轮重评自动解锁）。
-    """
-    reasons = []
-    if not needs:
-        return "ok", reasons
-    waiting = False
-    unsat = False
-    for cap in needs:
-        providers = providers_by_cap.get(cap, [])
-        ok = [t for t, st in providers if st == "success"]
-        pending = ["%s[%s]" % (t, st) for t, st in providers if st == "pending"]
-        if pending:
-            waiting = True
-            reasons.append("cap %s: waiting provider %s%s" % (
-                cap, ",".join(pending),
-                (" (%s %s)" % (PENDING_OVER_SUCCESS_MARK, ",".join(ok))) if ok else ""))
-            continue
-        if ok:
-            reasons.append("cap %s: provided by %s" % (cap, ok[0]))
-            continue
-        unsat = True
-        reasons.append("cap %s: unsatisfiable (%s)" % (
-            cap, "no provider" if not providers else
-            ",".join("%s[%s]" % (t, st) for t, st in providers)))
-    return ("unsat" if unsat else "wait" if waiting else "ok"), reasons
+# Public re-exports keep existing CLI consumers on the shared implementation.
+from scheduling import (DEFAULT_RESOURCES, DEFAULT_MAX_CONCURRENT,
+                        HOST_ALIVE_THRESHOLD, PENDING_OVER_SUCCESS_MARK,
+                        host_lock_path, host_runner_alive, parse_host_ts as _parse_ts,
+                        normalize_sched_fields, eval_needs, caps_pending_over_success,
+                        scheduling_view, evaluate_gate, probe_target_host)
 
 
 class Scheduler:
@@ -233,61 +95,6 @@ class Scheduler:
         self._nohost_warned_at = {}
         # 空跑 provider 告警去重：已 WARNING 过的 provider 集合（非调度状态，重启重打一次无害）
         self._idle_warned = set()
-
-    # ---------- 扫描 ----------
-
-    def _scan(self):
-        """一遍扫描收集调度视图：占位者/能力表/候补队列。
-        返回 (occupants, held_resources, providers_by_cap, queue)。
-          occupants: [participantId]（running 或 已放行未落地，占位数口径）
-          held_resources: 占位者持有的资源集合（含缺省 ["serial"]）
-          providers_by_cap: {cap: [(taskId, "success"|"pending"|"failed"|
-                                           "canceled"|"idle")]}（态语义见 eval_needs）
-          queue: [(spec_mtime, participantId)] 候补（无 enable ∧ 无 pid.json）"""
-        occupants = []
-        held = set()
-        providers_by_cap = {}
-        queue = []
-        for pid_ in proto.list_participants(self.root):
-            spec = proto.read_json(proto.spec_path(self.root, pid_))
-            if spec is None:
-                continue
-            # 缺 host 任务不受本机身份过滤（两种模式下都进队列视图，供告警；
-            # 永不放行由 tick 把关 ）
-            if (not self.all_hosts and not proto.host_missing(spec)
-                    and not proto.host_matches(spec, self.local_ids)):
-                continue
-            fields = normalize_sched_fields(spec)
-            doc = proto.read_json(proto.pid_path(self.root, pid_))
-            enabled = os.path.exists(proto.enable_path(self.root, pid_))
-            running = doc is not None and doc.get("status") == "running"
-            if running or (enabled and doc is None):
-                if not is_resident(spec):
-                    # 常驻豁免（设计 §2.5.2）：常驻者不计入占位数、
-                    # 不持有互斥资源——永久占槽会压死普通任务放行。
-                    occupants.append(pid_)
-                    held.update(fields["resources"])
-            for cap in fields["provides"]:
-                # provider 态判定优先序：success（有报告）> pending（未终态）
-                # > canceled（取消豁免：不算失败也不算空跑）> idle（空跑 exit0∧无报告）> failed
-                if provider_success(doc, self.root, pid_):
-                    state = "success"
-                elif not proto.life_terminal(doc):
-                    state = "pending"  # 未终态（含排队未落地/运行中）
-                elif provider_canceled(doc, self.root, pid_):
-                    state = "canceled"
-                elif provider_idle(doc, self.root, pid_):
-                    state = "idle"   # 空跑：告警在 tick 打（_scan 被 report.py 复用，不喷日志）
-                else:
-                    state = "failed"
-                providers_by_cap.setdefault(cap, []).append((pid_, state))
-            if not enabled and doc is None:
-                try:
-                    mtime = os.path.getmtime(proto.spec_path(self.root, pid_))
-                except OSError:
-                    continue
-                queue.append((mtime, pid_))
-        return occupants, held, providers_by_cap, queue
 
     # ---------- 决策日志（去重） ----------
 
@@ -311,19 +118,15 @@ class Scheduler:
         前提：spec.host 在场（缺 host 已被 tick 前置拦截为永久排队，
         不会到达本门禁）。候补锁名 = [spec.host]；命中本机身份集合时扩展为全集，
         防「别名登记、规范名持锁」错配误杀。同轮相同候补集合缓存结果（每锁每轮只读一次盘）。"""
-        host = spec.get("host")
-        names = sorted(set(self.local_ids)) if host in self.local_ids else [host]
-        key = tuple(names)
-        if key not in alive_cache:
-            alive_cache[key] = host_runner_alive(self.root, names)
-        return alive_cache[key]
+        return probe_target_host(self.root, spec, self.local_ids, alive_cache)
 
     def tick(self):
         """无状态重扫放行：依赖满足 ∧ 资源可占 ∧ 占位 < 上限 ∧ 目标主机存活；
         允许越位。幂等。"""
-        occupants, held, providers_by_cap, queue = self._scan()
-        # 空跑 provider 告警（日志面）：只在 tick 打，_scan 保持无副作用
-        # （report.py 复用 _scan 采集报表，不得因渲染而喷 WARNING）。
+        view = scheduling_view(self.root, self.local_ids, self.all_hosts)
+        occupants, held = view.occupants, view.held_resources
+        providers_by_cap, queue = view.providers_by_cap, view.queue
+        # Idle warnings belong to the writer; the shared observation layer stays read-only.
         for cap, lst in providers_by_cap.items():
             for prov, st in lst:
                 if st == "idle":
@@ -337,42 +140,16 @@ class Scheduler:
             spec = proto.read_json(proto.spec_path(self.root, pid_))
             if spec is None:
                 continue
-            if proto.host_missing(spec):
-                # 缺 host = 无人认领（认领侧同口径）：永久排队，不放行，周期性告警。
-                self._warn_nohost(pid_)
-                continue
             fields = normalize_sched_fields(spec)
             resident = is_resident(spec)
-            verdict, reasons = eval_needs(fields["needs"], providers_by_cap)
-            if verdict == "unsat":
-                self._block(pid_, "needs unsatisfiable: " + "; ".join(
-                    r for r in reasons if "unsatisfiable" in r))
+            decision = evaluate_gate(spec, occupants, held, providers_by_cap,
+                                     self.max_concurrent,
+                                     lambda candidate: self._gate_target_host(candidate, alive_cache))
+            if decision.code == "missing_host":
+                self._warn_nohost(pid_)
                 continue
-            if verdict == "wait":
-                # pending 压住同能力旧 success 时升 WARNING（可观测：旧交付被忽略是异常形态，
-                # 需调度员确认该 pending provider 是否该取消；恢复路径见 eval_needs 注释。
-                # 判据 = caps_pending_over_success 单点，报表异常区同源呈现）
-                self._block(pid_, "needs waiting: " + "; ".join(reasons),
-                            warn=bool(caps_pending_over_success(
-                                fields["needs"], providers_by_cap)))
-                continue
-            clash = sorted(set(fields["resources"]) & held)
-            if clash and not resident:
-                self._block(pid_, "resources held: %s" % ",".join(clash))
-                continue
-            if len(occupants) >= self.max_concurrent and not resident:
-                self._block(pid_, "slots full: %d/%d" % (
-                    len(occupants), self.max_concurrent))
-                continue
-            # resident 豁免（设计 §2.5.2）：常驻候补不检查资源交集、
-            # 不受占位上限约束，候补判定与 host 存活检查保留，即时写 enable 放行。
-            alive, detail, warn = self._gate_target_host(spec, alive_cache)
-            if not alive:
-                # 目标机无存活 runner：不放行、留候补队列（不占槽位/资源，与未放行
-                # 语义一致；排队不是错误 §11.9）。：host=mac 无
-                # runner 被放行占住 serial 槽位，阻塞全队列约 9 小时——门禁根治。
-                self._block(pid_, "host %s runner not alive (%s)" % (
-                    spec.get("host"), detail), warn=warn)
+            if not decision.ready:
+                self._block(pid_, decision.reason, warn=decision.warn)
                 continue
             seen.add(pid_)
             waiting = len(queue) - len(seen)

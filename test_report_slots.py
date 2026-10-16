@@ -40,6 +40,7 @@ sys.path.insert(0, HERE)
 import proto            # noqa: E402
 import report as RP     # noqa: E402
 import scheduler as S   # noqa: E402
+import scheduling
 
 PASS = 0
 FAIL = 0
@@ -102,8 +103,8 @@ def fill_occ(root, n):
     """n 枚占位者（各持独立资源，与候补的资源无交集）。返回 occ 实测值。"""
     for i in range(n):
         mktask(root, "occ%d" % i, HOST_ALIVE, ["repo:repslots-%d" % i], running=True)
-    occ, held, _p, _q = S.Scheduler(root, proto.local_hosts(), all_hosts=True)._scan()
-    return len(occ), sorted(held)
+    view = scheduling.scheduling_view(root)
+    return len(view.occupants), sorted(view.held_resources)
 
 
 def spawn_stub_scheduler(root, max_concurrent=None, script_dir=None):

@@ -34,6 +34,7 @@ sys.path.insert(0, HERE)
 import proto            # noqa: E402
 import runner as R      # noqa: E402
 import scheduler as S   # noqa: E402
+import scheduling
 
 PASS = 0
 FAIL = 0
@@ -219,7 +220,7 @@ def f3():
                             {"host": HOST, "pid": os.getpid(), "procStart": 1,
                              "startedAt": proto.now_ts(), "updatedAt": proto.now_ts()})
     s = S.Scheduler(root, [HOST])
-    _occ, _held, providers, _q = s._scan()
+    providers = scheduling.scheduling_view(s.root, s.local_ids, s.all_hosts).providers_by_cap
     ok("F3 provides 被解析为 success（缺键档案不再恒 pending）",
        providers.get("cap:f3") == [(prov, "success")], providers)
     ok("F3 eval_needs 判 ok（依赖可满足）",
@@ -234,7 +235,7 @@ def f3():
     doc = pdoc(root, prov)
     doc["final"] = False
     proto.atomic_write_json(proto.pid_path(root, prov), doc)
-    _o2, _h2, prov2, _q2 = s._scan()
+    prov2 = scheduling.scheduling_view(s.root, s.local_ids, s.all_hosts).providers_by_cap
     ok("F3 对照：抹掉 final ⇒ 同档案退回 pending（根因 = final 缺位，不是判定面写错）",
        prov2.get("cap:f3") == [(prov, "pending")]
        and S.eval_needs(["cap:f3"], prov2)[0] == "wait", prov2)

@@ -23,16 +23,16 @@ provider ∧ 资源与占位者无交集 ∧ 占位数未饱和 ∧ 目标主机
 🚨 应跑未跑（提示调度器可能卡住）。等待依赖/等待资源/等待槽位/主机不存活均属正常调度状态，
 不报（取代旧「排队超 30 分钟」规则）。
 饱和判据的上限 = **运行态层**（实跑 scheduler 进程 argv 的 `--max-concurrent`，见
-`effective_max_concurrent`），⛔ 本体层缺省 `scheduler.DEFAULT_MAX_CONCURRENT`——现网
+`effective_max_concurrent`），⛔ 本体层缺省 `scheduling.DEFAULT_MAX_CONCURRENT`——现网
 装配声明层（`scheduler-loop.sh` 的 `MAX_CONCURRENT`）覆盖该缺省 ⇒ 用缺省值判会在
 `occ ≥ 缺省` 期间既误标卡点列又短路本规则的采集。上限不可得 ⇒ 不断言「满」（本规则照常跑）。
 ② 「needs 不可满足」（用户第二条排队类规则）——未启动任务直接复用
-scheduler.eval_needs（import 复用，口径零漂移）判三态：unsat（某能力无 provider 或 provider
+scheduling.eval_needs（import 复用，口径零漂移）判三态：unsat（某能力无 provider 或 provider
 全部终态非成功）→ 🚨 needs 不可满足（调度器永不放行，需人工干预）；wait（仍有未终态
 provider）属正常等待，不报。
 ③ 「pending 压住旧 success」（🟡2）——wait 里唯一需人工看一眼的子形态：某能力
 同时有未终态 provider 与旧 success provider → 调度器按 pending 优先判 wait、旧交付被忽略
-（判据单点 = scheduler.caps_pending_over_success，与 tick 升 WARNING 同源）→ ⚠️ 条目点名
+（判据单点 = scheduling.caps_pending_over_success，与 tick 升 WARNING 同源）→ ⚠️ 条目点名
 cap/在途 provider/被忽略的旧交付 + 恢复路径（等其落地终态或取消它，DISPATCH.md §11）。
 严重度低于 ②（不是永不放行）故用 ⚠️ 不用 🚨。provider 五态与 pending 优先的完整口径
 不复述，权威 = agentd/README.md「调度」节。
@@ -49,7 +49,7 @@ dev 的新鲜度 = 远端 runner + 同步链路双活证明；dev 为 hub 无本
 
 活跃任务表「调度依赖」列（用户 2026-08-31 拍板）：needs 反查 provider
 任务名与当前状态（`需:cap←taskId(运行中/排队中/已成功待消费)`，无 provider 标注）、
-provides 原样展示；**展示序 = scheduler.eval_needs 的裁决序**（pending 优先于旧 success🟡2）——同 cap 两者并存时点名在途 provider 并附「忽略旧成功 task/<id>」，
+provides 原样展示；**展示序 = scheduling.eval_needs 的裁决序**（pending 优先于旧 success🟡2）——同 cap 两者并存时点名在途 provider 并附「忽略旧成功 task/<id>」，
 让需:列指出真正压住放行的那一个（否则呈现为「已成功待消费」却不放行 = 像调度器卡死）。
 排队中任务追加 ⛔ 卡点（等资源点名占位者/等槽位/缺 host/等主机，
 门禁顺序与 scheduler.tick 一致，复用 eval_needs 三态与 _scan 反查，一次扫描零重扫）。
@@ -108,9 +108,11 @@ import urllib.parse
 # 复用同目录协议库、调度门禁谓词与 CLI 的缺省根单点（三者均仅标准库），保证「应跑」判定与
 # scheduler.tick 放行条件零漂移、`--root` 缺省与 agentctl 同源（现场发现，⛔ 不写死部署值）。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import agentctl  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from platform_paths import workspace_root
 import proto  # noqa: E402
-import scheduler  # noqa: E402
+import scheduling
+from task_labels import PROVIDER_STATE_ZH, format_providers
 import task_state
 
 HEARTBEAT_STALE_SECS = 5 * 60      # 运行中任务心跳停滞阈值
@@ -124,7 +126,7 @@ SCHEDULER_PROC_PATTERN = "agentd/scheduler.py"
 PROC_PROBE_TIMEOUT = 5.0           # 单次 pgrep/ps 上界（秒）：探针绝不得挂住报表生成
 
 # 「## 系统」小节：runner 判活锁固定舰队。判活口径与阈值完全
-# 复用调度器放行门禁第四条件（scheduler.host_runner_alive / HOST_ALIVE_THRESHOLD），零漂移。
+# 复用调度器放行门禁第四条件（scheduling.host_runner_alive / HOST_ALIVE_THRESHOLD），零漂移。
 SYSTEM_HOSTS = ("nv1", "nv2", "dev", "mac")
 TERMINAL_LIMIT_DEFAULT = 20        # 终态表缺省条数（--finalized）
 RECENT_DONE_LIMIT = 10             # 缺省输出「最近完成」区块条数（用户 2026-09-01）
@@ -266,27 +268,9 @@ def latest_progress_line(path):
     return ""
 
 
-# provider 终态非成功态的呈现文案（态语义单点 = scheduler.eval_needs / _scan）：
+# provider 终态非成功态的呈现文案（态语义单点 = scheduling.eval_needs / _scan）：
 # idle = 空跑（exit0 ∧ 无 report.md ∧ 非取消，不满足依赖）、canceled = 调度员主动取消
 # （不算失败也不算空跑，同样不满足依赖）——两者分开呈现，不把取消/空跑说成实施失败。
-PROVIDER_STATE_ZH = {"idle": "空跑（exit0 无报告）", "canceled": "已取消",
-                     "failed": "已失败"}
-
-
-def _provider_states_zh(detail):
-    """scheduler.eval_needs 的 unsat 明细串 `task/a[idle],task/b[failed]` → 可读文案。
-    未识别态原样保留（保守，不因新态丢信息）。"""
-    out = []
-    for item in detail.split(","):
-        m = re.match(r"^(.*)\[(\w+)\]$", item.strip())
-        if not m:
-            out.append(item.strip())
-            continue
-        pid_, st = m.group(1), m.group(2)
-        out.append("%s（%s）" % (pid_, PROVIDER_STATE_ZH.get(st, st)))
-    return "、".join(x for x in out if x)
-
-
 def has_stop_request(adir):
     """control/ 存在 action=stop 的请求 = 取消链路（协议 §5.2/§5.4）。"""
     cdir = os.path.join(adir, "control")
@@ -305,7 +289,7 @@ def has_stop_request(adir):
 
 # ---- 单任务采集 ---------------------------------------------------------------
 
-def blank_participant(pid_, adir=None):
+def blank_participant(pid_, adir=None, observation=None):
     """参与方展示字段初值全集（**单一事实源**）：collect_task 的采集初值
     与 build_report 的采集异常兜底共用本工厂，避免两处手写字典漂移——兜底缺键会让渲染
     路径 KeyError（bot 表的 restarts/gen），而整份报表是先 build 再按小节切片，一处炸
@@ -313,17 +297,22 @@ def blank_participant(pid_, adir=None):
     adir 给定 → enabled/has_report/has_progress/has_result 就地探测；不给（兜底路径可能
     连目录都解析不出来）→ 一律 False。"""
     def _ex(fn):
+        if observation is not None and fn == "enable.json":
+            return observation.enabled
         return adir is not None and os.path.exists(os.path.join(adir, fn))
 
     def _rep():
         # 完成判定自证件与放行判据同源（task_state.report_nonempty 单点🟡3）：
         # 零字节/纯空白 report.md 不算交付 → verdict 落「无报告」、依赖列显示空跑，
         # 不出现「报表 ✅ 成功、调度器判 idle 不放行」的不可解释形态。
+        if observation is not None:
+            return observation.has_report
         return adir is not None and task_state.report_nonempty(
             os.path.join(adir, "report.md"))
 
     return {"id": pid_, "name": pid_, "workdir": "", "host": "",
             "createdAt": None, "creator": "", "sched": "",
+            "pid_exists": observation.pid_exists if observation is not None else _ex("pid.json"),
             "has_pid": False, "final": False, "status": "", "exitcode": None,
             "startedAt": None, "endedAt": None, "lastAliveAt": None,
             "restarts": None, "gen": None,
@@ -342,18 +331,23 @@ def blank_participant(pid_, adir=None):
             "progress": "", "incomplete": False, "verdict": "?", "verdict_icon": "?",
             "heartbeat_stale": False, "canceled": False, "takeover127": False,
             # 调度三元组（口径与调度器一致；spec 缺失时取调度缺省语义）
-            "needs": [], "resources": list(scheduler.DEFAULT_RESOURCES),
+            "needs": [], "resources": list(scheduling.DEFAULT_RESOURCES),
             "provides": []}
 
 
-def collect_task(root, task_id, now):
+def collect_task(root, task_id, now, observation=None):
     """采集一个任务目录的全部展示字段。任何读取失败只置 incomplete，不抛。
     task_id = 路径式 id（task/<id> 等），寻址经 proto.agent_dir 直落。"""
     adir = proto.agent_dir(root, task_id)
-    t = blank_participant(task_id, adir)
+    if observation is not None and observation.error:
+        raise ValueError(observation.error)
+    t = blank_participant(task_id, adir, observation)
     try:
-        spec, ok = read_json_safe(os.path.join(adir, "spec.json"))
-        if spec is None and not os.path.exists(os.path.join(adir, "spec.json")):
+        spec, ok = ((observation.spec, observation.spec is not None) if observation is not None
+                    else read_json_safe(os.path.join(adir, "spec.json")))
+        spec_exists = (observation.spec_exists if observation is not None
+                       else os.path.exists(os.path.join(adir, "spec.json")))
+        if spec is None and not spec_exists:
             return None  # 无 spec 无 pid 的纯 inbox 目录（如信箱型 bot）不算任务
         if spec is None:
             t["incomplete"] = True
@@ -378,12 +372,13 @@ def collect_task(root, task_id, now):
             if prov:
                 bits.append("provides:" + ",".join(map(str, prov)))
             t["sched"] = " ".join(bits)
-            sf = scheduler.normalize_sched_fields(spec)
+            sf = scheduling.normalize_sched_fields(spec)
             t["needs"], t["resources"], t["provides"] = (
                 sf["needs"], sf["resources"], sf["provides"])
 
-        pid_doc, pid_ok = read_json_safe(os.path.join(adir, "pid.json"))
-        if os.path.exists(os.path.join(adir, "pid.json")):
+        pid_doc, pid_ok = ((observation.pid, observation.pid is not None) if observation is not None
+                          else read_json_safe(os.path.join(adir, "pid.json")))
+        if t["pid_exists"]:
             if pid_doc is None:
                 t["incomplete"] = True  # pid.json 存在但半截/坏：不可判定
             else:
@@ -405,7 +400,7 @@ def collect_task(root, task_id, now):
                 t["gen"] = pid_doc.get("gen")
                 t["has_sock"] = bool(pid_doc.get("sock"))
         t["progress"] = latest_progress_line(os.path.join(adir, "progress.md"))
-        t["stop_request"] = has_stop_request(adir)
+        t["stop_request"] = observation.stopped if observation is not None else has_stop_request(adir)
     except Exception:
         t["incomplete"] = True  # 兜底：采集层任何意外都不炸整体
 
@@ -415,8 +410,7 @@ def collect_task(root, task_id, now):
 
 def judge(t, adir, now):
     """状态判定（口径见文件头注；与 agentctl status 两层判定一致）。"""
-    if t["incomplete"] and not t["has_pid"] and \
-            os.path.exists(os.path.join(adir, "pid.json")):
+    if t["incomplete"] and not t["has_pid"] and t["pid_exists"]:
         t["verdict"], t["verdict_icon"] = "不可判定（pid.json 读取不完整）", "⚠️"
         return
     if not t["has_pid"]:
@@ -429,7 +423,7 @@ def judge(t, adir, now):
         # 取消判据单点（proto.EXITCODE_CANCELED 注释）：exitcode=125 ∨ control/ 有 stop 请求。
         # 三处呈现共用此判据（本函数 verdict、core.ts 列表 [已取消]、runner 终态通知不发
         # warn=no_report）——取消不是失败，也不该被当成「无报告」空跑。
-        canceled = t["exitcode"] == proto.EXITCODE_CANCELED or has_stop_request(adir)
+        canceled = t["exitcode"] == proto.EXITCODE_CANCELED or t["stop_request"]
         if t["exitcode"] == 0:
             if t["has_report"]:
                 t["verdict"], t["verdict_icon"] = "成功", "✅"
@@ -577,7 +571,7 @@ def effective_max_concurrent(root):
 
     三层（用词同 `lore/library/agentfw/facts/task-book-authoring.md`「实际落点层次」条的
     层次候选族）：
-      本体层     = `scheduler.DEFAULT_MAX_CONCURRENT`（代码缺省值）；
+      本体层     = `scheduling.DEFAULT_MAX_CONCURRENT`（代码缺省值）；
       装配声明层 = `scheduler-loop.sh` 的 `MAX_CONCURRENT`（启动时传给 --max-concurrent）；
       运行态层   = 实跑 scheduler 进程 argv 的 `--max-concurrent`。
     只有运行态层是**有效层**：scheduler.tick 的饱和判据逐字 =
@@ -599,7 +593,7 @@ def effective_max_concurrent(root):
     vals = {}
     for pid, argv in hits:
         v = _parse_max_concurrent(argv)
-        vals.setdefault(v if v is not None else scheduler.DEFAULT_MAX_CONCURRENT,
+        vals.setdefault(v if v is not None else scheduling.DEFAULT_MAX_CONCURRENT,
                         []).append((pid, v is None))
     if len(vals) > 1:
         detail = "、".join("pid %s=%d" % (pid, v) for v, ps in sorted(vals.items())
@@ -613,7 +607,7 @@ def effective_max_concurrent(root):
                        "生效 = 本体层缺省 %d" % (pids, limit))
     return limit, ("运行态层：scheduler pid %s 的 argv --max-concurrent=%d"
                    "（本体层缺省 %d 未生效）"
-                   % (pids, limit, scheduler.DEFAULT_MAX_CONCURRENT))
+                   % (pids, limit, scheduling.DEFAULT_MAX_CONCURRENT))
 
 
 def collect_system_health(root, now):
@@ -629,21 +623,21 @@ def collect_system_health(root, now):
     rows = []
     abn = []
     for host in SYSTEM_HOSTS:
-        p = scheduler.host_lock_path(root, host)
+        p = scheduling.host_lock_path(root, host)
         mtime_epoch = None
         try:
             mtime_epoch = os.path.getmtime(p)
         except OSError:
             pass
         doc = proto.read_json(p)
-        upd_epoch = scheduler._parse_ts(doc.get("updatedAt")) \
+        upd_epoch = scheduling.parse_host_ts(doc.get("updatedAt")) \
             if isinstance(doc, dict) else None
         row = {"host": host, "exists": mtime_epoch is not None,
                "upd_age": (now - upd_epoch) if upd_epoch is not None else None,
                "mtime_age": (now - mtime_epoch) if mtime_epoch is not None else None,
                "readable": upd_epoch is not None}
         row["runner_ok"] = row["readable"] and \
-            row["upd_age"] <= scheduler.HOST_ALIVE_THRESHOLD
+            row["upd_age"] <= scheduling.HOST_ALIVE_THRESHOLD
         rows.append(row)
         if not row["exists"]:
             abn.append("- 🚨 **基础设施** `%s` runner 锁缺失（无 %s）"
@@ -652,7 +646,7 @@ def collect_system_health(root, now):
             detail = ("最近心跳 %s 前" % fmt_dur(row["upd_age"])) \
                 if row["readable"] else "锁不可读（半截/坏 JSON）"
             abn.append("- 🚨 **基础设施** `%s` runner stale：%s（阈值 %ds）"
-                       % (host, detail, int(scheduler.HOST_ALIVE_THRESHOLD)))
+                       % (host, detail, int(scheduling.HOST_ALIVE_THRESHOLD)))
     sched_ok = scheduler_process_alive()
     if not sched_ok:
         abn.append("- 🚨 **基础设施** scheduler 不在（pgrep -f 'agentd/scheduler.py' "
@@ -819,13 +813,14 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
         # 扫描面 = task/* ∪ bot/*（路径式 id）；无 spec 的信箱型目录
         # 经 collect_task 返回 None 自然不进报表。
         # 异常时同旧行为返回错误页。
-        names = proto.list_participants(root)
+        observations = scheduling.observe_tasks(root)
+        names = list(observations)
     except OSError as e:
         return "# agents report\n\n❌ 无法读取 %s/agents：%s\n" % (root, e), []
     collected = []
     for name in names:
         try:
-            t = collect_task(root, name, now)
+            t = collect_task(root, name, now, observations[name])
         except Exception:
             # 采集异常兜底：字段全集走 blank_participant（与 collect_task 同源，绝不缺键，
             #）。真实触发面 = 目录名不过 proto 段白名单（list_participants 不校验
@@ -862,70 +857,51 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     # 覆盖该缺省 ⇒ 拿缺省值判会在 occ ≥ 缺省期间① 把真卡点（资源/主机/缺 host）盖成
     # 「等槽位」② 短路下面这段「应跑未跑」采集（用户 2026-08-28 拍板的门禁静默）。
     slot_limit, slot_limit_note = effective_max_concurrent(root)
-    occ, held, providers_by_cap, slots_full = [], set(), None, False
+    occ, held, providers_by_cap = [], set(), None
+    decisions = {}
+    view = None
     try:
-        occ, held, providers_by_cap, _q = scheduler.Scheduler(
-            root, proto.local_hosts(),
-            max_concurrent=(slot_limit if slot_limit is not None
-                            else scheduler.DEFAULT_MAX_CONCURRENT),
-            all_hosts=True)._scan()
-        # 与 scheduler.tick 同式同参：occ = 本轮 _scan 现值、上限 = 运行态生效值 ⇒ 两数同层。
-        # 上限不可得 ⇒ 不断言「满」（降级：槽位层跳过，卡点列继续判主机层）。
-        slots_full = slot_limit is not None and len(occ) >= slot_limit
-        gate_ok = True
-    except Exception:
-        gate_ok = False  # 门禁信息采集失败 → 保守不报两条排队类规则，其余报表照常
-    host_alive_cache = {}
-    if gate_ok and not slots_full:
+        local_ids = proto.local_hosts()
+        view = scheduling.scheduling_view(root, local_ids, all_hosts=True, records=observations)
+        occ, held, providers_by_cap = view.occupants, view.held_resources, view.providers_by_cap
+        alive_cache = {}
         for t in queued:
             if t["verdict"] != "排队中" or t["incomplete"]:
-                continue  # 已放行/不可判定者不在本口径（半截文件保守跳过）
-            if scheduler.eval_needs(t["needs"], providers_by_cap)[0] != "ok":
-                continue  # wait=正常等待不报；unsat 由下方「needs 不可满足」规则单报
-            if set(t["resources"]) & held:
-                continue  # 资源被占位者持有：正常等待，不报
-            if proto.host_missing({"host": t["host"]}):
-                continue  # 缺 host = 无人认领永久排队（调度器既定语义），不报
-            if t["host"] not in host_alive_cache:
-                host_alive_cache[t["host"]] = scheduler.host_runner_alive(
-                    root, [t["host"]])[0]
-            if not host_alive_cache[t["host"]]:
-                continue  # 目标主机不存活：调度门禁不放行，正常等待，不报
-            should_run.append(t)
+                continue
+            decisions[t["id"]] = scheduling.evaluate_gate(
+                observations[t["id"]].spec, occ, held, providers_by_cap, slot_limit,
+                lambda spec: scheduling.probe_target_host(root, spec, local_ids, alive_cache))
+        gate_ok = True
+    except Exception:
+        gate_ok = False
+    if gate_ok:
+        should_run = [t for t in queued if t["id"] in decisions and decisions[t["id"]].ready]
 
-    # 「needs 不可满足」（用户第二条排队类规则，2026-08-28 拍板）：
-    # 未启动任务直接复用 scheduler.eval_needs 三态语义（import 复用，口径零漂移）——
-    # unsat（某能力无 provider 或 provider 全部终态非成功）→ 异常区；
-    # wait（仍有未终态 provider）属正常等待，不报。与槽位是否饱和无关（能力问题）。
     needs_unsat = []
     if gate_ok:
         for t in queued:
-            if t["verdict"] != "排队中" or t["incomplete"]:
-                continue  # 已放行/不可判定者不在本口径（半截文件保守跳过）
-            verdict, reasons = scheduler.eval_needs(t["needs"], providers_by_cap)
-            if verdict != "unsat":
-                continue  # wait=正常等待不报；ok 交「应跑未跑」门禁继续判
-            # reasons 形如 "cap X: unsatisfiable (no provider|task/a[idle],task/b[failed])"
+            if t["id"] not in decisions:
+                continue
             caps = []
-            for r in reasons:
-                m = re.match(r"cap (\S+): unsatisfiable \((.*)\)$", r)
-                if not m:
+            for dependency in scheduling.dependency_details(t["needs"], providers_by_cap):
+                if dependency.state != "unsat":
                     continue
-                why = ("无 provider" if m.group(2) == "no provider"
-                       else "provider 无成功者：" + _provider_states_zh(m.group(2)))
-                caps.append("`%s`（%s）" % (m.group(1), why))
-            needs_unsat.append((t, "、".join(caps) if caps else "（原因见 scheduler 日志）"))
+                why = ("无 provider" if not dependency.providers
+                       else "provider 无成功者：" + format_providers(dependency.providers))
+                caps.append("`%s`（%s）" % (dependency.cap, why))
+            if caps:
+                needs_unsat.append((t, "、".join(caps)))
 
     # 「pending 压住旧 success」（🟡2）：同能力既有在途 provider 又有旧 success
     # → eval_needs 判 wait（pending 优先）、旧交付被忽略，调度器不放行。判据单点 =
-    # scheduler.caps_pending_over_success（tick 升 WARNING 同源）；呈现面补恢复路径，
+    # scheduling.caps_pending_over_success（tick 升 WARNING 同源）；呈现面补恢复路径，
     # 免得调度员为「看起来像卡死」去翻 run/logs/scheduler.log。
     pending_over = []
     if gate_ok:
         for t in queued:
             if t["verdict"] != "排队中" or t["incomplete"]:
                 continue  # 已放行/不可判定者不在本口径（enable 单调不回撤）
-            hits = scheduler.caps_pending_over_success(t["needs"], providers_by_cap)
+            hits = scheduling.caps_pending_over_success(t["needs"], providers_by_cap)
             if not hits:
                 continue
             pending_over.append((t, "、".join(
@@ -933,15 +909,11 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
                 for cap, p, s in hits)))
 
     # ---- 调度依赖展示：活跃任务的 needs/provides 可见 ----
-    # 反查表一次构建：providers_by_cap 来自上方 scheduler._scan（与调度门禁同口径、
+    # 反查表一次构建：providers_by_cap 来自上方 scheduling.scheduling_view（与调度门禁同口径、
     # 零漂移、零重扫）；task_by_id/res_holders 由已采集 tasks 列表就地构建。
     task_by_id = {t["id"]: t for t in tasks}
-    # 资源持有者反查（口径同 scheduler._scan 占位者：运行中或已放行待拉起）
-    res_holders = {}
-    for t in tasks:
-        if (t["has_pid"] and not t["final"]) or (t["enabled"] and not t["has_pid"]):
-            for r in t["resources"]:
-                res_holders.setdefault(r, []).append(t["id"])
+    # 资源持有者反查（口径同 scheduling.scheduling_view 占位者：运行中或已放行待拉起）
+    res_holders = view.resource_holders if view is not None else {}
 
     def provider_disp(cap):
         """能力 → `cap←taskId(状态)`；无 _scan 结果 → 原样显示；无 provider → 标注。"""
@@ -949,7 +921,7 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             return cap
         provs = providers_by_cap.get(cap) or []
         pick = None
-        # 展示序 = scheduler.eval_needs 的裁决序（pending 优先于旧 success🟡2），
+        # 展示序 = scheduling.eval_needs 的裁决序（pending 优先于旧 success🟡2），
         # 再展终态非成功者：需:列点名的必须是真正决定放行/不放行的那个 provider。
         for want in ("pending", "success", "idle", "canceled", "failed"):
             for pid_, st in provs:
@@ -983,29 +955,20 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     def wait_note(t):
         """排队任务卡点（门禁顺序同 scheduler.tick：依赖→资源→槽位→主机）。
         等能力无需追加（需:列已点名 provider 及其状态）；无可指认返回 ''。"""
-        v, _r = scheduler.eval_needs(t["needs"], providers_by_cap)
-        if v != "ok":
-            return ""  # wait/unsat：卡点在能力，需:列可见（unsat 另进异常区）
-        blocked = sorted(set(t["resources"]) & held)
-        if blocked:
+        decision = decisions.get(t["id"])
+        if decision is None:
+            return ""
+        if decision.code == "resources":
             items = []
-            for r in blocked:
-                hs = res_holders.get(r, [])
-                items.append("%s←%s" % (r, ",".join(hs)) if hs else r)
+            for resource in decision.resources:
+                holders = res_holders.get(resource, [])
+                items.append("%s←%s" % (resource, ",".join(holders)) if holders else resource)
             return "等资源:" + "、".join(items)
-        if slots_full:
-            # 两数同层（occ = 本轮 _scan 现值、上限 = 运行态层生效值）；层次标注随格给出
-            # ⇒ `-s active` 单节切片也读得到（取证细节在「## 系统」的「占位上限（有效层）」行）。
+        if decision.code == "slots":
             return "等槽位（%d/%d 满·上限=运行态层）" % (len(occ), slot_limit)
-        if proto.host_missing({"host": t["host"]}):
+        if decision.code == "missing_host":
             return "缺 host 无人认领"
-        if t["host"] not in host_alive_cache:
-            try:
-                host_alive_cache[t["host"]] = scheduler.host_runner_alive(
-                    root, [t["host"]])[0]
-            except Exception:
-                return ""
-        if not host_alive_cache[t["host"]]:
+        if decision.code == "host":
             return "等主机 `%s` runner 存活" % t["host"]
         return ""
 
@@ -1390,7 +1353,7 @@ def main():
                "  python3 agentd/report.py --root <workspace-root>   # 指定工作区根\n"
                "  python3 agentd/report.py -s active         # 只输出单个小节正文（无标题/时间行）",
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default=agentctl.default_root(),
+    ap.add_argument("--root", default=workspace_root(__file__),
                     help="工作区根目录（扫描 <root>/agents/；缺省 = 本脚本所在仓的父目录，"
                          "现场发现，不依赖 cwd/env）")
     ap.add_argument("--out", metavar="PATH",

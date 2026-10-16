@@ -32,7 +32,9 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 
 任务登记的发布点为 `registration.register_task`，CLI `create` 与 `register-json` 共用该实现。`register-json` 从 stdin 接收 `{name, spec, prompt}`，stdout 返回 `{taskId, agentDir}`；调用方负责渲染正文，协议校验与 prompt 先于 spec 的发布顺序由登记层执行。已存在的任务拒绝覆盖。
 
-共享生命周期与交付判据归 `task_state.py`；调度、执行、会话封装与报表直接引用该模块。调度决策仍归 scheduler。
+共享生命周期与交付判据归 `task_state.py`。`scheduling.py` 提供只读任务快照、调度视图与结构化门禁结果；scheduler、report 与 needscheck 使用同一接口，放行记录只由 scheduler 写入。快照是单轮观察结果，不提供跨文件事务保证。
+
+`task_labels.py` 承载 provider 状态文案；报表与 JSON 检查工具按结构化依赖结果渲染，不从日志文本还原决策。
 
 ## 文件
 
@@ -40,6 +42,7 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 |---|---|
 | `agent-file-protocol.md` | 协议契约 |
 | `registration.py` / `task_state.py` | 任务登记发布 / 共享生命周期与交付判据 |
+| `scheduling.py` / `task_labels.py` | 只读任务快照与门禁结果 / 状态文案 |
 | `proto.py` | 原子文件、寻址、信封、ask 与进程身份公共原语 |
 | `agentctl.py` | 登记、消息、答复、控制、调度字段更新；参数取 `--help` |
 | `runner.py` / `loop.sh` | 每机拉起、监督、孤儿接管、终态与通知 |
@@ -129,7 +132,7 @@ python3 agentd/needscheck.py
 3. 占位数未到上限。
 4. 目标机 runner 锁 updatedAt 新鲜；缺锁、坏字段或超阈值保守排队。
 
-running 与已放行未落 pid 均占位；远端终态同步延迟只延后放行。enable 单调不回撤，拦已放行任务用 stop。无参数任务互相 FIFO 串行；能力环不检测，靠日志定位。调度常量与依赖决策归 `scheduler.py`，生命周期与交付判据归 `task_state.py`。
+running 与已放行未落 pid 均占位；远端终态同步延迟只延后放行。enable 单调不回撤，拦已放行任务用 stop。无参数任务互相 FIFO 串行；能力环不检测，靠日志定位。调度常量与依赖决策归 `scheduling.py`，放行动作归 `scheduler.py`，生命周期与交付判据归 `task_state.py`。
 
 ## 路由字段
 
