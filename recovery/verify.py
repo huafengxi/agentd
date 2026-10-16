@@ -133,6 +133,9 @@ def verify(source=None, origin=None):
     if delta:
         from delta_verify import verify_delta
         verify_delta(source)
+    if (DATA / 'rootfix-map.json').exists():
+        from rootfix_verify import verify_rootfix
+        verify_rootfix(source)
     print(json.dumps({'PASS': True, 'historical_revision': historical_revision,
                       'source_records': len(mapping['records']),
                       'projected_commits': sum(bool(r['Target-Commit']) for r in mapping['records']),

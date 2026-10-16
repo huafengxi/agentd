@@ -1,0 +1,51 @@
+{
+  "taskId": "rd6-a-rootfix-185503",
+  "failed_candidate": "cf91bbf164df7dd8424480fff8c1a3520789c44e",
+  "accepted_baseline": "9625bdc15f853e49a6312d20dc429e23330e3d89",
+  "source_repo": "agent-platform",
+  "frozen_source": "1f650e88357b29908526245f6b7ccae2d5540464",
+  "mechanism_commit": "ec653531ab8d2e893fd9a435ea9446be9f5e406a",
+  "source_projection_added": false,
+  "immutable_metadata": [
+    "recovery/README.md",
+    "recovery/source-map.json",
+    "recovery/source-refs.json",
+    "recovery/adaptations.json",
+    "recovery/net-paths.json",
+    "recovery/test-results.json",
+    "recovery/delta-map.json",
+    "recovery/delta-net-paths.json",
+    "recovery/delta-test-results.json",
+    "recovery/delta-README.md"
+  ],
+  "changes": [
+    {
+      "Target-Path": "report.py",
+      "before": {
+        "mode": "100755",
+        "blob": "32048b18e5c351f5f4e00150ed1d7503e2dc4b17"
+      },
+      "after": {
+        "mode": "100755",
+        "blob": "c40e9b30d2eb5b710baadaf2edb678d497daee12"
+      },
+      "deleted": false,
+      "reason": "B1 mechanism fix: propagate effective absolute report root into shell-quoted global agentctl --root before send. Preserve the frozen projection and old standalone path adaptation as historical layers."
+    },
+    {
+      "Target-Path": "test_wait_state.py",
+      "before": {
+        "mode": "100644",
+        "blob": "20a416cb276ec2a798582b9742d5e04236f5805c"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "bd7ababe4d6ceb77c23371581c062ce9ab9e9ce7"
+      },
+      "deleted": false,
+      "reason": "B1 end-to-end report/reply root regression: explicit clean/conflicting environment and default root, unrelated cwd, spaces/apostrophe paths, same-task decoys, exact ref/body only in selected root, wait cleared and next page removed."
+    }
+  ],
+  "mode_note": "Both changed files retain their existing modes (report 100755, test 100644); no runtime path added/deleted and no mode changes.",
+  "authority": "Candidate-only repair of independent review B1; no production activation, original platform edits, new guard or fallback."
+}

@@ -58,7 +58,12 @@ def verify_delta(source=None):
     base = doc['accepted_baseline']
     previous = base
     git(REPO, 'merge-base', '--is-ancestor', base, 'HEAD')
-    baseline, delivered = tree(REPO, base), tree(REPO, 'HEAD')
+    # Preserve this source/adaptation layer at its original delivered revision.
+    # Any later B1 mechanism fix is fully checked by rootfix_verify, not silently
+    # folded into the source projection or its original adaptation records.
+    rootfix_file = DATA / 'rootfix-map.json'
+    revision = json.loads(rootfix_file.read_text())['failed_candidate'] if rootfix_file.exists() else 'HEAD'
+    baseline, delivered = tree(REPO, base), tree(REPO, revision)
     if source:
         sequence = git(source, 'rev-list', '--first-parent', '--reverse',
                        doc['previous_source_freeze'] + '..' + doc['frozen_source']).decode().splitlines()
@@ -133,6 +138,6 @@ def verify_delta(source=None):
             git(REPO, 'merge-base', '--is-ancestor', oid, 'HEAD')
         else:
             assert git(REPO, 'rev-parse', actual_ref).decode().strip() == oid
-    print(json.dumps({'delta_PASS': True, 'source_records': len(doc['records']),
+    print(json.dumps({'delta_PASS': True, 'verified_revision': revision, 'source_records': len(doc['records']),
                       'net_paths': len(net), 'changed_runtime_paths': len(changed(baseline, delivered) & names),
                       'source_verified': bool(source)}, indent=2))
