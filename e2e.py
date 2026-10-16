@@ -5026,9 +5026,9 @@ def s61():
         assert os.path.isdir(os.path.join(adir("s61-a"), "inbox")), "inbox/ 照建（布局不变）"
 
         # ---- ② 写点顺序钉（AST 级，⛔ 文本 grep）----
-        with open(os.path.join(HERE, "agentctl.py"), encoding="utf-8") as f:
+        with open(os.path.join(HERE, "registration.py"), encoding="utf-8") as f:
             tree = ast.parse(f.read())
-        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "cmd_create")
+        fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "register_task")
 
         def _tag(node):
             """写点的目标文件名标签：直提字串常量 ∨ 名字，也钻一层 `os.path.join(adir, X)`
@@ -5050,12 +5050,12 @@ def s61():
             t = _tag(n.args[0])
             if t:
                 lin.setdefault(t, n.lineno)
-        assert "spec.json" in lin and "PROMPT_FILE_NAME" in lin, \
-            "cmd_create 里应同时有 prompt 与 spec 两个原子写点（按实参识别）：%s" % sorted(lin)
-        assert lin["PROMPT_FILE_NAME"] < lin["spec.json"], (
+        assert "spec.json" in lin and "prompt.md" in lin, \
+            "register_task 里应同时有 prompt 与 spec 两个原子写点（按实参识别）：%s" % sorted(lin)
+        assert lin["prompt.md"] < lin["spec.json"], (
             "prompt.md 的写点必须在 spec.json **之前**（调度方的可见性锚是 spec.json；"
             "写在它之后只是把竞态窗变窄、⛔ 变没）：prompt@%d spec@%d"
-            % (lin["PROMPT_FILE_NAME"], lin["spec.json"]))
+            % (lin["prompt.md"], lin["spec.json"]))
 
         # ---- ③ 拒分支 ×5 + 零落盘 ----
         cases = [("不存在", os.path.join(S61BASE, "nosuch.md")), ("是目录", bad_dir),
@@ -5161,7 +5161,7 @@ def s62():
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
                     os.path.join(newroot, "platform_paths.py"))
-    for fn in ("agentctl.py", "proto.py"):
+    for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
 
@@ -5307,7 +5307,7 @@ def s63():
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
                     os.path.join(newroot, "platform_paths.py"))
-    for fn in ("agentctl.py", "proto.py"):
+    for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
 
@@ -5540,7 +5540,7 @@ def s64():
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
                     os.path.join(newroot, "platform_paths.py"))
-    for fn in ("agentctl.py", "proto.py"):
+    for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
 
@@ -5859,7 +5859,7 @@ def s65():
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
                     os.path.join(newroot, "platform_paths.py"))
-    for fn in ("agentctl.py", "proto.py"):
+    for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
 
@@ -6321,7 +6321,7 @@ def s66():
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
                     os.path.join(newroot, "platform_paths.py"))
-    for fn in ("agentctl.py", "proto.py"):
+    for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
 

@@ -10,7 +10,7 @@
     与 core.ts 的 [已取消] 标记、runner 不发 no_report warn 同判据——取消优先于「无报告」：
     stop 请求与子进程自然 exit 0 竞态时缺报告是取消的预期结果，不是空跑）/
     无报告（final、缺**非空** report.md（零字节/纯空白视同缺报告，口径单点 =
-    scheduler.report_nonempty，与调度器放行判据同源）且非取消；
+    task_state.report_nonempty，与调度器放行判据同源）且非取消；
     多为探针/预期无报告任务，中性显示、不进异常区，用户 2026-08-28 拍板）/
     成功（接管丢退出码）：exitcode=127 且有非空 report.md —— 孤儿接管导致退出码丢失的已知机制，
     任务实际成功（与心跳对账口径一致），不算失败、不进异常区
@@ -111,6 +111,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import agentctl  # noqa: E402
 import proto  # noqa: E402
 import scheduler  # noqa: E402
+import task_state
 
 HEARTBEAT_STALE_SECS = 5 * 60      # 运行中任务心跳停滞阈值
 
@@ -315,10 +316,10 @@ def blank_participant(pid_, adir=None):
         return adir is not None and os.path.exists(os.path.join(adir, fn))
 
     def _rep():
-        # 完成判定自证件与放行判据同源（scheduler.report_nonempty 单点🟡3）：
+        # 完成判定自证件与放行判据同源（task_state.report_nonempty 单点🟡3）：
         # 零字节/纯空白 report.md 不算交付 → verdict 落「无报告」、依赖列显示空跑，
         # 不出现「报表 ✅ 成功、调度器判 idle 不放行」的不可解释形态。
-        return adir is not None and scheduler.report_nonempty(
+        return adir is not None and task_state.report_nonempty(
             os.path.join(adir, "report.md"))
 
     return {"id": pid_, "name": pid_, "workdir": "", "host": "",

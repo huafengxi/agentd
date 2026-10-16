@@ -58,6 +58,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proto  # noqa: E402
+from registration import register_task
 
 
 def parse_str_array(v, opt):
@@ -297,8 +298,6 @@ def cmd_create(a):
                  proto.bot_dir(a.root, name)):
         if os.path.exists(cand):
             die("拒绝创建：%s 已存在" % cand, code=2)
-    os.makedirs(adir, exist_ok=True)
-    os.makedirs(os.path.join(adir, "inbox"), exist_ok=True)
     # --workdir：先 expanduser（接受 ~/ 形式）再规范化，落盘时归一化为可移植形式
     spec = {"command": command,
             "workdir": portable_path(os.path.abspath(os.path.expanduser(a.workdir))),
@@ -346,12 +345,25 @@ def cmd_create(a):
     # 值已在本函数开头解析并校验过（拒 ⇒ 零落盘）。
     for key, value in sched:
         spec[key] = value
-    # --prompt-file 的写点**必须在 spec.json 之前**（本节头注：调度方的可见性锚是 spec.json，
-    # 写在它之后只是把竞态窗变窄、⛔ 变没；e2e S61 钉源码顺序）。两次都是 temp+rename 原子写。
-    if prompt_text is not None:
-        proto.atomic_write(os.path.join(adir, PROMPT_FILE_NAME), prompt_text)
-    proto.atomic_write_json(os.path.join(adir, "spec.json"), spec)  # temp+rename（§5.1）
+    try:
+        register_task(a.root, name, spec, prompt_text)
+    except ValueError as error:
+        die(str(error), code=2)
     print(name)
+
+
+def cmd_register_json(a):
+    """Read a rendered declaration from stdin and publish through the CLI writer."""
+    try:
+        request = json.load(sys.stdin)
+        if not isinstance(request, dict) or set(request) != {"name", "spec", "prompt"}:
+            raise ValueError("请求字段须为 name、spec、prompt")
+        if not isinstance(request["prompt"], str) or not request["prompt"].strip():
+            raise ValueError("prompt 必须为非空字符串")
+        result = register_task(a.root, request["name"], request["spec"], request["prompt"])
+    except (ValueError, TypeError, UnicodeError) as error:
+        die(str(error), code=2)
+    print(json.dumps(result, ensure_ascii=False))
 
 
 def cmd_create_bot(a):
@@ -1241,6 +1253,9 @@ def main():
                          "缺省 = 本脚本所在仓的父目录（现场发现，不依赖 cwd/env）；"
                          "要缺省根请**不传**本旗标 —— 传空值 ⛔ 回落缺省根（= 静默写生产树）")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("register-json", help="从 stdin 接收 {name,spec,prompt}，校验并发布任务；stdout 为 JSON")
+    p.set_defaults(fn=cmd_register_json)
 
     p = sub.add_parser("create", help="写 spec.json 创建参与方")
     p.add_argument("--name", help="自定义目录名；缺省自动生成（§2.2）。值为空/纯空白即拒"

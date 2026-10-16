@@ -40,14 +40,16 @@ echo "$(date '+%F %T') [scheduler-loop] 启动 (pid $$)，由 make scheduler.sta
 HOST_ID="$(awk -v h="$(hostname)" '!/^[[:space:]]*#/ && $1==h {print $2; exit}' "$WS/env/host-id" 2>/dev/null || true)"
 [ -n "$HOST_ID" ] || HOST_ID="$(hostname)"
 
-# 占位上限 10（用户 08-28 指令）：参数化覆盖代码缺省 4，
-# 不改 agentd/scheduler.py 的 DEFAULT_MAX_CONCURRENT。
-MAX_CONCURRENT=10
+# The caller supplies its concurrency policy; otherwise use the CLI default.
+SCHEDULER_ARGS=()
+if [ -n "${AGENTD_MAX_CONCURRENT:-}" ]; then
+  SCHEDULER_ARGS+=(--max-concurrent "$AGENTD_MAX_CONCURRENT")
+fi
 
 while :; do
   python3 "$SCHEDULER" --root "$WS" --all-hosts \
     --host "$HOST_ID" --aliases "$(hostname)" \
-    --max-concurrent "$MAX_CONCURRENT" \
+    "${SCHEDULER_ARGS[@]}" \
     --interval 0.5 --log-file "$LOG" --log-level INFO >> "$LOG" 2>&1 &
   CHILD=$!
   wait "$CHILD" 2>/dev/null

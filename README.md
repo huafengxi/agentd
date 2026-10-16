@@ -30,11 +30,16 @@ Python 标准库实现。协议字段、寻址、单写者、控制与终态谓�
 
 pi extension 只承载事件钩、会话消息注入与会话树读写；纯文件读写与状态查询放 CLI，使门禁对会话、脚本、人一致生效。调用方的政策与人格装配不进入本模块。
 
+任务登记的发布点为 `registration.register_task`，CLI `create` 与 `register-json` 共用该实现。`register-json` 从 stdin 接收 `{name, spec, prompt}`，stdout 返回 `{taskId, agentDir}`；调用方负责渲染正文，协议校验与 prompt 先于 spec 的发布顺序由登记层执行。已存在的任务拒绝覆盖。
+
+共享生命周期与交付判据归 `task_state.py`；调度、执行、会话封装与报表直接引用该模块。调度决策仍归 scheduler。
+
 ## 文件
 
 | 入口 | 用途 |
 |---|---|
 | `agent-file-protocol.md` | 协议契约 |
+| `registration.py` / `task_state.py` | 任务登记发布 / 共享生命周期与交付判据 |
 | `proto.py` | 原子文件、寻址、信封、ask 与进程身份公共原语 |
 | `agentctl.py` | 登记、消息、答复、控制、调度字段更新；参数取 `--help` |
 | `runner.py` / `loop.sh` | 每机拉起、监督、孤儿接管、终态与通知 |
@@ -103,7 +108,7 @@ python3 agentd/needscheck.py
 
 ## 调度（独立调度方，scheduler.py）
 
-每轮重扫，放行/阻塞写日志，依据写 enable.note。restart 不需要恢复私有队列；人工兜底也必须遵守全局单实例约束。
+每轮重扫，放行/阻塞写日志，依据写 enable.note。restart 不需要恢复私有队列；人工兜底也必须遵守全局单实例约束。监督壳通过 `AGENTD_MAX_CONCURRENT` 接收调用方并发上限；未设置时使用 CLI 缺省值。
 
 ### 调度参数（spec.json 可选字段，登记时写入）
 
@@ -124,7 +129,7 @@ python3 agentd/needscheck.py
 3. 占位数未到上限。
 4. 目标机 runner 锁 updatedAt 新鲜；缺锁、坏字段或超阈值保守排队。
 
-running 与已放行未落 pid 均占位；远端终态同步延迟只延后放行。enable 单调不回撤，拦已放行任务用 stop。无参数任务互相 FIFO 串行；能力环不检测，靠日志定位。常量与谓词单点 = `scheduler.py`。
+running 与已放行未落 pid 均占位；远端终态同步延迟只延后放行。enable 单调不回撤，拦已放行任务用 stop。无参数任务互相 FIFO 串行；能力环不检测，靠日志定位。调度常量与依赖决策归 `scheduler.py`，生命周期与交付判据归 `task_state.py`。
 
 ## 路由字段
 
@@ -152,7 +157,7 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 ## 约定赋值与实现口径
 
-- **final**：代终态每轮幂等收口；one-shot 收口，非 auto 且非常驻收口。auto 留生命周期开放以自愈；常驻体经 stop/散会收口。常驻判据单点 `scheduler.is_resident`，runner 转调。已 final 吸收早退，他机档案只读。
+- **final**：代终态每轮幂等收口；one-shot 收口，非 auto 且非常驻收口。auto 留生命周期开放以自愈；常驻体经 stop/散会收口。常驻判据单点 `task_state.is_resident`。已 final 吸收早退，他机档案只读。
 - **reaper**：`Runner.resolve_reaper` 是运行侧单点。none 不发终态通知，ask 仍需回落收件面；合法目标必须目录在场且有活 pid、watcher 条目或 subscribes 声明，否则回落职位信箱并附 note。回落面无条件可写。creator 只供审计，登记恒写 reaper。
 - **ask 路由**：runner 经 `AGENTD_ASK_INBOX`/`AGENTD_ASK_NOTE` 注入解析结果；子端仅接受同 root 内路径，身份变量须洗刷，不能传进孙进程。读侧扫职位信箱 ∪ reaper；两侧同源单点为 `proto.ask_scan_inboxes` / `core.askScanInboxes`，调用侧规程 = `@ask-playbook`。
 - **通知幂等**：先写信封后写 notified.json，按 (参与方, 收件方) 判重，complete 短路。两写之间崩溃可能重复一条，接受 at-least-once。冷启抑制本次从未见非终态、且 endedAt 早于启动纪元宽限窗的旧通知；缺/坏 endedAt 也抑制。孤儿接管或本次 stop 收口是新事件，照发。实现单点 `Runner.notify_tick`。

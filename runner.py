@@ -45,6 +45,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import envscrub  # noqa: E402
 import proto  # noqa: E402
+from task_state import is_resident as spec_is_resident
 
 log = logging.getLogger("agentd.runner")
 
@@ -69,12 +70,6 @@ def ts_epoch(ts):
 
 def lock_path(root, host):
     return proto.agentd_lock_path(root, host)
-
-
-def spec_is_resident(spec):
-    """Use the scheduler's resident predicate for spawn and finalization."""
-    import scheduler
-    return scheduler.is_resident(spec)
 
 
 def _lock_doc(host, started_at):
