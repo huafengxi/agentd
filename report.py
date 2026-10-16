@@ -113,6 +113,9 @@ import proto  # noqa: E402
 import scheduling
 from task_labels import PROVIDER_STATE_ZH, format_providers
 import task_state
+import wait_state
+import shlex
+import html
 
 HEARTBEAT_STALE_SECS = 5 * 60      # 运行中任务心跳停滞阈值
 
@@ -327,7 +330,7 @@ def blank_participant(pid_, adir=None, observation=None):
             "has_report": _rep(),
             "has_progress": _ex("progress.md"),
             "has_result": _ex("result.md"),
-            "progress": "", "incomplete": False, "verdict": "?", "verdict_icon": "?",
+            "progress": "", "waits": [], "incomplete": False, "verdict": "?", "verdict_icon": "?",
             "heartbeat_stale": False, "canceled": False, "takeover127": False,
             # 调度三元组（口径与调度器一致；spec 缺失时取调度缺省语义）
             "needs": [], "resources": list(scheduling.DEFAULT_RESOURCES),
@@ -404,7 +407,36 @@ def collect_task(root, task_id, now, observation=None):
         t["incomplete"] = True  # 兜底：采集层任何意外都不炸整体
 
     judge(t, adir, now)
+    if not t["incomplete"] and not t["heartbeat_stale"]:
+        t["waits"] = wait_state.current_waits(root, task_id, pid_doc, now)
     return t
+
+
+def wait_cell(t, now):
+    """Hints are observational, not a new lifecycle/scheduling verdict."""
+    parts = []
+    for w in t["waits"]:
+        is_ask = w["kind"] == "ask"
+        label = "待答复（协调者）" if is_ask else "待用户答复"
+        question = html.escape(truncate(" ".join(str(w.get("question") or "对话框").split()), 120))
+        question = re.sub(r"([\\`*_\[\]])", r"\\\1", question)
+        text = "**❓ %s**：%s" % (label, md_escape(question))
+        since = w.get("since")
+        if wait_state.number(since) and 0 < since <= now:
+            text += "（已等待 %s）" % fmt_dur(now - since)
+        url = chat_url(t["id"], t["host"])
+        text += " · " + md_link("查看任务会话" if is_ask else "打开并答复", url)
+        if is_ask:
+            recipient = str(w.get("recipient") or "收尾方")
+            text += " · 收件方 " + md_escape(recipient)
+            # answer chooses the oldest pending ask, which may be unrelated.
+            # Explicit ref targets exactly the blocking invocation shown here.
+            command = "python3 agent-platform/agentd/agentctl.py send %s --type reply --ref %s --body-file <答复文件>" % (
+                shlex.quote(t["id"]), shlex.quote(str(w["askId"])))
+            text += " · 协调者在 %s 执行：`%s`" % (md_escape(t["host"] or "任务宿主机"),
+                                                        md_escape(command).replace("`", "&#96;"))
+        parts.append(text)
+    return "<br>".join(parts) or "-"
 
 
 def judge(t, adir, now):
@@ -1124,8 +1156,8 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     if active:
         # 无独立「会话」列（删）：taskId 与名称两格本身即 ?v=chat 观测链接，
         # 再加一列 `[观测](同链)` 是三处同链冗余（加列 → 格内给链后失去理由）。
-        L.append("| taskId | 名称 | 状态 | host | workdir | 已运行 | 最近心跳 | 调度依赖 | 最新进展 |")
-        L.append("|---|---|---|---|---|---|---|---|---|")
+        L.append("| taskId | 名称 | 状态 | host | workdir | 已运行 | 最近心跳 | 调度依赖 | 最新进展 | 待答复 |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|")
         for t in active:
             state = t["verdict_icon"] + " " + t["verdict"]
             if t["heartbeat_stale"]:
@@ -1141,12 +1173,12 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             # taskId 与名称单元格同链（：点击任务名即弹出观测窗，md 链接
             # 靠页面 <base target="_blank"> 新标签页打开）；无 host → 纯文本（chat_url 返空）。
             url = chat_url(t["id"], t["host"])
-            L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s |"
+            L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"
                      % (md_link("`%s`" % t["id"], url),
                         md_link(truncate(t["name"], 32), url),
                         md_escape(state), md_escape(t["host"] or "-"),
                         md_escape(truncate(t["workdir"] or "-", 36)),
-                        runfor, hb, md_escape(dep_cell(t)), md_escape(prog)))
+                        runfor, hb, md_escape(dep_cell(t)), md_escape(prog), wait_cell(t, now)))
     else:
         L.append("（无活跃任务）")
     L.append("")
