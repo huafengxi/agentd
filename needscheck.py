@@ -43,8 +43,7 @@ import time
 
 # 复用同目录协议库 / 调度门禁谓词 / 报表文案 / CLI 的缺省根单点（均仅标准库）：判定、文案与
 # `--root` 缺省各自单点，零漂移（缺省根 = workspace_root(__file__)，现场发现，⛔ 不写死部署值）。
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 import proto  # noqa: E402
 import scheduling

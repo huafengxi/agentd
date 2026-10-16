@@ -35,7 +35,7 @@ def main():
         with gzip.GzipFile(filename='', fileobj=raw, mode='wb', mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode='w') as archive:
                 for name in paths:
-                    info = tarfile.TarInfo('agent-platform-minimal/' + name)
+                    info = tarfile.TarInfo('agentd-minimal/' + name)
                     data = (BASE / name).read_bytes()
                     info.size = len(data)
                     info.mode = 0o755 if name == 'portable/run.sh' else 0o644

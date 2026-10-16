@@ -42,7 +42,7 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import envscrub  # noqa: E402
 import proto  # noqa: E402
 from task_state import is_resident as spec_is_resident

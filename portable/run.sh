@@ -1,7 +1,13 @@
 #!/bin/sh
 # Run in place. PATH and the selected interpreter are caller-trusted executables.
 set -eu
-BASE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+ENTRY=$0
+while [ -L "$ENTRY" ]; do
+    ENTRY_DIR=$(CDPATH= cd -- "$(dirname -- "$ENTRY")" && pwd -P)
+    LINK=$(readlink "$ENTRY")
+    case "$LINK" in /*) ENTRY=$LINK ;; *) ENTRY=$ENTRY_DIR/$LINK ;; esac
+done
+BASE=$(CDPATH= cd -- "$(dirname -- "$ENTRY")/.." && pwd -P)
 PYTHON=${PLATFORM_PYTHON:-python3}
 case "$PYTHON" in
     /*) ;;

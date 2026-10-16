@@ -18,7 +18,7 @@ anchors:
 
 # agentd — Agent 文件通信协议生产核心
 
-平台仓入口与统一安装契约见 [agent-platform](../README.md)。
+本仓独立发布文件协议核心；不依赖统一平台仓或 sibling helper。离线零安装入口见 [portable/README.md](portable/README.md)，源码恢复与 provenance 见 [recovery/README.md](recovery/README.md)。
 
 Python 标准库实现。协议字段、寻址、单写者、控制与终态谓词的权威 = [agent-file-protocol.md](agent-file-protocol.md)；本文承载实现入口与运行约定。按名引用 `@名#锚点` 在调用方工作区解析，独立阅读可按对应节名查找。
 
@@ -54,11 +54,11 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `envscrub.py` / `safe_delete.py` | 进程环境身份洗刷 / 临时测试根安全删除，契约见模块头 |
 | `e2e.py` / `test_*.py` / `fakeagent.py` | 回归与测试负载，覆盖面取各文件头 |
 
-会话封装由兄弟 `pi-wrap/` 模块承担；任务树由调用方管理，不入本模块 git。
+会话封装由独立 pi-wrap 仓承担；任务树由调用方管理，不入本仓 git。`proto.py`、`task_state.py`、`envscrub.py` 归本仓同版本发布，跨仓消费者须显式定位并固定本仓完整 revision；本仓不从其它仓回退导入 helper。
 
 ## 用法
 
-脚本的 `--root` 是工作区根（其下已有 `agents/`），缺省为本模块父目录，与 cwd/env 无关。以下从工作区根执行；其它 cwd 使用脚本绝对路径。
+脚本的 `--root` 是工作区根（其下已有 `agents/`）。显式 CLI root 优先，其次非空 `PLATFORM_WORKSPACE`（展开 ~ 并绝对化），缺省为真实源码仓的父目录；软链入口不改变源码身份。固定 release 目录的调用方必须注入状态根，不将源码父目录误当生产 workspace。以下从源码仓所在工作区执行（仓名以 agentd 举例）；其它 cwd 使用脚本绝对路径。portable 默认包内 workspace、相对值以包根解析且不展开 ~/$，是独立窄契约。
 
 ```bash
 python3 agentd/agentctl.py --help
@@ -172,7 +172,7 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 ## 验证
 
-CLI 参数与覆盖场景取 `e2e.py` 文件头；runner 生命周期、通知与报表分别有 `test_runner_final.py`、`test_runner_notify.py`、`test_report_slots.py`；本机互斥回归见 `test_runner_lock.py`。用临时根运行，禁止测试负载落生产树；并发改代码时用完整快照隔离。
+运行 `python3 recovery/run-tests.py` 可在自建临时 HOME/TMPDIR 内执行全部根级单测、`e2e.py --core` 和显式 `python3 -I -S -B portable/test_portable.py`，日志及授权根保留。CLI 参数与覆盖场景取 `e2e.py` 文件头；runner 生命周期、通知与报表分别有 `test_runner_final.py`、`test_runner_notify.py`、`test_report_slots.py`；本机互斥回归见 `test_runner_lock.py`。用临时根运行，禁止测试负载落生产树；并发改代码时用完整快照隔离。e2e 缺省为 standalone core，不发现或调用真实模型；跨仓场景须显式 `--integration` 提供测试依赖，S53 还须 `--live-pi`，不属于离线验收。
 
 外部测试有界运行并保留真实退出码。调用方扩展测试及 opt-in 真 pi 注入探针住扩展 tests/；收件闸门的三态判据与探针入口 = `@notify-and-delivery`。封装与人格装配测试住 pi-wrap，资产与名字引用校验住调用方 bots，不在本模块复制步骤。
 

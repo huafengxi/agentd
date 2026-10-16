@@ -107,8 +107,7 @@ import urllib.parse
 
 # 复用同目录协议库、调度门禁谓词与 CLI 的缺省根单点（三者均仅标准库），保证「应跑」判定与
 # scheduler.tick 放行条件零漂移、`--root` 缺省与 agentctl 同源（现场发现，⛔ 不写死部署值）。
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 import proto  # noqa: E402
 import scheduling

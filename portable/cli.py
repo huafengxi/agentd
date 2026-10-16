@@ -44,7 +44,7 @@ def configure():
 
 def ctl(root, *args):
     return subprocess.run([sys.executable, '-I', '-S', '-B',
-                           str(BASE / 'agentd/agentctl.py'), '--root', str(root), *args],
+                           str(BASE / 'agentctl.py'), '--root', str(root), *args],
                           check=True, text=True, capture_output=True)
 
 
@@ -59,7 +59,7 @@ def demo(root, host):
     participant = 'task/' + name
     ctl(root, 'enable', participant, '--by', 'queue/local')
     # Only service this newly registered task. Do not start a global runner loop.
-    sys.path.insert(0, str(BASE / 'agentd'))
+    sys.path.insert(0, str(BASE))
     from runner import Runner
     runner = Runner(str(root), host, [], 0.05)
     adir = root / 'agents/task' / name

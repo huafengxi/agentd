@@ -15,8 +15,15 @@
 # 日志：scheduler 自身经 --log-file 写 run/logs/scheduler.log；loop 自身的启停记录也写同一文件。
 set -u
 
-MODULE_DIR="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
-WS="$(python3 "${MODULE_DIR}/../platform_paths.py" "$0")" || exit 1
+# Resolve real and symlink entrypoints without GNU readlink -f (Bash 3.2/macOS).
+ENTRY="$0"
+while [ -L "$ENTRY" ]; do
+  ENTRY_DIR="$(cd "$(dirname "$ENTRY")" && pwd -P)" || exit 1
+  LINK="$(readlink "$ENTRY")" || exit 1
+  case "$LINK" in /*) ENTRY="$LINK" ;; *) ENTRY="$ENTRY_DIR/$LINK" ;; esac
+done
+MODULE_DIR="$(cd "$(dirname "$ENTRY")" && pwd -P)" || exit 1
+WS="$(python3 "${MODULE_DIR}/platform_paths.py" "${MODULE_DIR}/$(basename "$ENTRY")")" || exit 1
 SCHEDULER="${MODULE_DIR}/scheduler.py"
 LOG="$WS/run/logs/scheduler.log"
 mkdir -p "$WS/run/logs"

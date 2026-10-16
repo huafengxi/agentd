@@ -1,6 +1,6 @@
 """proto.py — Agent 文件通信协议（草案 v1.0）公共库（生产版，自 run2/agent-proto 生长）。
 
-协议权威文档：/home/alice/m/agentd/agent-file-protocol.md
+协议权威文档：本仓 agent-file-protocol.md
 本文件实现其中的公共机制：
   - 原子落盘（§5.1：本机 temp + rename）
   - 时间戳与自动名（§2.2 / §4：格式实现约定，同一参与方内可比先后）

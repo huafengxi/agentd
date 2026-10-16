@@ -191,6 +191,11 @@ runner 的 enable.json 门禁内置无开关（--scheduled 参数已移除）：
 非调度场景经 create() 内置的手工放行（agentctl enable）拉起；S7 同时证明无调度器时
 runner 不自写 enable。
 
+独立源码缺省/--core 只跑本仓无模型场景；S33/S34/S39/S41/S49/S50 需要
+显式 --integration 及调用方测试依赖，S53 还需要 --live-pi。不隐式调用真模型。
+`recovery/run-tests.py` 创建隔离 HOME/TMPDIR；本文件另建临时授权根并通过
+本仓 safe_delete 清理，仅保留授权基目录。fixture 的 helper 随 agentctl 同目录复制。
+
 仅使用 python3 标准库（例外：S49 以子进程调 `node` 驱动真 TS 扩展——node 是 pi 本体的
 运行时，四机必然在场；缺失则断言失败并点名原因，不静默跳过）。
 """
@@ -207,10 +212,10 @@ import sys
 import tempfile
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.realpath(__file__))
 # pi-rpc-wrap.py（与它的替身 fakepi_rpc.py、验证矩阵 test_wrap.py）住在兄弟仓
 # pi-wrap/；proto.py 反过来是那个仓从本仓 import 的单点。PI_WRAP_DIR 可改指。
 PI_WRAP_DIR = os.environ.get("PI_WRAP_DIR") or os.path.join(
@@ -230,6 +235,25 @@ sys.path.insert(0, HERE)
 import proto  # noqa: E402  地址单点（职位信箱等）在夹具里按常量派生，⛔ 硬编码族/名字
 from envscrub import scrub_env  # noqa: E402
 
+# All fixtures (including nested mkdtemp callers) stay under this self-created
+# base, never under a caller/production workspace. Retain the authorization root.
+from safe_delete import safe_rmtree
+HARNESS_BASE = tempfile.mkdtemp(prefix="agentd-harness.", dir="/tmp")
+tempfile.tempdir = HARNESS_BASE
+
+def _remove_fixture(path, ignore_errors=False):
+    # Legacy callers passed ignore_errors; missing fixtures are harmless, but
+    # authorization failures and actual I/O errors must never be swallowed.
+    if not os.path.exists(path):
+        return
+    deleted, reason = safe_rmtree(path, authorized_root=HARNESS_BASE)
+    if not deleted:
+        raise RuntimeError(reason)
+
+# Route existing fixture cleanup sites through the single safe-delete contract.
+from types import SimpleNamespace
+shutil = SimpleNamespace(**vars(shutil))
+shutil.rmtree = _remove_fixture
 TMPBASE = tempfile.mkdtemp(prefix="agentd-e2e.%d." % os.getpid())
 
 
@@ -248,7 +272,7 @@ if not _sock_endpoint_ok(TMPBASE):
     # 深 TMPDIR 平台（mac）回退短根：/tmp（Linux/mac 均在场；mac 的 /tmp 符号
     # 链接无碍——bind 计的是传入路径串长度，不解引用后重计）。
     shutil.rmtree(TMPBASE, ignore_errors=True)
-    TMPBASE = tempfile.mkdtemp(prefix="agentd-e2e.%d." % os.getpid(), dir="/tmp")
+    TMPBASE = tempfile.mkdtemp(prefix="e2e.", dir=HARNESS_BASE)
     assert _sock_endpoint_ok(TMPBASE), \
         "TMPBASE 过深，AF_UNIX 端点将超平台限：%s" % TMPBASE
 ROOT = os.path.join(TMPBASE, "root")
@@ -262,6 +286,10 @@ PLATFORM_SKIPS = []   # [(标签, 原因)]：平台不适用而显式跳过的�
 # 只改涉及场景时的快通道；被过滤掉的场景打 SKIP 且不入 RESULTS（不计成也不计败）。
 # 注意：部分场景依赖前序产物（如 S15 读 S14 的通知），选取时自带前置场景。
 ONLY = {a.upper() for a in sys.argv[1:] if not a.startswith("-")}
+# Standalone, no-model matrix. Cross-repo GC/TS/wrap/live-pi checks remain
+# opt-in integration scenarios, never implicit sibling/production discovery.
+CORE = '--integration' not in sys.argv[1:]
+CORE_EXCLUDED = {'S33', 'S34', 'S39', 'S41', 'S49', 'S50', 'S53'}
 RUNNER = None
 SCHEDULER = None
 
@@ -345,6 +373,12 @@ def _lock_doc(path):
 
 
 def check(name, fn):
+    if name.split()[0] == 'S53' and '--live-pi' not in sys.argv[1:]:
+        print('SKIP  %s (requires explicit --integration --live-pi)' % name, flush=True)
+        return
+    if CORE and name.split()[0] in CORE_EXCLUDED:
+        print('SKIP  %s (explicit standalone --core boundary)' % name, flush=True)
+        return
     if ONLY and not any(tok in name.upper() for tok in ONLY):
         print("SKIP  %s（场景过滤：%s）" % (name, ",".join(sorted(ONLY))), flush=True)
         return
@@ -5159,8 +5193,8 @@ def s62():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
-                    os.path.join(newroot, "platform_paths.py"))
+    shutil.copyfile(os.path.join(HERE, "platform_paths.py"),
+                    os.path.join(newroot, "agentd", "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5305,8 +5339,8 @@ def s63():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
-                    os.path.join(newroot, "platform_paths.py"))
+    shutil.copyfile(os.path.join(HERE, "platform_paths.py"),
+                    os.path.join(newroot, "agentd", "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5538,8 +5572,8 @@ def s64():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
-                    os.path.join(newroot, "platform_paths.py"))
+    shutil.copyfile(os.path.join(HERE, "platform_paths.py"),
+                    os.path.join(newroot, "agentd", "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -5857,8 +5891,8 @@ def s65():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
-                    os.path.join(newroot, "platform_paths.py"))
+    shutil.copyfile(os.path.join(HERE, "platform_paths.py"),
+                    os.path.join(newroot, "agentd", "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")
@@ -6319,8 +6353,8 @@ def s66():
 
     # ---- 改后副本（与被测真文件逐字同源）----
     os.makedirs(os.path.join(newroot, "agentd"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(os.path.realpath(HERE)), "platform_paths.py"),
-                    os.path.join(newroot, "platform_paths.py"))
+    shutil.copyfile(os.path.join(HERE, "platform_paths.py"),
+                    os.path.join(newroot, "agentd", "platform_paths.py"))
     for fn in ("agentctl.py", "proto.py", "registration.py"):
         shutil.copyfile(os.path.join(HERE, fn), os.path.join(newroot, "agentd", fn))
     NEW = os.path.join(newroot, "agentd", "agentctl.py")

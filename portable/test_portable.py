@@ -38,14 +38,14 @@ class PortableTest(unittest.TestCase):
     @classmethod
     def unpack(cls, path, dest):
         with tarfile.open(path) as archive:
-            assert sorted(archive.getnames()) == sorted('agent-platform-minimal/' + p for p in cls.paths)
+            assert sorted(archive.getnames()) == sorted('agentd-minimal/' + p for p in cls.paths)
             assert all(m.isfile() for m in archive.getmembers())
             for member in archive.getmembers():
                 target = dest / member.name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(archive.extractfile(member).read())
                 target.chmod(member.mode)
-        return dest / 'agent-platform-minimal'
+        return dest / 'agentd-minimal'
 
     @classmethod
     def invoke(cls, command, *args, env=None, expected=0):
@@ -136,6 +136,36 @@ class PortableTest(unittest.TestCase):
         self.check_task(root, package / 'portable/run.sh')
         self.invoke(package / 'portable/run.sh', '--config', 'config.json', 'doctor', expected=2)
 
+    def test_literal_override_and_symlink_entry(self):
+        package = self.fresh('literal override')
+        link = self.cwd / 'linked launcher'
+        link.symlink_to(os.path.relpath(package / 'portable/run.sh', self.cwd))
+        for chosen in ('~/literal', '$HOME/literal'):
+            doc = json.loads(self.invoke(link, 'doctor',
+                             env=dict(self.env, PLATFORM_WORKSPACE=chosen)).stdout)
+            self.assertEqual(doc['workspace'], str(package / chosen))
+            self.assertFalse((package / chosen).exists())
+        doc = json.loads(self.invoke(link, 'doctor').stdout)
+        self.assertEqual(doc['workspace'], str(package / 'workspace'))
+        self.invoke(link, 'demo')
+        self.check_task(package / 'workspace', link)
+
+    def test_no_download_or_install_commands(self):
+        package = self.fresh('offline commands')
+        tools = self.tmp / 'forbidden command traps'
+        tools.mkdir()
+        called = tools / 'called'
+        for command in ('curl', 'wget', 'pip', 'pip3', 'npm', 'git', 'ssh'):
+            trap = tools / command
+            trap.write_text('#!/bin/sh\nprintf "%s\\n" "$0" >> "' + str(called) + '"\nexit 99\n')
+            trap.chmod(0o755)
+        env = dict(self.env, PATH=str(tools) + os.pathsep + self.env['PATH'])
+        for action in ('doctor', 'demo'):
+            self.invoke(package / 'portable/run.sh', action, env=env)
+        self.invoke(package / 'portable/run.sh', 'ctl', 'list', env=env)
+        self.assertFalse(called.exists())
+        self.assertFalse(list(package.rglob('__pycache__')))
+
     def test_readonly_source_external_state(self):
         package = self.fresh('read only source')
         package.chmod(0o555)
@@ -186,7 +216,7 @@ class PortableTest(unittest.TestCase):
             for member in archive.getmembers():
                 self.assertEqual(member.uid, 0)
                 self.assertEqual(member.uname, '')
-                name = member.name.removeprefix('agent-platform-minimal/')
+                name = member.name.removeprefix('agentd-minimal/')
                 data = archive.extractfile(member).read()
                 self.assertEqual(hashlib.sha256(data).digest(),
                                  hashlib.sha256((SOURCE / name).read_bytes()).digest())
