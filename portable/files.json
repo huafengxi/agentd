@@ -1,0 +1,14 @@
+[
+  "platform_paths.py",
+  "agentd/agentctl.py",
+  "agentd/registration.py",
+  "agentd/proto.py",
+  "agentd/runner.py",
+  "agentd/envscrub.py",
+  "agentd/task_state.py",
+  "portable/install.py",
+  "portable/cli.py",
+  "portable/files.json",
+  "portable/example.json",
+  "portable/README.md"
+]
