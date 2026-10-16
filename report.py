@@ -431,7 +431,8 @@ def wait_cell(t, now):
             text += " · 收件方 " + md_escape(recipient)
             # answer chooses the oldest pending ask, which may be unrelated.
             # Explicit ref targets exactly the blocking invocation shown here.
-            command = "python3 agent-platform/agentd/agentctl.py send %s --type reply --ref %s --body-file <答复文件>" % (
+            command = "python3 %s send %s --type reply --ref %s --body-file <答复文件>" % (
+                shlex.quote(os.path.join(os.path.dirname(os.path.realpath(__file__)), "agentctl.py")),
                 shlex.quote(t["id"]), shlex.quote(str(w["askId"])))
             text += " · 协调者在 %s 执行：`%s`" % (md_escape(t["host"] or "任务宿主机"),
                                                         md_escape(command).replace("`", "&#96;"))

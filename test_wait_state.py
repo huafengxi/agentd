@@ -1,7 +1,9 @@
 """Current waits through real wrapper RPC -> actual tasks.md widget -> HTML.
 
-Run with ASK_WAIT_DRIVER=<caller's ask-wait.test.mjs> and optionally
-TASK_MARKED_JS=<caller's marked.min.js> to include those integrations.
+Run with AGENTD_TEST_WRAP=<frozen wrapper source>/pi-rpc-wrap.py,
+ASK_WAIT_DRIVER=<caller's ask-wait.test.mjs> and TASK_MARKED_JS=<caller's
+marked.min.js> to include those integrations. Wrapper imports this candidate's
+single protocol via AGENTD_DIR, never a unified-repo fallback.
 Every mutable root is created below a new temporary base; no live sockets.
 """
 import importlib.util
@@ -24,10 +26,16 @@ import report
 from wait_state import CurrentWaits, current_waits
 from safe_delete import safe_rmtree
 
-spec = importlib.util.spec_from_file_location('wait_wrap', HERE.parent / 'pi-wrap/pi-rpc-wrap.py')
-wrapmod = importlib.util.module_from_spec(spec)
-sys.path.insert(0, str(HERE.parent / 'pi-wrap'))
-spec.loader.exec_module(wrapmod)
+WRAPPER = Path(os.environ['AGENTD_TEST_WRAP']).resolve() if os.environ.get('AGENTD_TEST_WRAP') else None
+wrapmod = None
+if WRAPPER is not None:
+    spec = importlib.util.spec_from_file_location('wait_wrap', WRAPPER)
+    wrapmod = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(WRAPPER.parent))
+    with patch.dict(os.environ, AGENTD_DIR=str(HERE)):
+        spec.loader.exec_module(wrapmod)
+    assert Path(wrapmod.proto.__file__).resolve() == HERE / 'proto.py'
+    assert wrapmod.CurrentWaits is CurrentWaits, 'wrapper must use the candidate protocol'
 
 # A real subprocess speaking RPC, without a model or browser. File asks invoke
 # the real TS extension driver; dialogs are native RPC requests with responses.
@@ -72,12 +80,11 @@ class WaitTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(dir=self.base))
         self.addCleanup(lambda: safe_rmtree(self.root, authorized_root=self.base))
-        target = self.root / 'agent-platform/agentd'
+        target = self.root / 'candidate source with spaces/agentd'
         target.mkdir(parents=True)
         for name in ('report.py', 'wait_state.py', 'proto.py', 'scheduling.py', 'task_state.py', 'task_labels.py', 'tasks.md', 'agentctl.py', 'registration.py'):
             shutil.copyfile(HERE / name, target / name)
-        shutil.copyfile(HERE.parent / 'platform_paths.py', target.parent / 'platform_paths.py')
-        (target.parent / '.platform-root').touch()
+        shutil.copyfile(HERE / 'platform_paths.py', target / 'platform_paths.py')
         self.home = self.root / 'agents/task/wait-fixture'
         (self.home / 'inbox').mkdir(parents=True)
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
@@ -88,6 +95,7 @@ class WaitTests(unittest.TestCase):
         self.put('pid.json', self.pid)
         self.state = CurrentWaits(str(self.home), 'task/wait-fixture')
         self.env = dict(os.environ, PLATFORM_WORKSPACE=str(self.root), AGENT_ROOT=str(self.root),
+                        AGENTD_DIR=str(HERE), src=str(target / 'tasks.md'),
                         AGENT_SELF='task/wait-fixture', AGENT_HOME=str(self.home),
                         PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'])
 
@@ -97,7 +105,7 @@ class WaitTests(unittest.TestCase):
     def page(self):
         # Execute precisely the active widget command from the real page, with
         # identical copied source and a caller-supplied isolated workspace.
-        page = (self.root / 'agent-platform/agentd/tasks.md').read_text()
+        page = Path(self.env['src']).read_text()
         command = next(c for c in re.findall(r'\$\{([^}]+)\}', page) if c.endswith('-s active'))
         result = subprocess.run(['bash', '-c', command], cwd=self.root, env=self.env,
                                 text=True, capture_output=True, timeout=10)
@@ -190,6 +198,7 @@ class WaitTests(unittest.TestCase):
         self.assertNotIn('**❓', self.page())
 
     def test_replay_current_dialog_not_history_even_after_ring_eviction(self):
+        if wrapmod is None: self.skipTest('set AGENTD_TEST_WRAP for wrapper integration')
         with patch.dict(os.environ, self.env): w = wrapmod.Wrap()
         self.state = w.waits
         obj = dict(type='extension_ui_request', id='dialog', method='input', title='Current', timeout=10000)
@@ -235,6 +244,7 @@ class WaitTests(unittest.TestCase):
         self.assertEqual(result.stdout.count('<td>'), 10)
 
     def run_wrapper(self, mode):
+        if WRAPPER is None: self.skipTest('set AGENTD_TEST_WRAP for wrapper integration')
         if mode != 'dialog' and not os.environ.get('ASK_WAIT_DRIVER'):
             self.skipTest('set ASK_WAIT_DRIVER for the actual TS producer')
         fake = self.root / 'fake-pi'
@@ -244,7 +254,7 @@ class WaitTests(unittest.TestCase):
         env = dict(self.env, AGENTD_WRAP_PI_BIN=str(fake), AGENTD_WRAP_SETTLE_WINDOW='0.05',
                    AGENTD_WRAP_ARM_TIMEOUT='0.05', WAIT_TEST_MODE=mode)
         err = open(self.root / 'wrapper.log', 'w')
-        p = subprocess.Popen([sys.executable, str(HERE.parent / 'pi-wrap/pi-rpc-wrap.py')], env=env, stderr=err)
+        p = subprocess.Popen([sys.executable, str(WRAPPER)], env=env, stderr=err)
         def cleanup():
             if p.poll() is None: p.terminate()
             try: p.wait(timeout=5)
@@ -270,9 +280,20 @@ class WaitTests(unittest.TestCase):
         asks = proto.list_task_asks(str(self.root), 'task/wait-fixture')
         self.assertEqual(len(asks), 1)
         self.assertIn('--ref ' + asks[0]['id'], text)
-        proto.write_message(str(self.home / 'inbox'), dict(type='reply', ref=asks[0]['id'], body='fixture answer'))
+        # Execute the actual displayed entrance, not a hand-constructed reply.
+        proto.write_message(str(self.root / 'agents/queue/dispatcher/inbox'),
+             dict(type='ask', **{'from': 'task/wait-fixture'}, via='send_message', body='older unrelated ask'))
+        command = re.search(r'协调者在 fixture-host 执行：`([^`]+)`', text).group(1)
+        answer = self.root / 'answer with spaces.txt'
+        answer.write_text('fixture answer')
+        import shlex
+        result = subprocess.run(['bash', '-c', command.replace('<答复文件>', shlex.quote(str(answer)))],
+                                cwd=self.root, env=self.env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(p.wait(timeout=10), 0, (self.root / 'wrapper.log').read_text())
         self.assertNotIn('**❓', self.page())
+        self.assertTrue(any(m.get('via') == 'send_message' for m in
+                            proto.list_task_asks(str(self.root), 'task/wait-fixture')))
 
     def test_real_wrapper_file_ask_producer_timeout(self):
         p = self.run_wrapper('timeout')
