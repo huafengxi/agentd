@@ -6,9 +6,9 @@
   "agentd/runner.py",
   "agentd/envscrub.py",
   "agentd/task_state.py",
-  "portable/install.py",
+  "portable/build.py",
+  "portable/run.sh",
   "portable/cli.py",
   "portable/files.json",
-  "portable/example.json",
   "portable/README.md"
 ]

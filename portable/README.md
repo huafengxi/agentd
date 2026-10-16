@@ -1,54 +1,74 @@
-# 最小本机任务平台（离线安装）
+# 最小本机任务核心：解包即运行
 
-这是 agent-platform 的**本机文件任务核心**安装包，不是完整系统安装，也不是 AI agent 安装器。提供配置检查、agentctl 文件协议 CLI，以及真实无模型 shell 任务的登记、人工放行、前台执行和报告终态。无下载、无后台服务、无全局软件安装，不修改 shell、SSH 或系统配置。
+这是 agent-platform 的**本机文件任务核心**，不是整套 AI 平台。只含检查、agentctl 文件协议 CLI 和真实无模型 shell 任务的登记、显式放行、前台执行及终态报告。无安装复制、下载、pip install、全局软链、后台常驻或 shell/SSH/系统服务修改。
 
-## 公开依赖与范围
+## 最短用法
 
-- 用户自行提供 Python >= 3.10（仅标准库）、POSIX 系统（Linux/macOS）和 PATH 上的 bash。用自己的 Python 路径替代下文 `python3`；无需 conda。
-- 源码可从公开仓 `https://github.com/huafengxi/agent-platform` 获取；git 仅用于取源码，不是归档安装的运行依赖。本入口不联网或执行远程脚本。
-- 不含 pi、Node、模型账号、角色/profile 装配、任务政策、知识库、同步、调度 daemon、服务管理、Web 和定时系统。不需要上述组件的配置或凭据。
-- 真模型任务另需用户自己的 pi/Node、模型供应商凭据与显式隔离配置；本版没有该集成入口，不能用 shell demo 的成功推断模型可用。
+自行提供 Python >= 3.10（标准库）、POSIX 系统（Linux/macOS）、POSIX 基础工具和 PATH 上的 bash。无需 conda、Node/pi、模型账号、私有基础设施或个人配置。
 
-## 从源码或归档安装
-
-源码路径可位于任意目录。不要求特定工作区名称；不要在个人工作区上运行复制/清洗脚本。
+clone `https://github.com/huafengxi/agent-platform`，或把归档解压到自己的目录后，直接运行同一个脚本：
 
 ```sh
-# 在源码仓或解包后的 agent-platform-minimal 目录中：
-python3 -I -S portable/install.py install --prefix /absolute/new/task-platform
-
-# 从任何 cwd 检查和运行：
-python3 -I -S /absolute/new/task-platform/portable/cli.py doctor
-python3 -I -S /absolute/new/task-platform/portable/cli.py demo
-python3 -I -S /absolute/new/task-platform/portable/cli.py ctl list
-python3 -I -S /absolute/new/task-platform/portable/cli.py ctl --help
+/path/to/agent-platform/portable/run.sh doctor
+/path/to/agent-platform/portable/run.sh demo
+/path/to/agent-platform/portable/run.sh ctl list
+/path/to/agent-platform/portable/run.sh ctl --help
 ```
 
-目标的父目录须存在；目标本身须不存在（包括空目录和符号链接），失败时不自动删除残留。安装不会启动任何进程。`config.json` 来自 [example.json](example.json)；workspace 是相对该配置文件的路径，须已有 agents 子目录；host 是用户选择的本机任务路由名。可用 `--config /path/to/config.json` 指定自己的配置。不要指向其它正在使用的平台运行树。
+没有安装步骤，也没有配置文件。脚本按自己的位置发现源码根，不依赖 cwd；路径带空格时用引号。源码目录本身及其父路径不要用符号链接伪装另一棵源码树；不提供全局链接入口。
 
-`demo` 只登记并执行包内固定 printf 命令，每次创建独立 task；它在当前进程监督一个 shell，不扫描或运行其他任务，不启动 runner/scheduler 服务。stdout 返回结果目录，含 spec.json、enable.json、pid.json 和 report.md。成功要求真实 exitcode=0、final=true 且报告含成功标记；报告明确标注无模型调用。超时或缺依赖报错并非成功。
+`doctor` 检查 Python 版本、POSIX、bash 及运行目录可写性，输出路径与本机标识，**不创建目录/任务或字节码**。可写性为只读预检，不是写入成功保证（ACL、配额、并发变化仍可能让实际动作失败）。`demo` 才创建运行目录和独立 task；实际运行 bash printf，前台仅监督这个新任务，不扫描/运行其他任务，不启动服务。成功须 exitcode=0、final=true 且 report.md 含真实 shell 成功标记。stdout 给出结果目录，可查 spec.json、enable.json、pid.json、report.md。`ctl` 是登记/通信入口，不自动执行自定义任务；它可创建运行目录。
 
-CLI 丢弃继承环境，只给子进程 PATH、安装内 HOME、语言设置；Python 子命令使用 `-I -S`，不读取用户 site-packages、PYTHONPATH 或 pi 配置。PATH 是用户显式选择外部可执行文件的信任边界，请勿包含不可信程序。此隔离不是容器或任意命令安全沙箱；agentctl 可登记任意命令，只有调用方信任的命令才能交给 runner。`ctl` 是原有登记/通信 CLI，不自动运行自定义任务。
+## 约定与仅有的可选覆盖
 
-## 构建与内容边界
+| 项目 | 默认 | 可选覆盖 |
+|---|---|---|
+| 源码根 | run.sh 所在 portable 目录的父目录 | 自动发现，无配置项 |
+| 运行根 | 源码根下 `workspace/` | `PLATFORM_WORKSPACE` |
+| Python | PATH 上的 `python3` | `PLATFORM_PYTHON`（解释器名或路径，不是带参数的命令） |
+| 本机任务路由标识 | `local`（本机单进程演示，不用于多机路由） | 无必填 host 配置 |
+| 任务 HOME | 运行根下 `home/` | 随运行根确定 |
+| 任务文件 | 运行根下 `agents/` | 随运行根确定 |
+
+`PLATFORM_WORKSPACE` 复用平台现有公开变量；本入口的默认值特意在包内，不采用底层模块直接运行时的源码父目录默认值。空值视为未设置。**相对运行根路径以源码根为基准**，不是调用 cwd，也不展开 `~` 或 `$变量` 字面值。`PLATFORM_PYTHON` 中含 `/` 的相对路径同样以源码根为基准；不含 `/` 时在 PATH 查找。
 
 ```sh
-# 输出文件须不存在；留在本地：
-python3 -I -S portable/install.py build --output /absolute/output/minimal.tar.gz
-# 在新目录解包（普通 tar 工具；无需 pip/npm）：
+# 只读源码或希望状态外置时：
+PLATFORM_WORKSPACE='/absolute/my task state' /path/to/agent-platform/portable/run.sh demo
+# 使用自选解释器（可选；不是必须的安装配置）：
+PLATFORM_PYTHON='/path with spaces/python3' /path/to/agent-platform/portable/run.sh doctor
+```
+
+只读包若仍选择包内默认运行根，会清楚报不可写并提示 `PLATFORM_WORKSPACE`，不悄悄回退 HOME。请使用专属运行根，不要指向其他平台正在使用的状态树。无状态源码包可以搬迁后直接运行；**已有 task 中可能含绝对路径，已有状态不承诺可搬迁**，也没有迁移机制。
+
+## 隔离与限制
+
+启动脚本仅捕获 PATH、必要的运行根及解释器选择，随后以空白环境启动 Python；Python 使用 `-I -S -B`。CLI 为任务建立自己的 HOME，只保留 PATH、语言和必要的协议环境；宿主身份、SSH agent、供应商凭据、BASH_ENV、PYTHONPATH 和个人 pi 配置不继承。不会为了方便读取宿主 HOME 或 config.json；没有 `--config` 入口。
+
+PATH、所选解释器、启动脚本所用 POSIX 工具及源码是调用方信任边界；不要用不可信可执行文件或命令。环境净化不是 OS 沙箱，不阻止任意可信命令主动访问系统文件，也不防启动脚本执行前的系统加载器注入或恶意并发文件替换。`ctl` 可登记任意命令，调用方必须自己信任它。
+
+不包含模型调用、pi/Node 集成、角色/profile、知识库、同步、调度 daemon、服务管理、Web 或定时系统。shell demo 成功不说明这些能力可用。只验证本机 shell 最小链路。
+
+## 打包方：显式 allowlist 构建
+
+构建不是使用者安装步骤，也不会公开发布归档：
+
+```sh
+python3 -I -S -B portable/build.py --output /absolute/output/minimal.tar.gz
+# 解到一个自己选择的新目录，随后直接运行其中的 portable/run.sh：
 tar -xzf /absolute/output/minimal.tar.gz -C /absolute/new/unpack-directory
 ```
 
-唯一成员清单是 [files.json](files.json)。构建器逐项读取普通文件并拒绝符号链接，不递归复制目录；归档元数据不包含源码文件的用户名、组名和时间。安装也只复制同一清单；归档和源码使用同一个安装器。清单外不包含任何资产：身份材料、凭据/密文、运行树和历史日志、git 元数据/remote、家目录配置、个人 pi auth/models、岗位记忆或业务知识均不组装。构建器不是通用隐私分类器；修改清单/源码后仍需审查文件正文。
+输出文件须不存在。唯一成员清单为 [files.json](files.json)，只读取列出的普通文件，拒绝清单项符号链接，不递归收集工作区。归档中 run.sh 保留可执行权限；不带构建宿主用户名、组名、时间。清单不带个人 env、lore、work、bots 身份、pi 配置、凭据密文、运行数据或 .git。构建器不是隐私分类器；改清单和正文仍需审查。没有 install.py、install --prefix、example.json 或配置生成/复制路径。
 
 ## 回归与清理
 
-在完整源码仓中运行（测试脚本不作为运行依赖打包）：
+在完整源码仓运行（测试脚本不打包）：
 
 ```sh
-python3 -I -S portable/test_portable.py
+python3 -I -S -B portable/test_portable.py
 ```
 
-回归自行建立独立临时根，保留根路径供检查；不使用宿主 HOME 作为工作目录。覆盖归档精确成员、隐私标志抽查、缺依赖、异 cwd/空格路径、安装拒覆盖、符号链接拒收与 shell 任务真实终态。标志扫描只能发现选定风险，不能证明绝对无隐私。
+回归只用独立临时根，打印并保留沙箱。覆盖零配置脚本、解包原地运行、空格路径/不同 cwd、外置状态、只读 doctor、无效配置诱饵、真实 shell 终态与环境隔离、缺依赖、无状态搬迁、allowlist 隐私诱饵与拒符号链接。诱饵/标志检查不是绝对隐私证明。
 
-卸载不需要系统命令或服务停止：确认没有该目录下自己启动的任务，核实安装路径后删除这个独立安装目录即可；没有全局链接或配置要恢复。归档、解包目录和测试打印的临时根可单独检查后清理。安装失败也只清理本次新建目标，勿用共享目录通配符。
+没有全局配置要恢复。确认自己启动的任务已退出后，可按自己的清理流程移除专属源码/状态目录；外置状态与源码分别管理。不要把共享工作区当作可整树清理的运行根。归档、解包目录和测试临时根也留给调用方检查后处理。

@@ -13,37 +13,37 @@ import uuid
 BASE = Path(__file__).resolve().parent.parent
 
 
-def configure(config):
+def configure():
     if sys.version_info < (3, 10):
         raise ValueError('Python >= 3.10 required')
     if os.name != 'posix':
         raise ValueError('POSIX platform required (Linux/macOS); Windows is not supported')
     if not shutil.which('bash'):
         raise ValueError('Missing dependency: bash on PATH; install it yourself, then retry')
-    data = json.loads(config.read_text(encoding='utf-8'))
-    if set(data) != {'workspace', 'host'}:
-        raise ValueError('config requires exactly workspace and host')
-    if not isinstance(data['host'], str) or not data['host'].strip():
-        raise ValueError('config host must be a nonempty string')
-    relative = Path(data['workspace'])
-    if relative.is_absolute() or '..' in relative.parts:
-        raise ValueError('workspace must be relative to config, without ..')
-    root = (config.parent / relative).resolve()
-    if not (root / 'agents').is_dir():
-        raise ValueError('workspace/agents is missing; run the installer first')
-    # The wrapper deliberately drops ALL inherited credentials/config variables.
+    # Capture the sole workspace override before dropping inherited environment.
+    chosen = Path(os.environ.get('PLATFORM_WORKSPACE') or 'workspace')
+    root = (BASE / chosen).resolve()
+    # Read-only preflight: never probe writability by creating files.
+    for target in (root, root / 'agents', root / 'home'):
+        existing = target
+        while not existing.exists():
+            existing = existing.parent
+        if (not existing.is_dir() or not os.access(existing, os.W_OK | os.X_OK)
+                or not existing.stat().st_mode & 0o222):
+            raise ValueError('Runtime directory is not writable: ' + str(target)
+                             + '; set PLATFORM_WORKSPACE to a writable external directory')
     # PATH is the explicit external executable search path; no shell init is read.
     home = root / 'home'
-    home.mkdir(exist_ok=True)
     env = {'PATH': os.environ.get('PATH', os.defpath), 'HOME': str(home),
            'LANG': 'C.UTF-8', 'PYTHONNOUSERSITE': '1'}
     os.environ.clear()
     os.environ.update(env)
-    return root, data['host']
+    sys.dont_write_bytecode = True
+    return root, 'local'
 
 
 def ctl(root, *args):
-    return subprocess.run([sys.executable, '-I', '-S',
+    return subprocess.run([sys.executable, '-I', '-S', '-B',
                            str(BASE / 'agentd/agentctl.py'), '--root', str(root), *args],
                           check=True, text=True, capture_output=True)
 
@@ -86,13 +86,20 @@ def demo(root, host):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--config', type=Path, default=BASE / 'config.json')
     sub = ap.add_subparsers(dest='action', required=True)
     sub.add_parser('doctor')
     sub.add_parser('demo')
     sub.add_parser('ctl').add_argument('args', nargs=argparse.REMAINDER)
     args = ap.parse_args()
-    root, host = configure(args.config.resolve())
+    root, host = configure()
+    if args.action != 'doctor':
+        try:
+            (root / 'agents').mkdir(parents=True, exist_ok=True)
+            (root / 'home').mkdir(exist_ok=True)
+        except OSError as exc:
+            raise ValueError('Cannot create runtime directory ' + str(root)
+                             + '; set PLATFORM_WORKSPACE to a writable external directory: '
+                             + str(exc)) from exc
     if args.action == 'doctor':
         print(json.dumps({'python': sys.version.split()[0], 'workspace': str(root),
                           'host': host, 'bash': shutil.which('bash'),
