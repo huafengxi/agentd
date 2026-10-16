@@ -16,7 +16,7 @@ set -u
 
 MODULE_DIR="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
 WS="$(python3 "${MODULE_DIR}/../platform_paths.py" "$0")" || exit 1
-RUNNER="$WS/agentd/runner.py"
+RUNNER="${MODULE_DIR}/runner.py"
 LOG="$WS/run/logs/agentd.log"
 mkdir -p "$WS/run/logs"
 

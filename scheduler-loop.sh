@@ -17,7 +17,7 @@ set -u
 
 MODULE_DIR="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
 WS="$(python3 "${MODULE_DIR}/../platform_paths.py" "$0")" || exit 1
-SCHEDULER="$WS/agentd/scheduler.py"
+SCHEDULER="${MODULE_DIR}/scheduler.py"
 LOG="$WS/run/logs/scheduler.log"
 mkdir -p "$WS/run/logs"
 

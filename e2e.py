@@ -2501,7 +2501,7 @@ def s40():
 
     # ⑤ 主题节「主持人」列（合成 fixture，临时树内；不读现网真实信箱/topic.md 正文）
     sess_cmd = ("DISPATCH_PROFILE=moderator AGENTD_RESIDENT=1 exec python3 "
-                "\"$AGENT_ROOT/pi-wrap/pi-rpc-wrap.py\"")
+                "\"$AGENT_ROOT/agent-platform/pi-wrap/pi-rpc-wrap.py\"")
     ctl("bot", "register", "--name", "s40-host", "--subscribes", "topic/" + tid,
         "--command", sess_cmd, "--workdir", ROOT, "--creator", "task/s40",
         "--host", "mac")          # 通道 B + 他机 host（链接前缀跨机正确性）
@@ -4847,7 +4847,7 @@ def s60():
     另钉 `create --help` 的 `--profile` 文本覆盖三格（白名单来源 / 非法即拒 / 落地 = 前缀）。
     只跑 agentctl 子进程（不起 runner/scheduler、不读写主树 ROOT），收尾自清。"""
     KEY = "DISPATCH_PROFILE"
-    WRAP = 'exec python3 "$AGENT_ROOT/pi-wrap/pi-rpc-wrap.py"'   # 现网 handler 登记的命令形态
+    WRAP = 'exec python3 "$AGENT_ROOT/agent-platform/pi-wrap/pi-rpc-wrap.py"'   # 现网 handler 登记的命令形态
     AVAIL = ["s60-review", "s60-executor"]                     # 夹具专属名：白名单若被写死
     #                                                            成现网名单，① 就红（反写死名单钉）
     ws = os.path.join(S60BASE, "ws")
