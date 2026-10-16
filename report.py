@@ -412,7 +412,7 @@ def collect_task(root, task_id, now, observation=None):
     return t
 
 
-def wait_cell(t, now):
+def wait_cell(t, now, root):
     """Hints are observational, not a new lifecycle/scheduling verdict."""
     parts = []
     for w in t["waits"]:
@@ -431,8 +431,9 @@ def wait_cell(t, now):
             text += " · 收件方 " + md_escape(recipient)
             # answer chooses the oldest pending ask, which may be unrelated.
             # Explicit ref targets exactly the blocking invocation shown here.
-            command = "python3 %s send %s --type reply --ref %s --body-file <答复文件>" % (
+            command = "python3 %s --root %s send %s --type reply --ref %s --body-file <答复文件>" % (
                 shlex.quote(os.path.join(os.path.dirname(os.path.realpath(__file__)), "agentctl.py")),
+                shlex.quote(os.path.abspath(root)),
                 shlex.quote(t["id"]), shlex.quote(str(w["askId"])))
             text += " · 协调者在 %s 执行：`%s`" % (md_escape(t["host"] or "任务宿主机"),
                                                         md_escape(command).replace("`", "&#96;"))
@@ -1179,7 +1180,7 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
                         md_link(truncate(t["name"], 32), url),
                         md_escape(state), md_escape(t["host"] or "-"),
                         md_escape(truncate(t["workdir"] or "-", 36)),
-                        runfor, hb, md_escape(dep_cell(t)), md_escape(prog), wait_cell(t, now)))
+                        runfor, hb, md_escape(dep_cell(t)), md_escape(prog), wait_cell(t, now, root)))
     else:
         L.append("（无活跃任务）")
     L.append("")

@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -128,6 +129,78 @@ class WaitTests(unittest.TestCase):
         self.assertNotIn('待用户答复', text)
         self.assertIn('&lt;script&gt;', text)
         self.assertIn('\\|', text)
+
+    def test_report_root_reply_entrance(self):
+        # B1: report and reply must agree even with unrelated cwd, no inherited
+        # workspace (or conflicting environments), and same-task decoys. Use the
+        # real report CLI and execute only its displayed command, not a helper.
+        for mode in ('explicit-clean', 'explicit-conflict', 'default'):
+            with self.subTest(mode=mode):
+                base = self.root / mode
+                repo = base / 'checkout with spaces/agentd'
+                shutil.copytree(self.root / 'candidate source with spaces/agentd', repo)
+                default = repo.parent
+                external = base / "selected state's with spaces"
+                envroot = base / 'environment decoy with spaces'
+                selected = default if mode == 'default' else external
+                participant = 'task/root-fixture'
+                ref = mode + '-root-specific-ask'
+                for root in (default, external, envroot):
+                    home = root / 'agents' / participant
+                    (home / 'inbox').mkdir(parents=True)
+                    (root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
+                    proto.atomic_write_json(str(home / 'spec.json'), dict(
+                        name='root fixture', host='fixture-host', reaper='queue/dispatcher',
+                        resources=[], command='true'))
+                    proto.atomic_write_json(str(home / 'pid.json'), self.pid)
+                    proto.atomic_write_json(str(home / 'enable.json'), {})
+                home = selected / 'agents' / participant
+                state = CurrentWaits(str(home), participant)
+                state.event(dict(type='tool_execution_start', toolCallId='ask', toolName='ask_dispatcher'))
+                state.event(dict(type='tool_execution_update', toolCallId='ask', toolName='ask_dispatcher',
+                    partialResult={'details': {'agentdWait': dict(askId=ref, question='Which root?',
+                        recipient='queue/dispatcher', since=time.time())}}))
+                cwd = base / 'unrelated cwd'
+                cwd.mkdir()
+                isolated_home = base / 'home'
+                isolated_home.mkdir()
+                env = dict(HOME=str(isolated_home), LANG='C.UTF-8',
+                           PATH=str(Path(sys.executable).parent) + os.pathsep + '/usr/bin:/bin',
+                           PYTHONDONTWRITEBYTECODE='1')
+                if mode == 'explicit-conflict':
+                    env['PLATFORM_WORKSPACE'] = str(envroot)
+                command = [sys.executable, '-I', '-S', '-B', str(repo / 'report.py')]
+                if mode != 'default':
+                    # A relative root must become independent of the reply cwd.
+                    command += ['--root', os.path.relpath(selected, cwd)]
+                command += ['-s', 'active']
+                page = subprocess.run(command, cwd=cwd, env=env, text=True,
+                                      capture_output=True, timeout=10)
+                self.assertEqual(page.returncode, 0, page.stderr)
+                self.assertIn(ref, page.stdout)
+                self.assertTrue(current_waits(str(selected), participant, self.pid, time.time()))
+                displayed = re.search(r'协调者在 fixture-host 执行：`([^`]+)`', page.stdout).group(1)
+                answer = base / 'answer with spaces.txt'
+                answer.write_text('root fixture answer')
+                reply_env = dict(env)
+                # Even a default-root page must not depend on the answerer's env.
+                if mode != 'explicit-clean':
+                    reply_env['PLATFORM_WORKSPACE'] = str(envroot)
+                reply = subprocess.run(['bash', '-c', displayed.replace('<答复文件>', shlex.quote(str(answer)))],
+                    cwd=base, env=reply_env, text=True, capture_output=True, timeout=10)
+                self.assertEqual(reply.returncode, 0, reply.stderr)
+                for root in (default, external, envroot):
+                    messages = proto.list_messages(str(root / 'agents' / participant / 'inbox'))
+                    self.assertEqual([m.get('ref') for m in messages], [ref] if root == selected else [])
+                    if root == selected:
+                        self.assertEqual(messages[0]['body'], 'root fixture answer')
+                self.assertFalse(current_waits(str(selected), participant, self.pid, time.time()))
+                refreshed = subprocess.run(command, cwd=cwd, env=env, text=True,
+                                           capture_output=True, timeout=10)
+                self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+                self.assertNotIn(ref, refreshed.stdout)
+                self.assertNotIn('**❓', refreshed.stdout)
+                print('root reply contract:', mode, displayed, flush=True)
 
     def test_reply_clears_before_tool_end_and_next_refresh(self):
         self.start_ask()
