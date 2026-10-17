@@ -237,6 +237,23 @@ class WaitTests(unittest.TestCase):
         self.assertIn('<code>ask_dispatcher</code>', result.stdout)
         self.assertEqual(result.stdout.count('<td>'), 10)
 
+    def test_invalid_tool_names_are_unavailable_and_html_columns_stable(self):
+        marked = os.environ.get('TASK_MARKED_JS')
+        if not marked: self.skipTest('set TASK_MARKED_JS for actual HTML rendering')
+        for tool in ('<script>alert(1)</script>', 'x|injected', '`unsafe`', 'x\\nsecond-row', 'a' * 101):
+            with self.subTest(tool=tool):
+                self.session(tool)
+                text = self.assert_no_hint()
+                self.assertIn('不可得', text)
+                self.assertNotIn(tool, text)
+                rendered = subprocess.run(['node', '-e',
+                    'const fs=require("fs"),m=require(process.argv[1]);console.log(m.parse(fs.readFileSync(0,"utf8")))', marked],
+                    input=text, text=True, capture_output=True, timeout=5)
+                self.assertEqual(rendered.returncode, 0, rendered.stderr)
+                self.assertEqual(rendered.stdout.count('<td>'), 10)
+                self.assertIn('<th>当前工具</th>', rendered.stdout)
+                self.assertNotIn('<script>', rendered.stdout)
+
     def test_dialog_memory_baseline_no_file_ask_observer(self):
         state = DialogRequests()
         state.event(dict(type='tool_execution_start', toolCallId='ask', toolName='ask_dispatcher'))
