@@ -9,6 +9,7 @@ Keep the real TS ask producer, RPC wrapper, widget/HTML and socket regressions.
 Existing session JSONL calls/results cannot establish a current blocking wait.
 Mutable fixtures and sockets live only below this invocation's fresh temp base.
 """
+import datetime
 import importlib.util
 import json
 import os
@@ -131,12 +132,13 @@ class WaitTests(unittest.TestCase):
         # entry. Missing toolResult does not prove execute is still blocking.
         directory = self.home / 'session'
         directory.mkdir(exist_ok=True)
-        rows = [dict(type='session', version=3, id='session-fixture', timestamp='2026-01-01T00:00:00Z', cwd=str(self.root)),
-                dict(type='message', id='call-entry', parentId=None, timestamp='2026-01-01T00:00:01Z',
+        stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        rows = [dict(type='session', version=3, id='session-fixture', timestamp=stamp, cwd=str(self.root)),
+                dict(type='message', id='call-entry', parentId=None, timestamp=stamp,
                      message=dict(role='assistant', stopReason='toolUse', content=[dict(type='toolCall', id='call', name=tool,
                          arguments=dict(question='Which option? | [one] <script> 待用户答复', timeoutMinutes=timeout, type='ask'))]))]
         if result is not None:
-            rows.append(dict(type='message', id='result-entry', parentId='call-entry', timestamp='2026-01-01T00:00:03Z',
+            rows.append(dict(type='message', id='result-entry', parentId='call-entry', timestamp=stamp,
                              message=dict(role='toolResult', toolCallId='call', toolName=tool,
                                           content=[dict(type='text', text=result)], isError=False)))
         (directory / 'session.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
@@ -157,6 +159,18 @@ class WaitTests(unittest.TestCase):
             self.assert_no_hint()
             proto.write_message(str(self.home / 'inbox'), dict(type='reply', ref=mid, body='answered'))
             self.assert_no_hint()
+
+    def test_actual_widget_observes_tools_without_questions_or_wait_claims(self):
+        self.session()
+        body = self.assert_no_hint()
+        self.assertIn('当前工具', body)
+        self.assertIn('`ask_dispatcher` (', body)
+        self.assertIn('已发出、尚未记录结果', body)
+        self.assertNotIn('Which option?', body)
+        self.session(result='fixture answer')
+        self.assertNotIn('`ask_dispatcher`', self.assert_no_hint())
+        self.session(tool='bash')
+        self.assertIn('`bash` (', self.assert_no_hint())
 
     def test_old_snapshot_generation_terminal_and_nonlinux_do_not_hint(self):
         self.session()
@@ -188,7 +202,9 @@ class WaitTests(unittest.TestCase):
         self.assert_no_hint(result.stdout)
         self.assertIn('href="/fixture-host/agents/task/wait-fixture/spec.json?v=chat"', result.stdout)
         self.assertNotIn('<script>', result.stdout)
-        self.assertEqual(result.stdout.count('<td>'), 9)
+        self.assertIn('<th>当前工具</th>', result.stdout)
+        self.assertIn('<code>ask_dispatcher</code>', result.stdout)
+        self.assertEqual(result.stdout.count('<td>'), 10)
 
     def test_dialog_memory_baseline_no_file_ask_observer(self):
         state = DialogRequests()

@@ -96,9 +96,11 @@ restarts/gen 等键 → bot 表渲染 KeyError，且整份报表先 build 再切
 
 import argparse
 import datetime
+import io
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -130,6 +132,11 @@ SYSTEM_HOSTS = ("nv1", "nv2", "dev", "mac")
 TERMINAL_LIMIT_DEFAULT = 20        # 终态表缺省条数（--finalized）
 RECENT_DONE_LIMIT = 10             # 缺省输出「最近完成」区块条数（用户 2026-09-01）
 PROGRESS_SUMMARY_CHARS = 80        # 最新进展摘要截断
+# Full bounded snapshot, not a tail: missing ancestors/results must not look pending.
+TOOL_SESSION_BYTES = 8 * 1024 * 1024
+TOOL_SESSION_LINE_BYTES = 1024 * 1024
+TOOL_SESSION_ENTRIES = 20000
+TOOL_DISPLAY_LIMIT = 4
 
 PROTO_TS_RE = re.compile(
     r"^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})(\.\d+)?$")
@@ -267,6 +274,120 @@ def latest_progress_line(path):
     return ""
 
 
+def current_tools(adir, pid_doc, now):
+    """Observe the persisted v3 branch, never a live execution/wait verdict.
+
+    The wrapper passes this exact file to pi. Restarts reuse it, so exclude calls
+    predating startedAt; without any record from this generation it is unavailable.
+    Native _buildIndex resumes at the last entry, then follows parentId. In-memory
+    branch/session changes without a persisted entry cannot be observed here.
+    """
+    unavailable = "不可得"
+    try:
+        identity = ("pid", "procStart", "gen", "startedAt")
+        started = ts_to_epoch(pid_doc.get("startedAt"))
+        if (pid_doc.get("status") != "running"
+                or type(pid_doc.get("pid")) is not int or pid_doc["pid"] <= 0
+                or pid_doc.get("procStart") is None
+                or type(pid_doc.get("gen")) is not int or pid_doc["gen"] < 1
+                or started is None or started > now):
+            return unavailable
+        path = os.path.join(adir, "session", "session.jsonl")
+        if not stat.S_ISREG(os.stat(path).st_mode):
+            return unavailable
+        with open(path, "rb") as f:
+            before = os.fstat(f.fileno())
+            if before.st_size > TOOL_SESSION_BYTES:
+                return unavailable
+            data = f.read(TOOL_SESSION_BYTES + 1)
+            after = os.fstat(f.fileno())
+        if (len(data) > TOOL_SESSION_BYTES or not data.endswith(b"\n")
+                or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)):
+            return unavailable
+        nodes = {}
+        header = None
+        leaf = None
+        for line in io.BytesIO(data):
+            if len(line) > TOOL_SESSION_LINE_BYTES:
+                return unavailable
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            if not isinstance(entry, dict):
+                return unavailable
+            if header is None:
+                header = entry
+                stamp = ts_to_epoch(header.get("timestamp"))
+                if (header.get("type") != "session" or header.get("version") != 3
+                        or not header.get("id") or stamp is None or stamp > now
+                        or (pid_doc["gen"] == 1 and stamp < started)):
+                    return unavailable
+                continue
+            eid, parent = entry.get("id"), entry.get("parentId")
+            stamp = ts_to_epoch(entry.get("timestamp"))
+            if (entry.get("type") == "session" or not isinstance(eid, str) or not eid
+                    or eid in nodes or "parentId" not in entry
+                    or (parent is not None and parent not in nodes)
+                    or stamp is None or stamp > now or len(nodes) >= TOOL_SESSION_ENTRIES):
+                return unavailable
+            # Retain no question, arguments, result body or assistant prose.
+            calls, result = [], None
+            if entry.get("type") == "message":
+                msg = entry.get("message")
+                if not isinstance(msg, dict):
+                    return unavailable
+                if msg.get("role") == "assistant":
+                    content = msg.get("content")
+                    if not isinstance(content, list):
+                        return unavailable
+                    for block in content:
+                        if not isinstance(block, dict):
+                            return unavailable
+                        if block.get("type") == "toolCall" and stamp >= started:
+                            cid, name = block.get("id"), block.get("name")
+                            if (not isinstance(cid, str) or not cid or not isinstance(name, str)
+                                    or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", name)):
+                                return unavailable
+                            calls.append((cid, name, stamp))
+                elif msg.get("role") == "toolResult":
+                    result = msg.get("toolCallId")
+                    if not isinstance(result, str) or not result:
+                        return unavailable
+            nodes[eid] = (parent, stamp, calls, result)
+            leaf = eid
+        # Do not mistake an old process's file for this generation's observations.
+        if leaf is None or nodes[leaf][1] < started:
+            return unavailable
+        branch = []
+        while leaf is not None:
+            node = nodes[leaf]
+            branch.append(node)
+            leaf = node[0]
+        pending, seen_calls = {}, set()
+        for _, _, calls, result in reversed(branch):
+            for cid, name, stamp in calls:
+                if cid in seen_calls:
+                    return unavailable
+                seen_calls.add(cid)
+                pending[cid] = (name, stamp)
+            pending.pop(result, None)
+        # Ignore heartbeat-only changes; reject a concurrent generation/terminal change.
+        latest, _ = read_json_safe(os.path.join(adir, "pid.json"))
+        if (latest is None or latest.get("final") is True or latest.get("status") != "running"
+                or any(latest.get(k) != pid_doc.get(k) for k in identity)):
+            return unavailable
+        items = ["`%s` (%s)" % (name, fmt_dur(now - stamp))
+                 for name, stamp in list(pending.values())[:TOOL_DISPLAY_LIMIT]]
+        if len(pending) > TOOL_DISPLAY_LIMIT:
+            items.append("另 %d 项" % (len(pending) - TOOL_DISPLAY_LIMIT))
+        if not items:
+            return "-"
+        return ("%d 项：" % len(pending) if len(pending) > 1 else "") + "；".join(items)
+    except Exception:
+        # Observation is optional even for unexpected/native-format parse failures.
+        return unavailable
+
+
 # provider 终态非成功态的呈现文案（态语义单点 = scheduling.eval_needs / _scan）：
 # idle = 空跑（exit0 ∧ 无 report.md ∧ 非取消，不满足依赖）、canceled = 调度员主动取消
 # （不算失败也不算空跑，同样不满足依赖）——两者分开呈现，不把取消/空跑说成实施失败。
@@ -320,7 +441,7 @@ def blank_participant(pid_, adir=None, observation=None):
             "restartPolicy": "", "stop_request": False,
             # 会话观测面判据：spec.command（pi-rpc-wrap 会话型 bot）
             # 与 pid.json 的 sock（封装已就绪 = 可直播）
-            "command": "", "has_sock": False,
+            "command": "", "has_sock": False, "current_tools": "-",
             # 登记期订阅声明（协议 §4.1 通道 B）：主持人判据用
             "subscribes": [],
             "enabled": _ex("enable.json"),
@@ -404,8 +525,10 @@ def collect_task(root, task_id, now, observation=None):
         t["incomplete"] = True  # 兜底：采集层任何意外都不炸整体
 
     judge(t, adir, now)
-    # Session JSONL persists calls/results, not entry into a blocking wait or
-    # native dialog settlement. Do not turn unfinished tools into wait hints.
+    # Keep observation failures entirely separate from lifecycle/incomplete verdicts.
+    if (task_id.startswith("task/") and t["has_pid"] and not t["final"]
+            and "pi-rpc-wrap.py" in t["command"]):
+        t["current_tools"] = current_tools(adir, pid_doc, now)
     return t
 
 
@@ -1126,8 +1249,8 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
     if active:
         # 无独立「会话」列（删）：taskId 与名称两格本身即 ?v=chat 观测链接，
         # 再加一列 `[观测](同链)` 是三处同链冗余（加列 → 格内给链后失去理由）。
-        L.append("| taskId | 名称 | 状态 | host | workdir | 已运行 | 最近心跳 | 调度依赖 | 最新进展 |")
-        L.append("|---|---|---|---|---|---|---|---|---|")
+        L.append("| taskId | 名称 | 状态 | host | workdir | 已运行 | 最近心跳 | 当前工具 | 调度依赖 | 最新进展 |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|")
         for t in active:
             state = t["verdict_icon"] + " " + t["verdict"]
             if t["heartbeat_stale"]:
@@ -1143,12 +1266,17 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             # taskId 与名称单元格同链（：点击任务名即弹出观测窗，md 链接
             # 靠页面 <base target="_blank"> 新标签页打开）；无 host → 纯文本（chat_url 返空）。
             url = chat_url(t["id"], t["host"])
-            L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s |"
+            L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"
                      % (md_link("`%s`" % t["id"], url),
                         md_link(truncate(t["name"], 32), url),
                         md_escape(state), md_escape(t["host"] or "-"),
                         md_escape(truncate(t["workdir"] or "-", 36)),
-                        runfor, hb, md_escape(dep_cell(t)), md_escape(prog)))
+                        runfor, hb, md_escape(t["current_tools"]), md_escape(dep_cell(t)), md_escape(prog)))
+        L.append("")
+        L.append("当前工具：会话落盘分支中已发出、尚未记录结果的调用；括号为距调用记录的时长，"
+                 "不是执行耗时。多项并列，可能排队或异常遗留，不是已确认等答/正在执行。"
+                 "`-` = 无本代未返回调用或不采集；不可得 = 会话/代际/完整分支无法核实。"
+                 "仅观察本代记录；同步延迟、未落盘的内存分支/会话切换不可见。")
     else:
         L.append("（无活跃任务）")
     L.append("")

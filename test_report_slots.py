@@ -139,13 +139,13 @@ def wait_probe(root, want):
 
 
 def dep_cell(root, tid):
-    """跑一次 build_report，取该 taskId 在「活跃任务」表的『调度依赖』列（第 8 格）。"""
+    """跑一次 build_report，取该 taskId 在「活跃任务」表的『调度依赖』列（第 9 格）。"""
     text, _tasks = RP.build_report(root, time.time())
     sec = RP.extract_section(text, "active")
     for ln in sec.split("\n"):
         if "`%s`" % tid in ln:
             cells = [c.strip() for c in ln.strip().strip("|").split("|")]
-            return cells[7], text
+            return cells[8], text  # 调度依赖（前列为当前工具观察）
     return None, text
 
 
