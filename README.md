@@ -51,7 +51,7 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `scheduler.py` / `scheduler-loop.sh` | 单实例无状态 DAG 放行 |
 | `report.py` / `needscheck.py` | Markdown 报表 / JSON 不可满足依赖清单，均只读 |
 | `agentd4web.py` / `tasks.md` | 报表的 web 入口与视图 |
-| `wait_state.py` | 封装独写的当前 RPC 等待快照与报表只读过滤 |
+| `wait_state.py` | 封装 socket attach 的内存 dialog 基线（不写等待快照） |
 | `envscrub.py` / `safe_delete.py` | 进程环境身份洗刷 / 临时测试根安全删除，契约见模块头 |
 | `e2e.py` / `test_*.py` / `fakeagent.py` | 回归与测试负载，覆盖面取各文件头 |
 
@@ -98,7 +98,7 @@ python3 agentd/needscheck.py
 
 基础设施面以 runner 锁新鲜度观察运行与同步链路；有效并发上限取同 root 的 scheduler 实跑 argv，读不到显示未核实，不拿声明值冒充生效值。卡点与异常列的渲染以 `report.py` 为准。
 
-活跃表的「待答复」是观测提示，不改变调度或生命周期状态。来源与过滤以 `wait_state.py` 为准：封装采集当前阻塞工具/原生 RPC dialog，报表只读取与运行进程身份匹配的快照，不从未答 ask 或会话历史推定阻塞。文件等待显示「待答复（协调者）」及精确 `--ref` 答复命令；原生 dialog 显示「待用户答复」并链接宿主会话。缺少快照或可靠进程身份的载体、尚未加载生产钩的旧实例、扩展私有 TUI 不提供此提示。答复入口与清除行为的实际 widget 回归见 `test_wait_state.py`。
+活跃表不显示当前等答提示。既有 session JSONL 持久化工具调用与最终结果，不记录真实进入阻塞、native dialog 请求/内部 signal 结算；未结束工具、历史未答 ask 或问题关键词都不足以证明此刻等答，因此不作推断，不另写等待快照或向 JSONL 添加自定义观测协议。**不提示不代表没有等待**，仍可由 taskId/名称链接打开任务会话；ask/reply 通信信封及精确 ref 答复协议不变。旧实例遗留的 wait-state.json 不读取、不为此删除或强制中断提问。实际 widget/HTML、真实工具通信与无快照写入回归见 `test_wait_state.py`。
 
 ## 运行参数（生产化）
 
