@@ -66,7 +66,7 @@ class WebReportTests(unittest.TestCase):
 
     def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):
         workspace = self.root / "workspace ' root"
-        cli = workspace / 'agent-platform/agentd/report.py'
+        cli = workspace / "standalone ' source/report.py"
         cli.parent.mkdir(parents=True)
         cli.write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
         page = source.with_name('tasks.md').read_text()
@@ -74,7 +74,7 @@ class WebReportTests(unittest.TestCase):
                     if cmd.startswith('python3 ') and '/report.py' in cmd]
         self.assertEqual(len(commands), 7)
         for command in commands:
-            env = dict(os.environ,
+            env = dict(os.environ, src=str(cli.with_name('tasks.md')),
                        PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ.get('PATH', ''))
             run = subprocess.run(['bash', '-c', command], cwd=workspace, env=env,
                                  text=True, capture_output=True, timeout=5)
