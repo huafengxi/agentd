@@ -14,7 +14,12 @@ def verify_rootfix(source=None):
     git(REPO, 'merge-base', '--is-ancestor', doc['accepted_baseline'], base)
     git(REPO, 'merge-base', '--is-ancestor', fix, 'HEAD')
     assert git(REPO, 'rev-parse', fix + '^1').decode().strip() == base
-    before, fixed, delivered = tree(REPO, base), tree(REPO, fix), tree(REPO, 'HEAD')
+    # F-A supersedes wait UI semantics, not this historical B1 evidence.
+    # Verify the old exact terminal tree at its retained accepted pin; the new
+    # fresh verifier checks every subsequent runtime path and terminal HEAD.
+    fresh_file = DATA / 'fresh-map.json'
+    revision = json.loads(fresh_file.read_text())['baseline'] if fresh_file.exists() else 'HEAD'
+    before, fixed, delivered = tree(REPO, base), tree(REPO, fix), tree(REPO, revision)
     assert changed(before, fixed) == {r['Target-Path'] for r in doc['changes']} == {'report.py', 'test_wait_state.py'}
     for r in doc['changes']:
         p = r['Target-Path']
@@ -46,7 +51,7 @@ def verify_rootfix(source=None):
         if source:
             assert frozen.get(r['Source-Path']) == r['source_frozen']
     assert delivered['wait_state.py'] == before['wait_state.py'], 'no protocol change'
-    print(json.dumps({'rootfix_PASS': True, 'mechanism_commit': fix,
+    print(json.dumps({'rootfix_PASS': True, 'verified_revision': revision, 'mechanism_commit': fix,
                       'failed_candidate': base, 'frozen_source': doc['frozen_source'],
                       'net_paths': len(net), 'changed_runtime_paths': len(changed(before, fixed)),
                       'source_verified': bool(source)}, indent=2))

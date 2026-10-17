@@ -136,6 +136,9 @@ def verify(source=None, origin=None):
     if (DATA / 'rootfix-map.json').exists():
         from rootfix_verify import verify_rootfix
         verify_rootfix(source)
+    if (DATA / 'fresh-map.json').exists():
+        from fresh_verify import verify_fresh
+        verify_fresh(source)
     print(json.dumps({'PASS': True, 'historical_revision': historical_revision,
                       'source_records': len(mapping['records']),
                       'projected_commits': sum(bool(r['Target-Commit']) for r in mapping['records']),

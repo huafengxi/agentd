@@ -1,0 +1,148 @@
+{
+  "taskId": "kon3ad",
+  "kind": "actual pre-push validation; post-push clean export is recorded separately in task report",
+  "runtime_tip": "e52af4f1909194030ae8fafdec0e1f782fc2daa9",
+  "commands": [
+    {
+      "command": "python -B recovery/isolated-test.py test_current_tools.py",
+      "passed": 8,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "key2"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_wait_state.py",
+      "passed": 16,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "key2"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_report_slots.py",
+      "passed": 38,
+      "unit": "assertion checks",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "key2"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_web_report.py",
+      "passed": 7,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "key2"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_platform_paths.py",
+      "passed": 3,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "key2"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_runner_final.py",
+      "passed": 33,
+      "unit": "assertion checks",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_runner_lock.py",
+      "passed": 1,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_runner_notify.py",
+      "passed": 40,
+      "unit": "assertion checks",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_safe_delete.py",
+      "passed": 11,
+      "unit": "assertion checks",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_scheduling.py",
+      "passed": 8,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B recovery/isolated-test.py test_task_contract.py",
+      "passed": 7,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -I -S -B portable/test_portable.py",
+      "passed": 10,
+      "unit": "unittest",
+      "rc": 0,
+      "skip": 0,
+      "actual_run": "check"
+    },
+    {
+      "command": "python -B e2e.py --core",
+      "passed": 50,
+      "unit": "scenarios",
+      "rc": 0,
+      "skip": {
+        "excluded_scenarios": [
+          "S33",
+          "S34",
+          "S39",
+          "S41",
+          "S49",
+          "S50",
+          "S53"
+        ],
+        "platform_subassertions": 0
+      },
+      "actual_run": "check"
+    }
+  ],
+  "failures_retained": [
+    {
+      "run": "keys",
+      "rc": 1,
+      "result": "15 wait tests ran: 9 passed, 6 failed; other four key files passed",
+      "cause": "AF_UNIX path 113 bytes after nested isolated harness; shortened only fixture prefix; no production change"
+    },
+    {
+      "run": "dev",
+      "rc": 1,
+      "result": "all eleven test files and portable passed; core 49/50 with S62 failure and one S58 caller-context subassertion skip",
+      "cause": "orchestrator injected PLATFORM_WORKSPACE into a default-root assertion; fixed own orchestration to export inside synthetic default-root workspace and omit override for core; no e2e/runtime edits"
+    },
+    {
+      "step": "input export",
+      "result": "archive failed: marked renderer is in its separate repository, not caller monorepo object",
+      "cause": "wrong archive path; caller then exported alone, renderer exported from fixed independent renderer repo"
+    }
+  ],
+  "unverified": [
+    "full standalone P with new pin",
+    "new P/S combination",
+    "real pi/models",
+    "production services/sockets",
+    "macOS/SSH/multi-host"
+  ]
+}
