@@ -1,4 +1,4 @@
-"""Report transport works independently of workspace layout and host globals."""
+"""Report adapter overrides and the actual workspace-relative page commands."""
 import importlib.util
 import json
 import os
@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-source = Path(__file__).with_name('agentd4web.py')
+source = Path(__file__).resolve().with_name('agentd4web.py')
 spec = importlib.util.spec_from_file_location('web_report', source)
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
@@ -64,18 +64,19 @@ class WebReportTests(unittest.TestCase):
         with patch.object(adapter.subprocess, 'run', side_effect=OSError('fixture')):
             self.assertIn('启动失败', adapter.interp(None)[1])
 
-    def test_page_widgets_run_from_relocated_source_with_spaces_and_quotes(self):
-        self.cli.write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
-        source_page = self.root / "page ' source.md"
-        source_page.touch()
-        page = Path(__file__).with_name('tasks.md').read_text()
+    def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):
+        workspace = self.root / "workspace ' root"
+        cli = workspace / 'agent-platform/agentd/report.py'
+        cli.parent.mkdir(parents=True)
+        cli.write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
+        page = source.with_name('tasks.md').read_text()
         commands = [cmd for cmd in re.findall(r'\$\{([^}]+)\}', page)
                     if cmd.startswith('python3 ') and '/report.py' in cmd]
         self.assertEqual(len(commands), 7)
         for command in commands:
-            env = dict(os.environ, src=str(source_page),
+            env = dict(os.environ,
                        PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ.get('PATH', ''))
-            run = subprocess.run(['bash', '-c', command], cwd='/', env=env,
+            run = subprocess.run(['bash', '-c', command], cwd=workspace, env=env,
                                  text=True, capture_output=True, timeout=5)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertEqual(json.loads(run.stdout), ['-s', command.rsplit(' ', 1)[1]])

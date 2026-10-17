@@ -34,7 +34,7 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 
 共享生命周期与交付判据归 `task_state.py`。`scheduling.py` 提供只读任务快照、调度视图与结构化门禁结果；scheduler、report 与 needscheck 使用同一接口，放行记录只由 scheduler 写入。快照是单轮观察结果，不提供跨文件事务保证。
 
-Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用宿主 Python 解释器；页面命令通过 shell 接口的 `src` 定位报告脚本。两者与工作区目录布局无关。
+Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用宿主 Python 解释器；`tasks.md` 的 widget 命令从工作区根执行 `agent-platform/agentd/report.py`。
 
 `task_labels.py` 承载 provider 状态文案；报表与 JSON 检查工具按结构化依赖结果渲染，不从日志文本还原决策。
 
@@ -51,6 +51,7 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `scheduler.py` / `scheduler-loop.sh` | 单实例无状态 DAG 放行 |
 | `report.py` / `needscheck.py` | Markdown 报表 / JSON 不可满足依赖清单，均只读 |
 | `agentd4web.py` / `tasks.md` | 报表的 web 入口与视图 |
+| `wait_state.py` | 封装独写的当前 RPC 等待快照与报表只读过滤 |
 | `envscrub.py` / `safe_delete.py` | 进程环境身份洗刷 / 临时测试根安全删除，契约见模块头 |
 | `e2e.py` / `test_*.py` / `fakeagent.py` | 回归与测试负载，覆盖面取各文件头 |
 
@@ -96,6 +97,8 @@ python3 agentd/needscheck.py
 报表复用 scheduler 的状态、报告非空与占位判据；终态表缺省隐藏，`-s` 可按小节输出。坏 JSON 降级标读取不完整，不中断整份报表。无报告终态以中性标记呈现；取消优先于无报告。`stale/127` 且报告非空显示接管成功。
 
 基础设施面以 runner 锁新鲜度观察运行与同步链路；有效并发上限取同 root 的 scheduler 实跑 argv，读不到显示未核实，不拿声明值冒充生效值。卡点与异常列的渲染以 `report.py` 为准。
+
+活跃表的「待答复」是观测提示，不改变调度或生命周期状态。来源与过滤以 `wait_state.py` 为准：封装采集当前阻塞工具/原生 RPC dialog，报表只读取与运行进程身份匹配的快照，不从未答 ask 或会话历史推定阻塞。文件等待显示「待答复（协调者）」及精确 `--ref` 答复命令；原生 dialog 显示「待用户答复」并链接宿主会话。缺少快照或可靠进程身份的载体、尚未加载生产钩的旧实例、扩展私有 TUI 不提供此提示。答复入口与清除行为的实际 widget 回归见 `test_wait_state.py`。
 
 ## 运行参数（生产化）
 

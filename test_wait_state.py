@@ -64,11 +64,18 @@ for line in sys.stdin:
  if cmd['type']=='prompt':
   emit({'type':'response','command':'prompt','id':cmd['id'],'success':True})
   emit({'type':'agent_start'})
-  if os.environ.get('WAIT_TEST_MODE')=='dialog':
+  if os.environ.get('WAIT_TEST_MODE','').startswith('dialog'):
    emit({'type':'tool_execution_start','toolCallId':'dialog-tool','toolName':'ask_user'})
-   emit({'type':'extension_ui_request','method':'select','id':'current-dialog','title':'Choose live option','options':['yes','no']})
+   request={'type':'extension_ui_request','method':'select','id':'current-dialog','title':'Choose live option','options':['yes','no']}
+   if os.environ['WAIT_TEST_MODE']=='dialog-timeout': request['timeout']=2000
+   emit(request)
+   # Leave a gap after the native deadline, before tool completion, so the
+   # widget must use the deadline rather than rely only on tool_end cleanup.
+   if os.environ['WAIT_TEST_MODE']=='dialog-timeout': threading.Timer(4,finish).start()
   else: threading.Thread(target=ask).start()
- elif cmd['type']=='extension_ui_response': finish()
+ elif cmd['type']=='extension_ui_response':
+  with open(os.path.join(os.environ['AGENT_HOME'],'dialog-response.json'),'w') as f: json.dump(cmd,f)
+  finish()
 '''
 
 
@@ -318,7 +325,7 @@ class WaitTests(unittest.TestCase):
 
     def run_wrapper(self, mode):
         if WRAPPER is None: self.skipTest('set AGENTD_TEST_WRAP for wrapper integration')
-        if mode != 'dialog' and not os.environ.get('ASK_WAIT_DRIVER'):
+        if not mode.startswith('dialog') and not os.environ.get('ASK_WAIT_DRIVER'):
             self.skipTest('set ASK_WAIT_DRIVER for the actual TS producer')
         fake = self.root / 'fake-pi'
         fake.write_text(FAKE.replace('#!/usr/bin/env python3', '#!' + sys.executable))
@@ -368,17 +375,41 @@ class WaitTests(unittest.TestCase):
         self.assertTrue(any(m.get('via') == 'send_message' for m in
                             proto.list_task_asks(str(self.root), 'task/wait-fixture')))
 
+    def test_widget_reply_command_targets_current_ask_not_oldest(self):
+        # The displayed entrance must work, not merely contain a plausible ref.
+        # An older nonblocking ask makes the generic `answer` shortcut unsafe.
+        old_id, _ = proto.write_message(str(self.root / 'agents/queue/dispatcher/inbox'),
+            dict(type='ask', **{'from': 'task/wait-fixture'}, via='send_message',
+                 body=json.dumps({'question': 'Older nonblocking question'})))
+        p = self.run_wrapper('answer')
+        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
+        text = self.page()
+        command = next(c for c in re.findall(r'`([^`]+)`', text)
+                       if '--type reply --ref ' in c)
+        answer = self.root / 'answer.txt'
+        answer.write_text('fixture answer')
+        command = command.replace('<答复文件>', 'answer.txt')
+        result = subprocess.run(['bash', '-c', command], cwd=self.root,
+            env=dict(self.env, AGENT_SELF='queue/dispatcher'),
+            text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        replies = [m for m in proto.list_messages(str(self.home / 'inbox')) if m.get('type') == 'reply']
+        self.assertEqual(len(replies), 1)
+        self.assertNotEqual(replies[0]['ref'], old_id)
+        self.assertNotEqual(replies[0].get('via'), 'send_message')
+        self.assertEqual(p.wait(timeout=10), 0, (self.root / 'wrapper.log').read_text())
+        self.assertNotIn('**❓', self.page())
+        # The unrelated unanswered ask still exists, without becoming a wait.
+        self.assertEqual(proto.find_pending_ask(str(self.root), 'task/wait-fixture')['id'], old_id)
+
     def test_real_wrapper_file_ask_producer_timeout(self):
         p = self.run_wrapper('timeout')
         self.assertEqual(p.wait(timeout=10), 0, (self.root / 'wrapper.log').read_text())
         self.assertEqual(len(proto.list_task_asks(str(self.root), 'task/wait-fixture')), 1)
         self.assertNotIn('**❓', self.page())
 
-    def test_real_wrapper_no_browser_dialog_attach_and_reply(self):
+    def dialog_client(self):
         import socket
-        p = self.run_wrapper('dialog')
-        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
-        self.assertIn('待用户答复', self.page())
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.addCleanup(client.close)
         client.settimeout(5)
@@ -389,7 +420,48 @@ class WaitTests(unittest.TestCase):
             obj = json.loads(stream.readline())
             if obj.get('type') == 'extension_ui_request': break
         self.assertEqual(obj['id'], 'current-dialog')
+        return client
+
+    def test_real_wrapper_no_browser_dialog_attach_and_reply(self):
+        p = self.run_wrapper('dialog')
+        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
+        self.assertIn('待用户答复', self.page())
+        client = self.dialog_client()
         client.sendall(b'{"type":"extension_ui_response","id":"current-dialog","value":"yes"}\n')
+        self.assertEqual(p.wait(timeout=10), 0)
+        self.assertNotIn('**❓', self.page())
+
+    def test_real_wrapper_dialog_cancelled_response_clears_widget(self):
+        p = self.run_wrapper('dialog')
+        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
+        self.assertIn('待用户答复', self.page())
+        client = self.dialog_client()
+        client.sendall(b'{"type":"extension_ui_response","id":"current-dialog","cancelled":true}\n')
+        self.assertEqual(p.wait(timeout=10), 0)
+        response = json.loads((self.home / 'dialog-response.json').read_text())
+        self.assertIs(response['cancelled'], True)
+        self.assertNotIn('**❓', self.page())
+
+    def test_real_wrapper_dialog_deadline_clears_before_tool_end(self):
+        p = self.run_wrapper('dialog-timeout')
+        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
+        self.assertIn('待用户答复', self.page())
+        deadline = proto.read_json(str(self.home / 'wait-state.json'))['waits'][0]['deadline']
+        time.sleep(max(0, deadline - time.time()) + .03)
+        self.assertIsNone(p.poll())  # still blocked before the fixture's tool end
+        self.assertNotIn('**❓', self.page())
+        self.assertEqual(p.wait(timeout=10), 0)
+
+    def test_real_wrapper_old_incarnation_cannot_supply_new_generation_wait(self):
+        p = self.run_wrapper('dialog')
+        self.until(lambda: bool(current_waits(str(self.root), 'task/wait-fixture', self.pid, time.time())))
+        self.assertIn('待用户答复', self.page())
+        self.pid.update(gen=2, procStart=self.pid['procStart'] + 1)
+        self.put('pid.json', self.pid)
+        self.assertIsNone(p.poll())  # old producer still live, not just a stale file
+        self.assertNotIn('**❓', self.page())
+        client = self.dialog_client()
+        client.sendall(b'{"type":"extension_ui_response","id":"current-dialog","cancelled":true}\n')
         self.assertEqual(p.wait(timeout=10), 0)
         self.assertNotIn('**❓', self.page())
 
