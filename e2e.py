@@ -4652,8 +4652,10 @@ def s58():
             "协议动词 control 不过存活门（收尾清理也要能写 stop）"
         os.remove(os.path.join(tadir, "pid.json"))          # 回到未启动态
         r = run(["cancel", t, "--reason", "需求作废"], {"AGENT_SELF": lead}, expect_rc=0)
-        reqf = [f for f in os.listdir(cdir) if f.endswith(".req")]
-        with open(os.path.join(cdir, sorted(reqf)[-1])) as f:
+        # Request IDs include a wall clock and random suffix, not an ordering
+        # guarantee. Inspect this CLI's receipt, never a neighbouring control.
+        rid = r.stdout.split("\n")[0].strip()
+        with open(os.path.join(cdir, rid + ".req")) as f:
             req = json.load(f)
         assert req["action"] == "stop" and req["reason"] == "需求作废", req
         assert req["from"] == lead and r.stdout.split("\n")[0].strip() == req["id"], (req, r.stdout)
