@@ -78,7 +78,7 @@ class AdapterTests(unittest.TestCase):
         real_write = runner.Runner.write_pid
         def write_pid(agent, participant, doc):
             stack = traceback.extract_stack()
-            self.assertTrue(any(f.filename.endswith('/agent_exec_adapter/adapter.py') and f.name == 'project'
+            self.assertTrue(any(f.filename.endswith(('/agent_exec_adapter/adapter.py', '/agent_exec_adapter/p3b.py')) and f.name == 'project'
                                 for f in stack), 'pid writer must be adapter.project')
             self.events.append({'event': 'pid-projection', 'participant': participant,
                                 'writer': os.getpid(), 'doc': doc, 'stack': [str(f) for f in stack[-5:]]})

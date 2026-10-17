@@ -21,7 +21,7 @@ import proto
 import registration
 from runner import Runner, refresh_lock
 
-S_REVISION = 'e4b79dce60f71b55899d3add5d2f127c90f1faaa'
+S_REVISION = '4f99b25d191f61734b6b1ef89b456014413aad92'
 
 
 def canonical(value):
@@ -95,6 +95,8 @@ class Adapter:
     Runner is used ONLY for existing agent routing, control receipts and notices;
     none of its execution/observation/service methods is called.
     """
+    EXPERIMENT = 'p3a-one-shot-fixtures-v1'
+
     def __init__(self, *, sandbox_root, workspace, runtime_root, runtime_source, manifest, hook=None):
         self.sandbox = absolute(sandbox_root)
         self.workspace = absolute(workspace)
@@ -116,7 +118,7 @@ class Adapter:
                 'explicit synthetic workspace and host-map required')
         self.manifest = json.loads(manifest.read_text())
         require(set(self.manifest) == {'experiment', 'host', 'tasks'}, 'unknown/missing manifest fields')
-        require(self.manifest['experiment'] == 'p3a-one-shot-fixtures-v1', 'explicit experimental manifest required')
+        require(self.manifest['experiment'] == self.EXPERIMENT, 'explicit experimental manifest required')
         self.host = self.manifest['host']
         require(isinstance(self.host, str) and self.host and self.host.replace('-', '').isalnum(), 'invalid host')
         require(type(self.manifest['tasks']) is dict and self.manifest['tasks'], 'explicit finite tasks required')
@@ -151,19 +153,26 @@ class Adapter:
         self.runtime.kernel.owned()
         refresh_lock(proto.agentd_lock_path(str(self.workspace), self.host), self.host, self.started_at)
 
+    def lifecycle(self, spec):
+        require(spec.get('resident', False) is False and spec.get('restartPolicy') == 'one-shot',
+                'only explicit nonresident one-shot supported; no auto/manual inference')
+        return 'Task'
+
+    def initial_workdir(self, pid, spec):
+        return workdir(self.runtime_root, self.host, pid)
+
     def inputs(self, pid):
         spec = self.agent.read_spec(pid)
         require(type(spec) is dict and not (set(spec) - registration.SPEC_KEYS), 'invalid spec')
         require(spec.get('host') == self.host, 'wrong host')
-        require(spec.get('resident', False) is False and spec.get('restartPolicy') == 'one-shot',
-                'only explicit nonresident one-shot supported; no auto/manual inference')
+        self.lifecycle(spec)
         require('profile' not in spec, 'model/persona commands unsupported in P3a')
         binding = self.manifest['tasks'][pid]
         require(type(binding) is dict and set(binding) == {'command', 'sources', 'argv', 'env', 'toolchain'},
                 'invalid fixture binding')
         require(spec.get('command') == binding['command'] and
                 spec['command'].startswith('p3a-fixture '), 'undeclared/unsupported command')
-        require(spec.get('workdir') == str(workdir(self.runtime_root, self.host, pid)),
+        require(spec.get('workdir') == str(self.initial_workdir(pid, spec)),
                 'spec.workdir must explicitly name runtime independent work directory')
         for src in binding['sources']:
             # The experiment never prepares from a production source repository.
@@ -296,14 +305,14 @@ class Adapter:
         return results
 
 
-def main():
+def main(adapter_class=Adapter):
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('sandbox-root', 'workspace', 'runtime-root', 'runtime-source', 'manifest'):
         p.add_argument('--' + key, required=True)
     p.add_argument('--seconds', type=float, default=0, help='bounded foreground experiment; default one tick')
     a = p.parse_args()
     require(0 <= a.seconds <= 3600, 'bounded foreground duration required')
-    with Adapter(**{k: getattr(a, k) for k in ('sandbox_root', 'workspace', 'runtime_root', 'runtime_source', 'manifest')}) as adapter:
+    with adapter_class(**{k: getattr(a, k) for k in ('sandbox_root', 'workspace', 'runtime_root', 'runtime_source', 'manifest')}) as adapter:
         deadline = time.monotonic() + a.seconds
         while True:
             print(json.dumps(adapter.tick(), sort_keys=True), flush=True)

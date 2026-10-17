@@ -1,4 +1,13 @@
-# P3a: explicit single-host one-shot fixture adapter (unwired experiment)
+# Agent execution adapters (unwired experiments)
+
+Current **P3b** opt-in entry, mapping, controls and retained compatibility suite:
+[P3B.md](P3B.md), task **a41wn0**. Current S dependency is
+**4f99b25d191f61734b6b1ef89b456014413aad92**. The original P3a SHA
+`e73c21579d10d9d4053c2ebbee0d4e7c6c8a9b6e` still restores its original
+S `e4b79dce60f71b55899d3add5d2f127c90f1faaa` pin and narrow implementation.
+No other consumer pin or recovery history is changed.
+
+## P3a module: explicit single-host one-shot fixture adapter
 
 Task **zmo14t**, parent **6ggidb**, approved d-09kx. This is NOT a stable API,
 new daemon, replacement runner, general host, resident/P3b implementation,
@@ -9,7 +18,7 @@ changes. D5 stays closed; D6 adds nothing.
 ## Fixed dependency and responsibility boundary
 
 `runtime-dependency.json` pins **serviced
-`e4b79dce60f71b55899d3add5d2f127c90f1faaa`**, including SHA256 of every runtime
+`4f99b25d191f61734b6b1ef89b456014413aad92`** in this current commit, including SHA256 of every runtime
 Python source. Supply a clean read-only `git archive` export explicitly through
 `--runtime-source`; there is no search of `~/m`, sibling production tree or
 installed fallback. `load_runtime` validates those bytes and imports the package
