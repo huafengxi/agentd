@@ -25,11 +25,11 @@ def terminal_phase(run):
     return run['phase'] in FINAL
 
 
-def load_client(source):
+def load_client(source, *, revision=S_REVISION, dependency='file-backend-dependency.json'):
     """Load only fixed S's file client + schema/IO; no lifecycle/Kernel import."""
     source = absolute(source)
-    dep = json.loads(Path(__file__).with_name('file-backend-dependency.json').read_text())
-    require(dep['revision'] == S_REVISION, 'wrong file backend revision')
+    dep = json.loads(Path(__file__).with_name(dependency).read_text())
+    require(dep['revision'] == revision, 'wrong file backend revision')
     require(not list(source.rglob('*.pyc')), 'clean source export required')
     for rel, sha in dep['files'].items():
         p = absolute(source / rel)
@@ -44,7 +44,7 @@ def load_client(source):
         mod = importlib.util.module_from_spec(spec)
         sys.modules['runtime'] = mod
         spec.loader.exec_module(mod)
-    name = '_agent_file_client_' + S_REVISION
+    name = '_agent_file_client_' + revision
     if name in sys.modules:
         require(Path(sys.modules[name].__file__) == source / 'experimental/file_owner/protocol.py',
                 'client source binding conflict')
@@ -58,6 +58,8 @@ def load_client(source):
 
 
 class FileAdapter:
+    REVISION = S_REVISION
+    load_client = staticmethod(load_client)
     EXPERIMENT = 'agent-file-one-shot-fixtures-v1'
     lifecycle = SyncAdapter.lifecycle
     inputs = SyncAdapter.inputs
@@ -87,7 +89,7 @@ class FileAdapter:
         require(type(self.manifest['tasks']) is dict and self.manifest['tasks'], 'finite selection required')
         for pid in self.manifest['tasks']:
             require(proto.parse_participant_id(pid)[0] == 'task', 'task family only')
-        self.client, self.dependency = load_client(source)
+        self.client, self.dependency = self.load_client(source)
         self.package = 'runtime'  # inputs uses only contract.repository
         # Same stable local inode as original Runner, NOT S's node.lock and NOT agents/run JSON.
         guard = absolute(self.workspace / 'run/locks' / ('agentd.' + self.host + '.lock'))
@@ -98,7 +100,7 @@ class FileAdapter:
             self.local = self.workspace / 'run/file-adapter'
             self.local.mkdir(parents=True, exist_ok=True)
             binding = {'manifest': self.manifest, 'runtimeRoot': str(self.runtime_root),
-                       'protocolRoot': str(self.protocol), 'source': str(source), 'revision': S_REVISION}
+                       'protocolRoot': str(self.protocol), 'source': str(source), 'revision': self.REVISION}
             marker = self.local / 'binding.json'
             proto.exclusive_write_json(str(marker), binding)
             require(proto.read_json(str(marker)) == binding, 'workspace binding conflict')
@@ -110,7 +112,7 @@ class FileAdapter:
                           'sha256': hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()}
                        for n, m in sys.modules.items() if (n == 'runtime' or n.startswith('runtime.') or n.startswith('_agent_file_client_'))
                        and getattr(m, '__file__', None)}
-            proto.atomic_write_json(str(self.local / 'imports.json'), {'revision': S_REVISION, 'imports': imports})
+            proto.atomic_write_json(str(self.local / 'imports.json'), {'revision': self.REVISION, 'imports': imports})
             self.heartbeat()
         except BaseException:
             self.lock.close()
@@ -161,7 +163,7 @@ class FileAdapter:
             require(type(enable) is dict and enable.get('by') == 'agentd-scheduler' and enable.get('ts'),
                     'only original scheduler release supported')
         seed = {'participant': pid, 'spec': spec, 'enable': enable, 'binding': binding,
-                'promptDigest': prompt, 'runtimeRevision': S_REVISION}
+                'promptDigest': prompt, 'runtimeRevision': self.REVISION}
         env = dict(binding['env'])
         env.update(AGENT_HOME=self.agent.adir(pid), AGENT_ROOT=str(self.workspace), AGENT_SELF=pid,
                    AGENTD_TASK='1', AGENTD_ROOT=str(self.workspace))
@@ -260,7 +262,7 @@ class FileAdapter:
                'pid': run.get('pid') or 0, 'procStart': run.get('procStart'), 'status': 'running',
                'final': terminal, 'restarts': 0, 'startedAt': agent_ts(run.get('startedAt') or run['acceptedAt']),
                'lastAliveAt': agent_ts(observed),
-               'runtime': {'revision': S_REVISION, 'id': run['id'], 'attemptId': 'a1', 'generation': 1,
+               'runtime': {'revision': self.REVISION, 'id': run['id'], 'attemptId': 'a1', 'generation': 1,
                            'requestId': run['requestId'], 'declarationDigest': run['declarationDigest'],
                            'phase': phase, 'reason': run['reason'], 'factDigest': fact,
                            'factObservedAt': observed, 'semantics': 'last-observed'}}
