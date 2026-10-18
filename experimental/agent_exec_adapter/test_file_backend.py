@@ -160,13 +160,16 @@ class FileBackendTests(unittest.TestCase):
 
     def owner(self, **extra):
         p = self.spawn('owner', **extra)
-        wait_for(lambda: (self.protocol / 'binding.json').exists() or p.poll() is not None)
+        def ready_owner():
+            snapshot = proto.read_json(str(self.protocol / 'snapshot.json')) or {}
+            return snapshot.get('owner', {}).get('pid') == p.pid or p.poll() is not None
+        wait_for(ready_owner)  # old binding/snapshot alone is NOT this new process being ready
         self.assertIsNone(p.poll(), self.children[-1][2].read_text())
         return p
 
     def adapter(self, release=True, **extra):
         p = self.spawn('adapter', **extra)
-        wait_for(lambda: Path(proto.agentd_lock_path(str(self.workspace), 'fixture')).exists() or p.poll() is not None)
+        wait_for(lambda: (proto.read_json(proto.agentd_lock_path(str(self.workspace), 'fixture')) or {}).get('pid') == p.pid or p.poll() is not None)
         self.assertIsNone(p.poll(), self.children[-1][2].read_text())
         if release:
             self.sched.tick()
@@ -366,6 +369,7 @@ class FileBackendTests(unittest.TestCase):
         self.register('b', needs=['done'])
         o, a = self.pipeline()
         ready = self.ready()
+        original_epoch = self.run_fact()['ownerEpoch']
         self.crash(o)
         # Last snapshot survives. No pid refresh or inferred death while owner offline.
         pidfile = Path(proto.pid_path(str(self.workspace), 'task/a'))
@@ -377,7 +381,8 @@ class FileBackendTests(unittest.TestCase):
         self.assertFalse(self.doc()['final'])
         self.assertTrue(same(proc(ready['identity']['pid']), ready['identity']))
         self.owner()
-        wait_for(lambda: self.run_fact()['ownerEpoch'] != self.doc()['runtime'].get('ownerEpoch'))
+        wait_for(lambda: self.run_fact()['ownerEpoch'] != original_epoch)
+        self.assertEqual(self.run_fact()['pid'], ready['identity']['pid'])
         (self.track() / 'finish').touch()
         self.final(status='stale', code=127, state='success' if report else 'failed')
         run = self.run_fact()
