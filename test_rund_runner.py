@@ -136,7 +136,8 @@ if len(sys.argv)>1 and sys.argv[1]=='hold':
    self.scheduler.tick();self.assertTrue(Path(proto.enable_path(str(self.ws),pid)).exists())
    doc=old.spawn(pid,old.read_spec(pid),5);until(lambda:(self.ws/'agents/task/legacy/ready.json').exists())
    identity=proc(doc['pid']);self.assertTrue(old.kill_proc(pid,doc));self.assertFalse(group_members(identity))
-   self.config['legacyCutover']={pid:dict(gen=doc['gen'],pid=doc['pid'],procStart=doc.get('procStart'),groupEmpty=True)}
+   proof=self.area/'legacy-cutover.json';proof.write_text(json.dumps({pid:dict(gen=doc['gen'],pid=doc['pid'],procStart=doc.get('procStart'),groupEmpty=True)}))
+   self.config['legacyCutoverFile']=str(proof)
    self.configfile.write_text(json.dumps(self.config))
   finally:lock.close()
   self.agent=self.start_agent()

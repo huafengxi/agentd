@@ -32,6 +32,11 @@ log=logging.getLogger('agentd.rund')
 
 class RundAgent(ResidentFileAdapter):
     def __init__(self,config):
+        if config.get('legacyCutoverFile'):
+            require(not config.get('legacyCutover'),'choose one legacy evidence source')
+            proofs=json.loads(Path(config['legacyCutoverFile']).read_text())
+            require(type(proofs) is dict,'legacy cutover evidence object required')
+            config=dict(config,legacyCutover=proofs)
         self.config=config
         require(config.get('apiVersion')=='rund-agent/v1','unsupported agent runtime config')
         self.workspace=absolute(Path(config['workspace']).resolve())
