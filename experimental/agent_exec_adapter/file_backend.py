@@ -28,7 +28,8 @@ def terminal_phase(run):
 def load_client(source, *, revision=S_REVISION, dependency='file-backend-dependency.json'):
     """Load only fixed S's file client + schema/IO; no lifecycle/Kernel import."""
     source = absolute(source)
-    dep = json.loads(Path(__file__).with_name(dependency).read_text())
+    dependency_path = Path(dependency) if Path(dependency).is_absolute() else Path(__file__).with_name(dependency)
+    dep = json.loads(dependency_path.read_text())
     require(dep['revision'] == revision, 'wrong file backend revision')
     require(not list(source.rglob('*.pyc')), 'clean source export required')
     for rel, sha in dep['files'].items():

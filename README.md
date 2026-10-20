@@ -18,13 +18,13 @@ anchors:
 
 # agentd — Agent 文件通信协议生产核心
 
-本仓独立发布文件协议核心；不依赖统一平台仓或 sibling helper。离线零安装入口见 [portable/README.md](portable/README.md)，源码恢复与 provenance 见 [recovery/README.md](recovery/README.md)。
+本仓独立发布文件协议与调度政策；执行由调用方固定的 S 文件接口承接，RPC 封装通过显式 PI_HOST_DIR 使用通用 P。离线零安装入口见 [portable/README.md](portable/README.md)，源码恢复与 provenance 见 [recovery/README.md](recovery/README.md)。
 
 Python 标准库实现。协议字段、寻址、单写者、控制与终态谓词的权威 = [agent-file-protocol.md](agent-file-protocol.md)；本文承载实现入口与运行约定。按名引用 `@名#锚点` 在调用方工作区解析，独立阅读可按对应节名查找。
 
 ## 收录判据
 
-本模块只住协议级机制：文件布局与寻址、信封与 ack、终态谓词、调度、进程监督及 CLI。任务政策正文、人格资产、启动命令与部署值由调用方注入或现场发现；改部署或政策措辞不得产生本模块 diff。
+本模块只住协议级机制：文件布局与寻址、信封与 ack、终态谓词、调度、执行声明适配及 CLI。任务政策正文、人格资产、启动命令与部署值由调用方注入或现场发现；改部署或政策措辞不得产生本模块 diff。
 
 `agentctl create --prompt-file` 只逐字搬入调用方已渲染的 UTF-8 正文，原子写 prompt 后再写 spec，不渲染模板。`spec.command` 由调用方提供；机器身份从调用方根下 `env/host-id` 查表。
 
@@ -34,9 +34,17 @@ pi extension 只承载事件钩、会话消息注入与会话树读写；纯文�
 
 共享生命周期与交付判据归 `task_state.py`。`scheduling.py` 提供只读任务快照、调度视图与结构化门禁结果；scheduler、report 与 needscheck 使用同一接口，放行记录只由 scheduler 写入。快照是单轮观察结果，不提供跨文件事务保证。
 
-Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用宿主 Python 解释器；`tasks.md` 的 widget 命令从工作区根执行 `agent-platform/agentd/report.py`。
+Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用宿主 Python 解释器；`tasks.md` 的 widget 命令从工作区根执行 `agentd/report.py`。
 
 `task_labels.py` 承载 provider 状态文案；报表与 JSON 检查工具按结构化依赖结果渲染，不从日志文本还原决策。
+
+## 正式执行入口
+
+`python -B rund_runner.py --config /absolute/agent.json [--runtime-source /absolute/pinned-S]` 只连接本机文件 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent/v1，声明 workspace、host、runtimeRoot、protocolRoot、runtimeSource（可由显式参数提供）、runtimeRevision、runtimeManifest、sources、python、home、path；可选 aliases/env/inheritEnv/interval/legacyCutover。源码由固定 Git 声明准备；新登记命令用 `$AGENTD_CODE` 定位本次执行的 A。既有登记的根路径仅在编译时映射至同一固定源码。
+
+普通任务和常驻/auto 的分类复用原协议政策；登记、scheduler、resources/needs、报告、ask、通知、控制回执和历史仍由 A 处理。动态发现仅认本 host。S 是唯一执行与停止者。旧 runner 的历史进程须先按实际身份关闭整个组，再提供显式 legacyCutover 证据；保留原观测与归档，A 代次单调映射到 S 的新代次，不伪造 S wait。
+
+保留集成测试使用调用方指定的 A_RUND_RUNTIME_SOURCE、A_RUND_RUNTIME_REVISION 和全新 A_RUND_TEST_OUTPUT。测试运行真实独立 A/S 进程与固定本地 Git 假负载，不调用模型或真实 agents 树。
 
 ## 文件
 
@@ -47,8 +55,8 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `scheduling.py` / `task_labels.py` | 只读任务快照与门禁结果 / 状态文案 |
 | `proto.py` | 原子文件、寻址、信封、ask 与进程身份公共原语 |
 | `agentctl.py` | 登记、消息、答复、控制、调度字段更新；参数取 `--help` |
-| `runner.py` / `loop.sh` | 每机拉起、监督、孤儿接管、终态与通知 |
-| `scheduler.py` / `scheduler-loop.sh` | 单实例无状态 DAG 放行 |
+| `rund_runner.py` / `runner.py` | 每机 S 文件客户端、协议代次/控制/历史/终态与通知；runner 的 CLI 转入正式文件入口 |
+| `scheduler.py` | 单实例无状态 DAG 放行，作为普通前台 Service 运行 |
 | `report.py` / `needscheck.py` | Markdown 报表 / JSON 不可满足依赖清单，均只读 |
 | `agentd4web.py` / `tasks.md` | 报表的 web 入口与视图 |
 | `wait_state.py` | 封装 socket attach 的内存 dialog 基线（不写等待快照） |

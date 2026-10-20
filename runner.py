@@ -994,39 +994,9 @@ class Runner:
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--root", required=True)
-    ap.add_argument("--host", default=None, help="本机身份（缺省用 hostname）")
-    ap.add_argument("--aliases", default="", help="本机别名，逗号分隔（§15.3）")
-    ap.add_argument("--interval", type=float, default=0.5)
-    ap.add_argument("--log-file", default=None,
-                    help="日志文件（缺省 stderr；生产约定 <workspace-root>/run/logs/agentd.log）")
-    ap.add_argument("--log-level", default="INFO",
-                    choices=["DEBUG", "INFO", "WARNING", "ERROR"])
-    ap.add_argument("--replay-grace", type=float, default=REPLAY_GRACE_DEFAULT,
-                    help="终态通知重放护栏宽限窗（秒，缺省 300）：启动前已终态且 endedAt "
-                         "早于本次启动超过此值的任务视为历史档案、不当新通知重放；"
-                         "0 = 启动前已终态者一律不发（判据见 REPLAY_GRACE_DEFAULT）")
-    a = ap.parse_args()
-    setup_logging(a.log_file, a.log_level)
-    # 构造 Runner 前持有本机 flock；同步心跳在退出时保留：
-    # 同步契约不传播删除，停更 updatedAt 即别机判死依据（探活锁语义）。
-    host_id = a.host or socket.gethostname()
-    lock_handle, lockfile = acquire_single_instance_lock(os.path.abspath(a.root), host_id)
-
-    def _on_term(signum, _frame):
-        raise SystemExit(128 + signum)
-
-    signal.signal(signal.SIGTERM, _on_term)
-    r = Runner(a.root, a.host, a.aliases, a.interval,
-               lockfile=lockfile, lock_host=host_id,
-               replay_grace=a.replay_grace)
-    try:
-        r.run()
-    except (KeyboardInterrupt, SystemExit):
-        log.info("bye (lock file %s kept: 停更即判死依据)", lockfile)
-    finally:
-        lock_handle.close()
+    """The public runner entry uses the single local runtime file client."""
+    from rund_runner import main as run
+    return run()
 
 
 if __name__ == "__main__":

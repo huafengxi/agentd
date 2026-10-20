@@ -124,9 +124,34 @@ def read_json(path: str):
 # procStart = spawn 时记录的内核启动时刻（/proc/<pid>/stat 第 22 字段 starttime，
 # 自开机时钟节拍，不受系统时钟调整影响）。任何基于 pid 的探测与 kill 前必须校验。
 
+def _darwin_process_facts():
+    """A depends on generic P's native facts; no platform/workspace import."""
+    import importlib.util
+    from pathlib import Path
+    import sys
+    configured = os.environ.get('PI_HOST_DIR')
+    if configured is not None and not configured.strip():
+        raise ValueError('PI_HOST_DIR is empty')
+    root = Path(configured).expanduser().resolve() if configured is not None else Path(__file__).resolve().parent.parent / 'pi-wrap'
+    source = root / 'local_process.py'
+    key = '_agentd_native_process_facts'
+    if key in sys.modules:
+        if Path(sys.modules[key].__file__) != source:
+            raise ValueError('generic P native source changed in this process')
+        return sys.modules[key]
+    spec = importlib.util.spec_from_file_location(key, source)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    sys.modules[key] = mod
+    return mod
+
+
 def proc_starttime(pid):
     """读 /proc/<pid>/stat 第 22 字段 starttime（自开机时钟节拍）。
-    非 Linux / 进程不存在 / 读解析失败 → None（= 进程不存在口径）。"""
+    Darwin 由通用 P 的 libproc 返回启动微秒；原生读取错误保持显式错误。
+    Linux 进程不存在 / 读解析失败 → None。"""
+    import sys
+    if sys.platform == 'darwin':
+        return _darwin_process_facts().starttime(pid)
     try:
         with open("/proc/%d/stat" % pid) as f:
             data = f.read()

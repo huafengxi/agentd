@@ -63,9 +63,11 @@ class ResidentFileAdapter(FileAdapter):
                 'invalid local journal')
         read = __import__('runtime.prepare', fromlist=['read_regular']).read_regular
         state = self.client.decode(read(path))
-        require(type(state) is dict and set(state) == {
-            'declaration', 'seed', 'operations', 'agentGeneration', 'control', 'archived', 'queuedRequest'},
-            'damaged resident journal')
+        required={'declaration', 'seed', 'operations', 'agentGeneration', 'control', 'archived', 'queuedRequest'}
+        require(type(state) is dict and required <= set(state) <= required | {'generationOffset'},
+                'damaged resident journal')
+        require(type(state.get('generationOffset',0)) is int and state.get('generationOffset',0)>=0,
+                'invalid agent generation offset')
         require(type(state['operations']) is dict and type(state['archived']) is list,
                 'damaged resident operation journal')
         for envelope in state['operations'].values():
@@ -160,7 +162,7 @@ class ResidentFileAdapter(FileAdapter):
         # archive_gen deliberately keeps the original weak best-effort IO contract.
         archived = self.terminal_doc(doc, run)
         if not doc:
-            archived.update(gen=run['generation'], pid=run.get('pid') or 0, procStart=run.get('procStart'))
+            archived.update(gen=run['generation'] + state.get('generationOffset',0), pid=run.get('pid') or 0, procStart=run.get('procStart'))
         archived.update(final=False, runtimeHistory={'observedByA': bool(doc), 'fact': run})
         self.agent.archive_gen(pid, archived)
         state['archived'].append(key)
@@ -172,16 +174,16 @@ class ResidentFileAdapter(FileAdapter):
             return old
         if run is None:
             require(final and head and head['generation'] == 0 and head['hold'], 'no fabricated running gen0')
-            gen = 0
+            gen = state.get('generationOffset',0)
             observed = state['seed']['spec']['createdAt']
-            doc = dict(gen=0, pid=0, procStart=None, status='killed', exitcode=proto.EXITCODE_KILLED,
+            doc = dict(gen=gen, pid=0, procStart=None, status='killed', exitcode=proto.EXITCODE_KILLED,
                        final=True, restarts=0, startedAt=observed, endedAt=proto.now_ts(), lastAliveAt=observed,
-                       runtime={'revision': S_REVISION, 'kind': 'Service', 'id': head['id'], 'generation': 0,
+                       runtime={'revision': self.REVISION, 'kind': 'Service', 'id': head['id'], 'generation': 0,
                                 'phase': head['phase'], 'hold': head['hold'], 'semantics': 'last-observed'})
         else:
             if not run.get('startedAt') and run['phase'] not in TERMINAL:
                 return old
-            gen = head['generation'] if head else state['agentGeneration']
+            gen = head['generation'] + state.get('generationOffset',0) if head else state['agentGeneration']
             if not run.get('startedAt') and run['phase'] == 'canceled' and gen <= 1:
                 gen = 0
             observed = run.get('observation', {}).get('observedAt') or run.get('startedAt') or run['acceptedAt']
@@ -193,19 +195,19 @@ class ResidentFileAdapter(FileAdapter):
             # S may advance while A is down. Read exact original intermediate results;
             # never copy an old exit onto the current head or invent missing history.
             if head:
-                for g in range(old.get('runtime', {}).get('generation', gen) if old else 1, gen):
+                for g in range(old.get('runtime', {}).get('generation', 1) if old else 1, head['generation']):
                     path = self.runtime_root / 'state/runs/Service' / run['id'] / 'service' / str(g) / 'result.json'
                     prior = self.read_fact(path)
                     self.validate_run(state, prior, declaration=prior['declaration'], generation=g)
                     require(prior['id'] == run['id'] and prior['declaration'] == state['declaration'], 'history binding changed')
-                    self.archive(pid, state, prior, old if old and g == old.get('gen') else {})
+                    self.archive(pid, state, prior, old if old and g + state.get('generationOffset',0) == old.get('gen') else {})
             terminal = run['phase'] in TERMINAL
             is_final = final or terminal and run['kind'] == 'Task'
             reservation = head and head['phase'] == 'backoff' and not final
             doc = dict(gen=gen, pid=run.get('pid') or 0, procStart=run.get('procStart'), status='running',
                        final=bool(is_final), restarts=max(0, gen - 1),
                        startedAt=agent_ts(run.get('startedAt') or run['acceptedAt']), lastAliveAt=agent_ts(observed),
-                       runtime=dict(revision=S_REVISION, kind=run['kind'], id=run['id'], attemptId=run['attemptId'],
+                       runtime=dict(revision=self.REVISION, kind=run['kind'], id=run['id'], attemptId=run['attemptId'],
                                     generation=run['generation'], requestId=run['requestId'],
                                     declarationDigest=run['declarationDigest'], phase=run['phase'], reason=run['reason'],
                                     factDigest=fact, factObservedAt=observed, semantics='last-observed'))
@@ -224,6 +226,8 @@ class ResidentFileAdapter(FileAdapter):
                 doc['resumed'] = resumed
             elif old and old.get('gen') == gen and 'resumed' in old:
                 doc['resumed'] = old['resumed']
+        if run is not None and run.get('startedAt') and 'pi-rpc-wrap.py' in state['seed']['spec'].get('command',''):
+            doc['sock'] = proto.task_sock_path(str(self.workspace),proto.parse_participant_id(pid)[1])
         self.agent.write_pid(pid, doc)
         return doc
 
