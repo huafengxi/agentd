@@ -84,6 +84,28 @@ if len(sys.argv)>1 and sys.argv[1]=='hold':
    if p.poll() is None:p.terminate()
    p.wait(timeout=3)
   for f in self.logs:f.close()
+ def test_single_tilde_uses_declared_home(self):
+  name='home';pid='task/'+name
+  spec=dict(command='exec '+sys.executable+' "$AGENTD_CODE/probe.py"',workdir='~',creator='fixture',host='fixture',createdByHost='fixture',createdAt=proto.now_ts(),restartPolicy='one-shot')
+  registration.register_task(str(self.ws),name,spec,'Synthetic home fixture')
+  self.advance(lambda:(d if (d:=self.doc(pid)) and d.get('final') else None))
+  self.assertEqual(self.doc(pid)['runtime']['phase'],'succeeded')
+  run=next(r for r in C.snapshot(self.protocol)['runs'] if r['id']==self.doc(pid)['runtime']['id']);self.assertEqual(run['cwd'],self.config['home'])
+
+ def test_explicit_versioned_declaration_retains_prior_history(self):
+  import copy
+  pid=self.register('versioned',hold=True);self.advance(lambda:(d if (d:=self.doc(pid)) and d.get('status')=='running' else None))
+  self.agent.terminate();self.agent.wait(timeout=3)
+  before=self.doc(pid);statefile=self.ws/'run/rund-agent'/(before['runtime']['id']+'.json');state=json.loads(statefile.read_text());old=state['declaration'];new=copy.deepcopy(old);new['metadata']['version']+=1;new['spec']['context']['cwd']=self.config['home']
+  e=dict(apiVersion=C.API,node='fixture',action='submit',declaration=new,declarationDigest=C.digest(C.canonical(new)))
+  from experimental.agent_exec_adapter.adapter import fingerprint
+  e['requestId']='af-'+fingerprint([pid,'admit',e])[:48]
+  state['priorDeclarations']=[old];state['declaration']=new;state['operations']['prior-admit']=state['operations']['admit'];state['operations']['admit']=e;statefile.write_text(json.dumps(state));C.send(self.protocol,e)
+  until(lambda:(r if (r:=C.receipt(self.protocol,e['requestId'])) and r['status']=='done' else None))
+  self.agent=self.start_agent();self.advance(lambda:(d if (d:=self.doc(pid)) and d.get('gen')==2 and d.get('status')=='running' else None))
+  self.assertNotEqual(self.doc(pid)['pid'],before['pid']);self.assertIn('"gen": 1',(self.ws/'agents/task/versioned/pid.log').read_text())
+  current=next(r for r in C.snapshot(self.protocol)['runs'] if r['id']==before['runtime']['id']);self.assertEqual(current['cwd'],self.config['home'])
+
  def test_queued_stop_has_no_payload_effect(self):
   pid=self.register('queued',hold=True);rid=self.control(pid,'stop')
   doc=until(lambda:(d if (d:=self.doc(pid)) and d.get('final') else None))

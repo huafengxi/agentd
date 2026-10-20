@@ -83,7 +83,8 @@ class RundAgent(ResidentFileAdapter):
         d,seed=super().declaration(pid,enable)
         spec=seed['spec'];workdir=spec.get('workdir')
         home=self.config['home']
-        if workdir and workdir.startswith('~/'):workdir=home+workdir[1:]
+        if workdir=='~':workdir=home
+        elif workdir and workdir.startswith('~/'):workdir=home+workdir[1:]
         d['spec']['context']=dict(cwd=str(Path(workdir or str(self.workspace)).resolve()),home=home,path=self.config['path'],inheritEnv=self.config.get('inheritEnv',[]))
         return self.client.validate(d),seed
 

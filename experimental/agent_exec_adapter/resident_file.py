@@ -64,12 +64,17 @@ class ResidentFileAdapter(FileAdapter):
         read = __import__('runtime.prepare', fromlist=['read_regular']).read_regular
         state = self.client.decode(read(path))
         required={'declaration', 'seed', 'operations', 'agentGeneration', 'control', 'archived', 'queuedRequest'}
-        require(type(state) is dict and required <= set(state) <= required | {'generationOffset'},
+        require(type(state) is dict and required <= set(state) <= required | {'generationOffset','priorDeclarations'},
                 'damaged resident journal')
         require(type(state.get('generationOffset',0)) is int and state.get('generationOffset',0)>=0,
                 'invalid agent generation offset')
         require(type(state['operations']) is dict and type(state['archived']) is list,
                 'damaged resident operation journal')
+        prior=state.get('priorDeclarations',[])
+        require(type(prior) is list and len(prior)<=64,'invalid prior declarations')
+        for old in prior:
+            self.client.validate(old)
+            require(old['kind']==state['declaration']['kind'] and old['metadata']['id']==state['declaration']['metadata']['id'] and old['spec']['node']==self.host,'prior declaration target mismatch')
         for envelope in state['operations'].values():
             self.client.envelope(envelope, self.host)
         return state
@@ -199,7 +204,7 @@ class ResidentFileAdapter(FileAdapter):
                     path = self.runtime_root / 'state/runs/Service' / run['id'] / 'service' / str(g) / 'result.json'
                     prior = self.read_fact(path)
                     self.validate_run(state, prior, declaration=prior['declaration'], generation=g)
-                    require(prior['id'] == run['id'] and prior['declaration'] == state['declaration'], 'history binding changed')
+                    require(prior['id'] == run['id'] and prior['declaration'] in [state['declaration'],*state.get('priorDeclarations',[])], 'history binding changed')
                     self.archive(pid, state, prior, old if old and g + state.get('generationOffset',0) == old.get('gen') else {})
             terminal = run['phase'] in TERMINAL
             is_final = final or terminal and run['kind'] == 'Task'
