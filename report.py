@@ -109,6 +109,7 @@ import urllib.parse
 
 # 复用同目录协议库、调度门禁谓词与 CLI 的缺省根单点（三者均仅标准库），保证「应跑」判定与
 # scheduler.tick 放行条件零漂移、`--root` 缺省与 agentctl 同源（现场发现，⛔ 不写死部署值）。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 import proto  # noqa: E402
@@ -1272,11 +1273,6 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
                         md_escape(state), md_escape(t["host"] or "-"),
                         md_escape(truncate(t["workdir"] or "-", 36)),
                         runfor, hb, md_escape(t["current_tools"]), md_escape(dep_cell(t)), md_escape(prog)))
-        L.append("")
-        L.append("当前工具：会话落盘分支中已发出、尚未记录结果的调用；括号为距调用记录的时长，"
-                 "不是执行耗时。多项并列，可能排队或异常遗留，不是已确认等答/正在执行。"
-                 "`-` = 无本代未返回调用或不采集；不可得 = 会话/代际/完整分支无法核实。"
-                 "仅观察本代记录；同步延迟、未落盘的内存分支/会话切换不可见。")
     else:
         L.append("（无活跃任务）")
     L.append("")

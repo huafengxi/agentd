@@ -171,6 +171,18 @@ class CurrentToolsTests(unittest.TestCase):
                 (bot / name).write_text(json.dumps(doc))
             self.assertEqual(report.collect_task(str(self.root), 'bot/fixture', self.now)['current_tools'], '-')
 
+    def test_active_widget_has_data_only_without_inline_explanation(self):
+        self.session(self.call())
+        with patch.object(report, 'effective_max_concurrent', return_value=(4, 'fixture')):
+            text, _tasks = report.build_report(str(self.root), self.now)
+        active = report.extract_section(text, 'active')
+        self.assertIn('| 当前工具 |', active)
+        self.assertIn('ask_dispatcher', active)
+        self.assertTrue(all(line.startswith('|') for line in active.splitlines() if line.strip()))
+        self.assertNotIn('当前工具：', active)
+        self.assertNotIn('不是执行耗时', text)
+        self.assertNotIn('未落盘的内存分支', text)
+
     def test_observation_failure_does_not_change_lifecycle(self):
         self.session(self.call())
         good = report.collect_task(str(self.root), 'task/fixture', self.now)

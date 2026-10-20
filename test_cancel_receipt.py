@@ -35,7 +35,7 @@ with patch.object(agentctl.proto, 'now_ts', return_value='2030-01-01-00-00-00.00
 
 class CancelReceiptTests(unittest.TestCase):
     def setUp(self):
-        self.root = Path(tempfile.mkdtemp(prefix='cancel-receipt.', dir=e2e.HARNESS_BASE))
+        self.root = Path(tempfile.mkdtemp(prefix='cancel-receipt.', dir=e2e.TMPBASE))
         (self.root / 'agents/task').mkdir(parents=True)
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
         (self.root / 'env').mkdir()

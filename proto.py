@@ -1,6 +1,6 @@
 """proto.py — Agent 文件通信协议（草案 v1.0）公共库（生产版，自 run2/agent-proto 生长）。
 
-协议权威文档：本仓 agent-file-protocol.md
+协议权威文档：/home/alice/m/agentd/agent-file-protocol.md
 本文件实现其中的公共机制：
   - 原子落盘（§5.1：本机 temp + rename）
   - 时间戳与自动名（§2.2 / §4：格式实现约定，同一参与方内可比先后）
@@ -397,7 +397,7 @@ def task_sock_path(root: str, pid_: str) -> str:
     报文两信号并集，以 sock_bind_failed 诊断退出。生产 root=<workspace-root> 不受影响，深根
     临时树自避。
     run/ = 宿主本地运行时区（不入 git、不进 agents/ 跨机同步树——实测 rsync -a 会复制死
-    socket 节点，用户拍板绝不落 agents/）。写者：封装脚本 pi-wrap/pi-rpc-wrap.py（bind/
+    socket 节点，用户拍板绝不落 agents/）。写者：封装脚本 agentd/pi-rpc-wrap.py（bind/
     chmod/清理）；runner 只把本路径写进 pid.json.sock 字段（spawn 时）；消费方（web
     sessiond）连接时判活。伴生档 <sock>.pid 记 {pid, procStart} 供陈旧节点身份接管。"""
 
@@ -411,7 +411,7 @@ def task_ready_path(root: str, pid_: str, kind: str) -> str:
     """任务**就绪握手标记**路径（单点定义）：<root>/run/agentd/<id>.<kind>。
 
     kind 两态（各自单写者，两个文件而非一个 = 避免双写者竞态）：
-      - `init-ok`    写者 = 封装脚本 pi-wrap/pi-rpc-wrap.py：初始 prompt 已被 pi 接受
+      - `init-ok`    写者 = 封装脚本 agentd/pi-rpc-wrap.py：初始 prompt 已被 pi 接受
                      （或幂等跳过 / resident 裸启动）后落盘 → 子端收件扩展
                      （agentd 扩展的 receiver-child.ts）据此开「就绪门」
                      才开始 drain 自家 inbox。缺它 = 子端在 session_start 抢跑注入 →

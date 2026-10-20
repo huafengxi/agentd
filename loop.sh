@@ -14,15 +14,8 @@
 # 日志：runner 自身经 --log-file 写 run/logs/agentd.log；loop 自身的启停记录也写同一文件。
 set -u
 
-# Resolve real and symlink entrypoints without GNU readlink -f (Bash 3.2/macOS).
-ENTRY="$0"
-while [ -L "$ENTRY" ]; do
-  ENTRY_DIR="$(cd "$(dirname "$ENTRY")" && pwd -P)" || exit 1
-  LINK="$(readlink "$ENTRY")" || exit 1
-  case "$LINK" in /*) ENTRY="$LINK" ;; *) ENTRY="$ENTRY_DIR/$LINK" ;; esac
-done
-MODULE_DIR="$(cd "$(dirname "$ENTRY")" && pwd -P)" || exit 1
-WS="$(python3 "${MODULE_DIR}/platform_paths.py" "${MODULE_DIR}/$(basename "$ENTRY")")" || exit 1
+MODULE_DIR="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
+WS="$(python3 "${MODULE_DIR}/platform_paths.py" "$0")" || exit 1
 RUNNER="${MODULE_DIR}/runner.py"
 LOG="$WS/run/logs/agentd.log"
 mkdir -p "$WS/run/logs"

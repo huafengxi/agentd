@@ -56,7 +56,7 @@ import socket
 import sys
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proto  # noqa: E402
 from registration import register_task
 
@@ -184,6 +184,7 @@ def require_workspace_root(root):
     return r
 
 
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 
 def default_root():

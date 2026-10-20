@@ -32,7 +32,7 @@ anchors:
 # Agent 文件通信协议（Agent File Communication Protocol）
 
 > **章节号冻结**：全仓以 `协议 §N.M` 引用本文（含代码注释），章节号是稳定锚点——只增不改：新内容追加为末尾新节或 `N.Mbis`；删节不留墓碑标题，其编号永久空缺、绝不重排（frontmatter `anchors` 声明的节标题不得删）。调用方侧的文档一致性 lint 校验全仓引用可解析（该工具属调用方部署面，本仓不钉其路径）。
-> **收录面**：本文只住协议本体的 require（文法、字段与写者归属、语义、判定谓词、边界处置）。不进本文：实测与事故实例、机制推导与设计理由、实现单点（函数/行号；例外 = 跨语言/跨仓对偶的同源单点：点名函数名而不抄其正文——两侧同判靠这个 pin 维持）、命令序列与报文原文、任务 id 与拍板日期。落点：实现面与实测 = `@agentd`、`pi-wrap/`、`w/ext/sessiond/`；应用层机制 = `@dispatch`/`@notify-and-delivery`/`@topics`；消费侧裁定与指标 = `lore/library/dispatch/facts/delivery-protocol.md`、`lore/library/agentfw/facts/{inbox-receiver,evidence-collection}.md`。
+> **收录面**：本文只住协议本体的 require（文法、字段与写者归属、语义、判定谓词、边界处置）。不进本文：实测与事故实例、机制推导与设计理由、实现单点（函数/行号；例外 = 跨语言/跨仓对偶的同源单点：点名函数名而不抄其正文——两侧同判靠这个 pin 维持）、命令序列与报文原文、任务 id 与拍板日期。落点：实现面与实测 = `@agentd`、`pi-host/`、`w/ext/sessiond/`；应用层机制 = `@dispatch`/`@notify-and-delivery`/`@topics`；消费侧裁定与指标 = `lore/library/dispatch/facts/delivery-protocol.md`、`lore/library/agentfw/facts/{inbox-receiver,evidence-collection}.md`。
 
 > **按名引用记号**：全文的 `` `@<名>#<锚点>` `` 是调用方工作区的按名引用记号 = 被引方在它自己 frontmatter 里自声明的稳定外名（⛔ 不是路径）；解析 = 那个工作区的 `bots/kb_index.py resolve <名>[#<锚点>]`（→ 路径 + 节标题）。本仓不含解析器（解析法住那个工作区）⇒ 在本仓单独阅读时按「另一册的节名」理解即可。
 
@@ -624,7 +624,7 @@ rpc 封装形态任务自带只读直播观测与人驾介入能力。协议侧�
 - **独立失败域**：观测链路（socket/桥接/前端）任何故障只降级观测，不影响调度面（放行/心跳/完成判定/终态通知）；反之调度面不依赖观测面任何状态；
 - **拉起权单点 = runner**：web 侧只呈现路由判定（活 socket → 透传直播 / 终态 → 拒绝并指引换代经 control restart / 缺席 → 等待提示 / 旧形态运行中 → 拒绝（双宿主风险）/ 跨机 → 指引宿主机）；会话入口唯一 = spec.json 声明者路径（`/agents/(task|bot)/<名>/spec.json?v=chat`，产物路径直开被拒）；task 族无启动接口，bot 族登记走 CLI（`agentctl bot register` 写 `spec.json`、`agentctl enable` 写 `enable.json`），web 侧无登记入口，spawn 仍单点归 runner。
 
-接口契约（status / entries 基线 / events SSE / cmd 上行）与部署落点 = `w/ext/sessiond/ARCHITECTURE.md`；会话收敛与临末注入风险 = `pi-wrap/README.md` 的 Exit-code contract。
+接口契约（status / entries 基线 / events SSE / cmd 上行）与部署落点 = `w/ext/sessiond/ARCHITECTURE.md`；会话收敛与临末注入风险 = `agentd/RPC-ADAPTER.md` 的 Exit-code contract。
 
 ---
 

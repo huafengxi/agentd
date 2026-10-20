@@ -64,17 +64,28 @@ class WebReportTests(unittest.TestCase):
         with patch.object(adapter.subprocess, 'run', side_effect=OSError('fixture')):
             self.assertIn('启动失败', adapter.interp(None)[1])
 
+    def test_page_explanations_are_in_the_final_collapsed_section(self):
+        page = source.with_name('tasks.md').read_text()
+        notes = re.search(r'<details>\s*<summary>说明与操作口径</summary>([\s\S]*?)</details>\s*$', page)
+        self.assertIsNotNone(notes)
+        self.assertIn('当前工具为本代会话落盘分支', notes.group(1))
+        self.assertIn('不是执行耗时', notes.group(1))
+        self.assertIn('不可得', notes.group(1))
+        self.assertIn('未落盘的内存分支', notes.group(1))
+        self.assertGreater(notes.start(), page.index('run --yes'))
+        self.assertNotIn('<cmd:', notes.group(1))
+
     def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):
         workspace = self.root / "workspace ' root"
-        cli = workspace / "standalone ' source/report.py"
+        cli = workspace / 'agent-platform/agentd/report.py'
         cli.parent.mkdir(parents=True)
         cli.write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
         page = source.with_name('tasks.md').read_text()
-        commands = [cmd for cmd in re.findall(r'\$\{([^}]+)\}', page)
+        commands = [cmd for cmd in re.findall(r'<cmd:([^>]+)>', page)
                     if cmd.startswith('python3 ') and '/report.py' in cmd]
         self.assertEqual(len(commands), 7)
         for command in commands:
-            env = dict(os.environ, src=str(cli.with_name('tasks.md')),
+            env = dict(os.environ,
                        PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ.get('PATH', ''))
             run = subprocess.run(['bash', '-c', command], cwd=workspace, env=env,
                                  text=True, capture_output=True, timeout=5)

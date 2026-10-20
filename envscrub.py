@@ -12,7 +12,7 @@
 ENV_SCRUB_PREFIXES，禁止各自复制名单漂移：
   - serviced/serviced.py（服务启动，同工作区经 sys.path 共享）；
   - agentd/runner.py（任务进程 spawn，strip_third_party=True）；
-  - w/ext/sessiond/proc.py（web 会话进程 spawn 收敛：
+  - w/ext/sessiond/sessions.py（web 会话进程 spawn 收敛：
     原独立拷贝漂移后改同源；keep 空集、不剥第三方 key 族）。
 第三方 API key 族（ENV_SCRUB_SUFFIXES）仅 runner 侧经
 strip_third_party=True 启用（服务/会话启动路径不剥）。
@@ -26,7 +26,7 @@ import os
 
 ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    "DISPATCH_TASK_ID",
-                   # sessiond host marker (w/ext/sessiond/proc.py HOST_MARKER):
+                   # sessiond host marker (w/ext/sessiond/sessions.py HOST_MARKER):
                    # if a child inherits it, web's stale-host sweep
                    # (_clear_stale_proc) can SIGTERM the child as if it were
                    # an orphaned session host (2026-08-31 scheduler kill
@@ -42,7 +42,7 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # the spec.command prefix — resident bots declare it there, and
                    # task form carries it only when an explicit persona was
                    # registered (the `executor` baseline capability is prepended by
-                   # the assembler itself, pi-wrap/pi-rpc-wrap.py, not via this env).
+                   # the assembler itself, agentd/pi-rpc-wrap.py, not via this env).
                    # Inheriting it would load the PARENT's persona into every child
                    # (poisoned runner -> every task runs with the dispatcher
                    # profile). Same family/reason as AGENTD_RESIDENT above. No
@@ -50,7 +50,7 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # spec.command, pi-rpc-wrap.py's reader and test fixtures).
                    "DISPATCH_PROFILE",
                    # readiness-handshake signal paths (🔴1):
-                   # pi-wrap/pi-rpc-wrap.py::spawn_pi() hands the child pi the ABSOLUTE
+                   # agentd/pi-rpc-wrap.py::spawn_pi() hands the child pi the ABSOLUTE
                    # paths of its own two ready marks (<root>/run/agentd/<id>.init-ok /
                    # .recv-armed) via these two env vars, set explicitly AFTER any
                    # scrubbing. They are identity/signal class exactly like
@@ -92,7 +92,7 @@ ENV_SCRUB_PREFIXES = ("DISPATCH_TASK_",
 # 本名单是**枚名制**（不是身份前缀制：同前缀族里住着大量配置旋钮——AGENTD_WRAP_* 超时族、
 # AGENTD_DIR、SESSIOND_* 五枚——按前缀洗会静默把旋钮洗成缺省值）⇒ 一枚新增的身份标记若漏进
 # 名单，会静默继承进被启动的服务（无运行时守卫拦它）。兜底面 = **提交期钉桩**：
-# pi-wrap/test_wrap.py T47 扫 spec.command 的 env 前缀键（bots/daemon/*/spec.json、
+# agentd/test_wrap.py T47 扫 spec.command 的 env 前缀键（bots/daemon/*/spec.json、
 # heartbeats/register.py），逐枚断言 scrub_env
 # 真洗掉；漏列 ⇒ 测试红（在提交前，不在事故里）。新增身份标记的姿势 = 同批把它加进
 # ENV_SCRUB_EXACT（旋钮类则不必：它本该继承）。

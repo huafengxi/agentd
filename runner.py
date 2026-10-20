@@ -42,7 +42,7 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import envscrub  # noqa: E402
 import proto  # noqa: E402
 from task_state import is_resident as spec_is_resident
@@ -761,7 +761,7 @@ class Runner:
     BACKUP_DIR = os.path.join("run", "backup")  # 宿主本地运行时区（不入 git、不跨机同步）
 
     def _claim_origin(self, path):
-        """去 replica 标记、升格本机原件（与 sessiond proc.py:_claim_origin 同款 口径）：agents/ 树跨机同步，会话文件可能是远端 pull 落盘的副本——
+        """去 replica 标记、升格本机原件（与 sessiond sessions.py:_claim_origin 同款 口径）：agents/ 树跨机同步，会话文件可能是远端 pull 落盘的副本——
         本机截断后若仍是 replica 组，会被远端旧副本覆盖。chown 回本进程 uid/gid 去标记。
         本机无 `replica` 组（grp.getgrnam KeyError）或文件不存在/非 replica → 跳过。
         agentd 不 import w 仓代码，接受同构重复。"""

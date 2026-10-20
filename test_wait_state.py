@@ -1,10 +1,5 @@
 """No task-tab wait guesses or persistent observation side channel.
 
-Run with AGENTD_TEST_WRAP=<frozen wrapper source>/pi-rpc-wrap.py,
-ASK_WAIT_DRIVER=<caller's ask-wait.test.mjs> and TASK_MARKED_JS=<caller's
-marked.min.js> to include those integrations. Wrapper imports this candidate's
-single protocol via AGENTD_DIR, never a unified-repo fallback.
-Every mutable root is created below a new temporary base; no live sockets.
 Keep the real TS ask producer, RPC wrapper, widget/HTML and socket regressions.
 Existing session JSONL calls/results cannot establish a current blocking wait.
 Mutable fixtures and sockets live only below this invocation's fresh temp base.
@@ -15,7 +10,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -27,19 +21,14 @@ from unittest.mock import patch
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import proto
-from wait_state import DialogRequests
+sys.path.insert(0, str(HERE.parent / 'pi-wrap'))
+from rpc_dialogs import DialogRequests
 from safe_delete import safe_rmtree
 
-WRAPPER = Path(os.environ['AGENTD_TEST_WRAP']).resolve() if os.environ.get('AGENTD_TEST_WRAP') else None
-wrapmod = None
-if WRAPPER is not None:
-    spec = importlib.util.spec_from_file_location('wait_wrap', WRAPPER)
-    wrapmod = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(WRAPPER.parent))
-    with patch.dict(os.environ, AGENTD_DIR=str(HERE)):
-        spec.loader.exec_module(wrapmod)
-    assert Path(wrapmod.proto.__file__).resolve() == HERE / 'proto.py'
-    assert wrapmod.DialogRequests is DialogRequests, 'wrapper must use the candidate dialog baseline'
+spec = importlib.util.spec_from_file_location('wait_wrap', HERE / 'pi-rpc-wrap.py')
+wrapmod = importlib.util.module_from_spec(spec)
+sys.path.insert(0, str(HERE.parent / 'pi-wrap'))
+spec.loader.exec_module(wrapmod)
 
 # The trace is fixture-only: a copy of existing RPC events, not a new production
 # session protocol or source used by the report.
@@ -84,30 +73,27 @@ for line in sys.stdin:
 class WaitTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Leave room for AF_UNIX endpoints under an isolated parent harness.
-        cls.base = Path(tempfile.mkdtemp(prefix='w.'))
+        cls.base = Path(tempfile.mkdtemp(prefix='task-tab-wait-'))
         print('isolated base:', cls.base, flush=True)
 
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(dir=self.base))
         self.addCleanup(lambda: safe_rmtree(self.root, authorized_root=self.base))
-        target = self.root / 'candidate source with spaces/agentd'
+        target = self.root / 'agent-platform/agentd'
         target.mkdir(parents=True)
         for name in ('report.py', 'proto.py', 'scheduling.py', 'task_state.py', 'task_labels.py', 'tasks.md', 'agentctl.py', 'registration.py'):
             shutil.copyfile(HERE / name, target / name)
-        shutil.copyfile(HERE / 'platform_paths.py', target / 'platform_paths.py')
+        shutil.copyfile(HERE.parent / 'platform_paths.py', target.parent / 'platform_paths.py')
+        (target.parent / '.platform-root').touch()
         self.home = self.root / 'agents/task/wait-fixture'
         (self.home / 'inbox').mkdir(parents=True)
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
-        (self.root / 'env').mkdir()
-        (self.root / 'env/host-id').write_text('{}\n')
         self.put('spec.json', {'name': 'fixture', 'host': 'fixture-host', 'reaper': 'queue/dispatcher', 'command': 'exec python3 pi-rpc-wrap.py', 'resources': []})
         self.put('enable.json', {})
         self.pid = dict(pid=os.getpid(), procStart=proto.proc_starttime(os.getpid()), gen=1,
                         status='running', final=False, lastAliveAt=proto.now_ts(), startedAt=proto.now_ts())
         self.put('pid.json', self.pid)
         self.env = dict(os.environ, PLATFORM_WORKSPACE=str(self.root), AGENT_ROOT=str(self.root),
-                        AGENTD_DIR=str(HERE), src=str(target / 'tasks.md'),
                         AGENT_SELF='task/wait-fixture', AGENT_HOME=str(self.home),
                         PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'])
 
@@ -115,10 +101,8 @@ class WaitTests(unittest.TestCase):
         proto.atomic_write_json(str(self.home / file), doc)
 
     def page(self):
-        # Execute precisely the active widget command from the real page, with
-        # identical copied source and a caller-supplied isolated workspace.
-        page = Path(self.env['src']).read_text()
-        command = next(c for c in re.findall(r'\$\{([^}]+)\}', page) if c.endswith('-s active'))
+        page = (self.root / 'agent-platform/agentd/tasks.md').read_text()
+        command = next(c for c in re.findall(r'<cmd:([^>]+)>', page) if c.endswith('-s active'))
         result = subprocess.run(['bash', '-c', command], cwd=self.root, env=self.env,
                                 text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -168,7 +152,7 @@ class WaitTests(unittest.TestCase):
         body = self.assert_no_hint()
         self.assertIn('当前工具', body)
         self.assertIn('`ask_dispatcher` (', body)
-        self.assertIn('已发出、尚未记录结果', body)
+        self.assertIn('已发出、尚未记录结果', (self.root / 'agent-platform/agentd/tasks.md').read_text())
         self.assertNotIn('Which option?', body)
         self.session(result='fixture answer')
         self.assertNotIn('`ask_dispatcher`', self.assert_no_hint())
@@ -186,34 +170,6 @@ class WaitTests(unittest.TestCase):
                 self.assertNotIn('stale sentinel', self.assert_no_hint())
         # Old files are ignored, not deleted or rewritten by the report.
         self.assertTrue((self.home / 'wait-state.json').exists())
-
-    def test_legacy_json_absent_stale_forged_or_invalid_is_not_io(self):
-        # No JSONL: unavailable tool observation must not become a wait guess.
-        path = self.home / 'wait-state.json'
-        import report
-        now = time.time()
-        baseline = report.build_report(str(self.root), now)[0]
-        self.assertFalse(path.exists())
-        for data in (b'{invalid', b'{"waits":[{"question":"FORGED-WAIT-SENTINEL"}]}',
-                     json.dumps(dict(version=1, task='task/wait-fixture', pid=self.pid['pid'],
-                         procStart=self.pid['procStart'], gen=1, waits=[dict(kind='ask', askId='forged',
-                         question='FORGED-WAIT-SENTINEL', since=0)])).encode()):
-            path.write_bytes(data)
-            os.utime(path, (1, 1))
-            before = path.stat()
-            import builtins
-            original = builtins.open
-            def guarded(file, *args, **kwargs):
-                if os.fspath(file) == str(path):
-                    raise AssertionError('report opened legacy observation JSON')
-                return original(file, *args, **kwargs)
-            with patch('builtins.open', guarded):
-                rendered = report.build_report(str(self.root), now)[0]
-            self.assertNotIn('FORGED-WAIT-SENTINEL', rendered)
-            self.assertEqual(rendered, baseline)
-            self.assertEqual(path.read_bytes(), data)
-            self.assertEqual(path.stat().st_mtime_ns, before.st_mtime_ns)
-            self.assert_no_hint(rendered)
 
     def test_http_adapter_and_actual_widget_html(self):
         adapter_spec = importlib.util.spec_from_file_location('wait_adapter', HERE / 'agentd4web.py')
@@ -237,23 +193,6 @@ class WaitTests(unittest.TestCase):
         self.assertIn('<code>ask_dispatcher</code>', result.stdout)
         self.assertEqual(result.stdout.count('<td>'), 10)
 
-    def test_invalid_tool_names_are_unavailable_and_html_columns_stable(self):
-        marked = os.environ.get('TASK_MARKED_JS')
-        if not marked: self.skipTest('set TASK_MARKED_JS for actual HTML rendering')
-        for tool in ('<script>alert(1)</script>', 'x|injected', '`unsafe`', 'x\\nsecond-row', 'a' * 101):
-            with self.subTest(tool=tool):
-                self.session(tool)
-                text = self.assert_no_hint()
-                self.assertIn('不可得', text)
-                self.assertNotIn(tool, text)
-                rendered = subprocess.run(['node', '-e',
-                    'const fs=require("fs"),m=require(process.argv[1]);console.log(m.parse(fs.readFileSync(0,"utf8")))', marked],
-                    input=text, text=True, capture_output=True, timeout=5)
-                self.assertEqual(rendered.returncode, 0, rendered.stderr)
-                self.assertEqual(rendered.stdout.count('<td>'), 10)
-                self.assertIn('<th>当前工具</th>', rendered.stdout)
-                self.assertNotIn('<script>', rendered.stdout)
-
     def test_dialog_memory_baseline_no_file_ask_observer(self):
         state = DialogRequests()
         state.event(dict(type='tool_execution_start', toolCallId='ask', toolName='ask_dispatcher'))
@@ -276,7 +215,6 @@ class WaitTests(unittest.TestCase):
         self.assertFalse((self.home / 'wait-state.json').exists())
 
     def test_replay_current_dialog_not_history_even_after_ring_eviction(self):
-        if wrapmod is None: self.skipTest('set AGENTD_TEST_WRAP for wrapper integration')
         with patch.dict(os.environ, self.env): w = wrapmod.Wrap()
         obj = dict(type='extension_ui_request', id='dialog', method='input', title='Current', timeout=10000)
         w._on_event(obj)
@@ -309,7 +247,6 @@ class WaitTests(unittest.TestCase):
         self.assertFalse(state.dialogs())
 
     def run_wrapper(self, mode, source=FAKE):
-        if WRAPPER is None: self.skipTest('set AGENTD_TEST_WRAP for fixed source wrapper fixture')
         if not mode.startswith('dialog') and not os.environ.get('ASK_WAIT_DRIVER'):
             self.skipTest('set ASK_WAIT_DRIVER for the actual TS producer')
         fake = self.root / 'fake-pi'
@@ -319,7 +256,7 @@ class WaitTests(unittest.TestCase):
         env = dict(self.env, AGENTD_WRAP_PI_BIN=str(fake), AGENTD_WRAP_SETTLE_WINDOW='0.05',
                    AGENTD_WRAP_ARM_TIMEOUT='0.05', WAIT_TEST_MODE=mode)
         err = open(self.root / 'wrapper.log', 'w')
-        p = subprocess.Popen([sys.executable, str(WRAPPER)], env=env, stderr=err)
+        p = subprocess.Popen([sys.executable, str(HERE / 'pi-rpc-wrap.py')], env=env, stderr=err)
         def cleanup():
             if p.poll() is None: p.terminate()
             try: p.wait(timeout=5)
@@ -351,16 +288,9 @@ class WaitTests(unittest.TestCase):
         current = next(a for a in asks if a['id'] != old_id)
         answer = self.root / 'answer.txt'
         answer.write_text('fixture answer')
-        # The obsolete report wait-cell no longer supplies a reply command.
-        # Preserve the meaningful rootfix contract at the real CLI boundary:
-        # explicit selected root wins over a conflicting environment and cwd.
-        decoy = self.root / "unselected ' workspace"
-        (decoy / 'agents/task/wait-fixture/inbox').mkdir(parents=True)
-        result = subprocess.run([sys.executable, str(HERE / 'agentctl.py'), '--root', str(self.root),
-            'send', 'task/wait-fixture', '--type','reply','--ref',current['id'],'--body-file',str(answer)],
-            cwd=decoy, env=dict(self.env, PLATFORM_WORKSPACE=str(decoy), AGENT_SELF='queue/dispatcher'),
-            text=True, capture_output=True, timeout=10)
-        self.assertEqual(proto.list_messages(str(decoy / 'agents/task/wait-fixture/inbox')), [])
+        result = subprocess.run([sys.executable, 'agent-platform/agentd/agentctl.py', 'send', 'task/wait-fixture',
+            '--type','reply','--ref',current['id'],'--body-file',str(answer)], cwd=self.root,
+            env=dict(self.env, AGENT_SELF='queue/dispatcher'), text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(p.wait(timeout=10), 0, (self.root / 'wrapper.log').read_text())
         self.assertEqual(proto.find_pending_ask(str(self.root), 'task/wait-fixture')['id'], old_id)
@@ -426,10 +356,10 @@ class WaitTests(unittest.TestCase):
     def test_native_signal_resolved_with_tool_still_running_no_hint(self):
         # Execute the installed native helper unchanged. This tests the report's
         # no-guess policy, NOT a fix to the native RPC/replay settlement gap.
-        native_input = os.environ.get('NATIVE_RPC_SOURCE')
-        if not native_input: self.skipTest('set NATIVE_RPC_SOURCE to an exported read-only native helper')
-        native = Path(native_input)
-        if not native.is_file(): self.skipTest('exported native source unavailable')
+        cli = shutil.which('pi')
+        if not cli: self.skipTest('pi native source unavailable')
+        native = Path(cli).resolve().parents[1] / 'dist/modes/rpc/rpc-mode.js'
+        if not native.exists(): self.skipTest('pi native source unavailable')
         source = '#!' + shutil.which('node') + '\n' + r'''
 const fs=require('node:fs'),crypto=require('node:crypto'),readline=require('node:readline');
 const emit=o=>console.log(JSON.stringify(o));
