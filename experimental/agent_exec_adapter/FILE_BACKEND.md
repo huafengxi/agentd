@@ -13,7 +13,7 @@ original Scheduler.tick -> enable (sole release authority)
     independent OS A FileAdapter (local A flock + workspace binding)
        -> fixed S file client send / exact receipt / last-observed snapshot
     independent OS S file Owner -> original Runtime / Kernel / node.lock
-       -> prepare / Popen / wait / identity / groups / lease / stop / result
+       -> prepare / Popen / wait / identity / groups / stop / result
 A project -> sole selected agent pid writer
 payload -> explicitly synthetic report
 original task_state/provider -> original scheduler resources/needs successor
@@ -22,9 +22,9 @@ original Runner helpers -> control ack / notify_tick / reaper policy
 
 A imports fixed S contract/prepare/protocol only, does not construct Runtime or
 Kernel, hold S's lock, spawn/poll/wait/kill payloads or run Runner supervision.
-The complete S export is verified against additive `file-backend-dependency.json`
-revision **b1e4d5f97d7be3fa917c4063e25bf0d670256f9f**, including owner/kernel
-sources; actual client imports+hashes are recorded in workspace/run/file-adapter.
+The S source files are verified against `file-backend-dependency.json`, including
+Owner/Kernel sources. The client path is `runtime/file_owner/protocol.py`;
+actual client imports and hashes are recorded in workspace/run/file-adapter.
 Owner runs explicitly from that same fixed clean export, separately. The S->A0
 pin is not changed. No ambient source fallback or pyc import permitted. Use a
 separate process if a different runtime package has already been loaded.
@@ -48,7 +48,7 @@ executed as a shell command. Sources must be synthetic file:// Git inside the
 explicit sandbox, disjoint from workspace/protocol/runtime. Source export and A
 source are separate. Manifest outside all mutable roots. Environment uses the
 original scrub/ask routing helpers; only declared env and explicit agent identity
-enter S declaration, never inherited process env. S owns HOME/TMPDIR/lease FD.
+enter S declaration, never inherited process env. S owns HOME/TMPDIR and native process-group identity.
 
 Runtime id=`agent-`+SHA256(canonical [host,participant])[:32], a1/gen1/version1.
 Declaration requestId=`release-`+immutable seed fingerprint[:48]; seed fixes real
@@ -77,7 +77,7 @@ Queued stop maps agent gen0 to S gen1. It may accept without enable solely to
 cancel; pending stop is a persistent barrier even if scheduler later enables or
 original req disappears. Never project accepted as actual running. Original
 scheduler already reserves enabled/no-pid tasks. Running stop's exact terminal
-receipt must agree with immutable result (group/lease convergence) before ack.
+receipt must agree with immutable result (native identity/group convergence) before ack.
 An exact done cleanupUnknown remains unacked even if later observation changes:
 this deliberately conservative alpha has no invented terminal control receipt.
 No second cancel request is allocated to get around it. Terminal noop receipt

@@ -17,7 +17,7 @@ from .adapter import (Adapter as SyncAdapter, A_ROOT, absolute, inside, require,
 import proto
 from runner import Runner, refresh_lock, ts_epoch
 
-S_REVISION = 'b1e4d5f97d7be3fa917c4063e25bf0d670256f9f'
+S_REVISION = '16d58bce251a7270191ae84b6c70d0a558784bd6'
 FINAL = ('succeeded', 'failed', 'canceled', 'lost')
 
 
@@ -47,11 +47,11 @@ def load_client(source, *, revision=S_REVISION, dependency='file-backend-depende
         spec.loader.exec_module(mod)
     name = '_agent_file_client_' + revision
     if name in sys.modules:
-        require(Path(sys.modules[name].__file__) == source / 'experimental/file_owner/protocol.py',
+        require(Path(sys.modules[name].__file__) == source / 'runtime/file_owner/protocol.py',
                 'client source binding conflict')
         client = sys.modules[name]
     else:
-        spec = importlib.util.spec_from_file_location(name, source / 'experimental/file_owner/protocol.py')
+        spec = importlib.util.spec_from_file_location(name, source / 'runtime/file_owner/protocol.py')
         client = importlib.util.module_from_spec(spec)
         sys.modules[name] = client
         spec.loader.exec_module(client)

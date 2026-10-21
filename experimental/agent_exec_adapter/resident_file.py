@@ -16,7 +16,7 @@ import proto
 from task_state import is_resident
 from runner import ts_epoch
 
-S_REVISION = '91a7fc9363d00a52c7632474ebe3a42294766187'
+S_REVISION = '16d58bce251a7270191ae84b6c70d0a558784bd6'
 
 
 def load_client(source):

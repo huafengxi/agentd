@@ -45,7 +45,7 @@ def audit(event, args):
 
 sys.addaudithook(audit)
 if role == 'owner':
-    from experimental.file_owner.owner import Owner
+    from runtime.file_owner.owner import Owner
     if c.get('defer_action'):
         original_process = Owner.process
         def deferred_process(self, path):
@@ -83,7 +83,7 @@ if role == 'owner':
     record({'event': 'fixed-owner-imports', 'ownerPid': os.getpid(),
             'ownerEpoch': with_owner.runtime.kernel.epoch,
             'imports': {n: {'path': str(Path(m.__file__)), 'sha256': hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()}
-                        for n, m in sys.modules.items() if (n == 'runtime' or n.startswith('runtime.') or n.startswith('experimental.file_owner')) and getattr(m, '__file__', None)}})
+                        for n, m in sys.modules.items() if (n == 'runtime' or n.startswith('runtime.') or n.startswith('runtime.file_owner')) and getattr(m, '__file__', None)}})
     try:
         with_owner.run(.02)
     finally:
@@ -150,7 +150,7 @@ elif role == 'adapter':
             a.validate_run(state, stopped, generation=stopped['generation'])
             if stopped.get('stopEvidence'):
                 evidence = stopped['stopEvidence'][-1]
-                assert not evidence['leaseBusy']
+                assert 'leaseBusy' not in evidence
                 assert not [m for m in evidence['members'] if m.get('state') not in ('Z', 'X')]
         record({'event': 'history-after-exact-stop-before-backup', 'participant': participant,
                 'stopped': stopped, 'head': head})

@@ -41,7 +41,7 @@ def audit(event, args):
 
 sys.addaudithook(audit)
 if role == 'owner':
-    from experimental.file_owner.owner import Owner
+    from runtime.file_owner.owner import Owner
     def hook(event, envelope):
         if c.get('fault') == [event, envelope.get('action')]:
             (Path(c['base']) / 'fault.json').write_text(json.dumps({'event': event, 'envelope': envelope}))
@@ -53,7 +53,7 @@ if role == 'owner':
     record({'event': 'fixed-owner-imports', 'ownerPid': os.getpid(),
             'ownerEpoch': with_owner.runtime.kernel.epoch,
             'imports': {n: {'path': str(Path(m.__file__)), 'sha256': hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()}
-                        for n, m in sys.modules.items() if (n == 'runtime' or n.startswith('runtime.') or n.startswith('experimental.file_owner')) and getattr(m, '__file__', None)}})
+                        for n, m in sys.modules.items() if (n == 'runtime' or n.startswith('runtime.') or n.startswith('runtime.file_owner')) and getattr(m, '__file__', None)}})
     try:
         with_owner.run(.02)
     finally:

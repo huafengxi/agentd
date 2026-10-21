@@ -5,7 +5,7 @@ A=Path(__file__).resolve().parent;R=A.parent;S=Path(os.environ['A_RUND_RUNTIME_S
 sys.path.insert(0,str(A));sys.path.insert(0,str(S))
 import proto,registration
 from scheduler import Scheduler
-from experimental.file_owner import protocol as C
+from runtime.file_owner import protocol as C
 BASE=Path(os.environ['A_RUND_TEST_OUTPUT']).resolve();BASE.mkdir(mode=0o700)
 REV=os.environ['A_RUND_RUNTIME_REVISION']
 
@@ -38,7 +38,7 @@ if len(sys.argv)>1 and sys.argv[1]=='hold':
   git('init','-q','--template=');git('add','--','exec_task.py','probe.py');msg=self.area/'message';msg.write_text('6ggidb private shell fixture\n');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-q','-F',str(msg),'--','exec_task.py','probe.py');pin=git('rev-parse','HEAD')
   self.root=self.area/'node';self.protocol=self.area/'protocol';self.children=[];self.logs=[]
   env=dict(HOME=str(self.ws/'home'),PATH=str(Path(sys.executable).parent)+':/usr/bin:/bin',PYTHONPATH=str(S),PYTHONDONTWRITEBYTECODE='1')
-  self.owner=self.child([sys.executable,'-B','-m','experimental.file_owner','owner','--root',str(self.root),'--node','fixture','--protocol',str(self.protocol)],env,'owner')
+  self.owner=self.child([sys.executable,'-B','-m','runtime.file_owner','owner','--root',str(self.root),'--node','fixture','--protocol',str(self.protocol)],env,'owner')
   until(lambda:(self.protocol/'binding.json').exists())
   manifest=self.area/'runtime-source.json';manifest.write_text(json.dumps({'revision':REV,'files':{str(p.relative_to(S)):hashlib.sha256(p.read_bytes()).hexdigest() for p in S.rglob('*') if p.is_file()}}))
   self.config=dict(apiVersion='rund-agent/v1',workspace=str(self.ws),host='fixture',runtimeRoot=str(self.root),protocolRoot=str(self.protocol),runtimeSource=str(S),runtimeRevision=REV,runtimeManifest=str(manifest),sources=[dict(alias='agentd',repository=self.repo.as_uri(),revision=pin,requires=[])],python=sys.executable,home=str(self.ws/'home'),path=env['PATH'],interval=.05)
@@ -128,7 +128,8 @@ if len(sys.argv)>1 and sys.argv[1]=='hold':
   self.agent=self.start_agent();self.advance(lambda:(d if (d:=self.doc(pid)) and d.get('pid')==before['pid'] else None))
   rid=self.control(pid,'stop')
   self.advance(lambda:(d if (d:=self.doc(pid)) and d.get('final') else None))
-  self.assertTrue((self.ws/'agents/task/resident/control/ack'/rid).exists());self.assertEqual(self.doc(pid)['status'],'killed')
+  until(lambda:(self.ws/'agents/task/resident/control/ack'/rid).exists())
+  self.assertEqual(self.doc(pid)['status'],'killed')
   run=next(r for r in C.snapshot(self.protocol)['runs'] if r['id']==self.doc(pid)['runtime']['id']);self.assertTrue(run['waitObserved']);self.assertEqual(run['exitCode'],0)
 
  def test_resident_restart_and_clear_preserve_then_backup_history(self):

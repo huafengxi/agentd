@@ -1,4 +1,4 @@
-"""Cooperative synthetic fixture ONLY, not model work. All children retain lease."""
+"""Cooperative synthetic fixture ONLY; children retain process group/session."""
 import json
 import os
 from pathlib import Path
@@ -9,8 +9,7 @@ import time
 track = Path(sys.argv[1])
 mode, report, code = sys.argv[2], sys.argv[3] == 'report', int(sys.argv[4])
 track.mkdir(parents=True, exist_ok=True)
-fd = int(os.environ['RUND_LEASE_FD'])
-st = os.fstat(fd)
+assert 'RUND_LEASE_FD' not in os.environ
 
 def identity():
     tail = Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()
@@ -31,7 +30,7 @@ if mode == 'fork':
     while not (track / 'child.json').exists():
         time.sleep(.01)
 (track / 'ready.json').write_text(json.dumps({'identity': identity(), 'env': dict(os.environ),
-    'cwd': os.getcwd(), 'lease': {'fd': fd, 'dev': st.st_dev, 'ino': st.st_ino}}))
+    'cwd': os.getcwd()}))
 if mode in ('barrier', 'ignore-term'):
     while not (track / 'finish').exists():
         time.sleep(.01)

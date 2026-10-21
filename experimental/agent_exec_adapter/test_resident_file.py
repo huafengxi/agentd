@@ -7,8 +7,8 @@ import unittest
 from unittest.mock import patch
 from .resident_file import (ResidentFileAdapter, lifecycle_mapping, initial_workdir,
                             load_client, S_REVISION)
-# Reuse only mechanical fixture helpers. The original file25 invocation still
-# imports its unmodified b1 loader; this separate suite explicitly binds new S.
+# Reuse mechanical fixture helpers while explicitly selecting the resident
+# client dependency contract for this separate suite.
 with patch('experimental.agent_exec_adapter.file_backend.load_client', load_client):
     from . import test_file_backend as base
 from .adapter import runtime_id
@@ -222,7 +222,7 @@ class ResidentTests(unittest.TestCase):
         self.assertTrue(all(x['runtimeHistory']['fact']['phase'] in ('stopped', 'canceled') for x in logs))
         for item in logs:
             converged = item['runtimeHistory']['fact']['stopEvidence'][-1]
-            self.assertFalse(converged['leaseBusy']); self.assertEqual(converged['members'], [])
+            self.assertNotIn('leaseBusy', converged); self.assertEqual(converged['members'], [])
         audit = [json.loads(line) for line in (self.base / 'adapter-audit.jsonl').read_text().splitlines()]
         self.assertTrue(any(x.get('event') == 'real-claim' for x in audit))
         self.assertFalse(base.same(base.proc(first['identity']['pid']), first['identity']))

@@ -9,20 +9,17 @@ The old disabled mrkdre ref is not this implementation or a prior PASS.
 
 ## Fixed inputs and reuse
 
-Base A = 789edc309351a14bf37ccc3febaf073c914780c5. Separate manifest
-`resident-file-dependency.json` fixes full S
-**91a7fc9363d00a52c7632474ebe3a42294766187**, hashes all runtime/file-owner
-Python sources including the new observation regression. `resident_file.load_client`
-uses the shared file-only loader, importing only contract/prepare/protocol,
-never lifecycle/Kernel. It records real imports under workspace/run/file-adapter.
-It cannot start, restart or rescue an owner. Start the independent fixed S owner
-explicitly as in its PROTOCOL. Old file_backend defaults/manifest still pin b1;
-old synchronous P3a/P3b remain at 4f. S legacy still depends on original A0.
+`resident-file-dependency.json` fixes the S revision and runtime Python hashes,
+including `runtime/file_owner/`. `resident_file.load_client` uses the shared
+file-only loader, importing contract/prepare/protocol, never lifecycle/Kernel.
+It records real imports under workspace/run/file-adapter. It cannot start,
+restart or rescue an Owner. Start the independent fixed S Owner explicitly as
+in its PROTOCOL. The synchronous adapter has its own fixed dependency manifest.
 
 Reused and rechecked from mrkdre: lifecycle/declaration mapping, strict snapshots
 and immutable terminal reads, local serialized control/history phases, mechanical
 OS fixtures. Changed: new fixed resident loader; enabled bounded CLI for this new
-candidate; separate resident_probe (old file_probe unchanged); fresh B1 windows,
+candidate; separate resident_probe; fresh B1 windows,
 actual import/execution sentinels, backup-boundary observations and tests. No
 S kernel copy, no parallel protocol implementation, no old ref rewritten.
 
@@ -41,7 +38,7 @@ actual Runner natural-final predicate. Resident means literal true only.
 
 Finite task-family manifest only: `experiment=agent-file-resident-fixtures-v1`,
 exact host and declared literal p3a-fixture command/argv/source/toolchain binding.
-Only cooperative foreground Python preserving lease FD; no arbitrary shell,
+Only cooperative foreground Python preserving process group/session/UID; no arbitrary shell,
 profile/model/persona/bot/queue, unknown policy/nonboolean resident or arbitrary
 legacy cwd. Unsupported is rejected, never downgraded. Initial workdir must be
 `initial_workdir(runtime_root,host,participant,spec)`; S owns per-generation cwd.
@@ -61,7 +58,7 @@ original scheduler -> enable (sole release; needs/resources/slots/resident polic
   independent A OS process: local flock + immutable workspace binding
       shared file client: exact body/digest/rid send/read only
   independent S OS owner: original Runtime/Kernel/node.lock
-      prepare / Popen / setsid / wait / groups / lease / stop / auto / run/result
+      prepare / Popen / setsid / wait / groups / stop / auto / run/result
 A -> sole agent pid / exact ack / history / original notification helpers
 payload -> synthetic report -> original task_state/provider -> scheduler needs
 ```
@@ -83,7 +80,7 @@ modern head. Publication is not applied.
 3. Accepted pending: S fixed whole-target tick gate and no-replay contract apply,
 even if payload subsequently exits. Snapshot/done is not successful stop.
 4. Exact original receipt plus held head and matching immutable old result with
-real group/lease convergence: only then stop final/ack, or history then explicit
+real native identity/group convergence: only then stop final/ack, or history then explicit
 replacement. Unknown/corruption/nonterminal done/failed prepare/start never
 continues history or invents applied. Generic same-UID clients bypassing A are
 outside A's agent-policy serialization promise; no new S framework is added.

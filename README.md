@@ -40,7 +40,7 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 
 ## 正式执行入口
 
-`python -B rund_runner.py --config /absolute/agent.json [--runtime-source /absolute/pinned-S]` 只连接本机文件 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent/v1，声明 workspace、host、runtimeRoot、protocolRoot、runtimeSource（可由显式参数提供）、runtimeRevision、runtimeManifest、sources、python、home、path；可选 aliases/env/inheritEnv/interval/legacyCutover。源码由固定 Git 声明准备；新登记命令用 `$AGENTD_CODE` 定位本次执行的 A。既有登记的根路径仅在编译时映射至同一固定源码。
+`python -B rund_runner.py --config /absolute/agent.json [--runtime-source /absolute/pinned-S]` 只连接本机文件 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent/v1，声明 workspace、host、runtimeRoot、protocolRoot、runtimeSource（可由显式参数提供）、runtimeRevision、runtimeManifest、sources、python、home、path；可选 aliases/env/inheritEnv/interval/legacyCutover。文件客户端来自固定 S 源码的 `runtime/file_owner/protocol.py`，不装载执行 Owner。源码由固定 Git 声明准备；新登记命令用 `$AGENTD_CODE` 定位本次执行的 A。既有登记的根路径仅在编译时映射至同一固定源码。
 
 普通任务和常驻/auto 的分类复用原协议政策；登记、scheduler、resources/needs、报告、ask、通知、控制回执和历史仍由 A 处理。动态发现仅认本 host。S 是唯一执行与停止者。旧 runner 的历史进程须先按实际身份关闭整个组，再提供显式 legacyCutover 证据；保留原观测与归档，A 代次单调映射到 S 的新代次，不伪造 S wait。
 

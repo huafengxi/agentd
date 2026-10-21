@@ -325,7 +325,7 @@ class FileBackendTests(unittest.TestCase):
         self.assertIsNone(self.ack(rid))
         self.assertNotIn('start', self.journal()['operations'])
 
-    def test_08_running_cancel_waits_group_lease_and_duplicate(self):
+    def test_08_running_cancel_waits_group_and_duplicate(self):
         self.register(mode='ignore-term', report=False)
         self.register('b')
         self.pipeline()
@@ -338,7 +338,7 @@ class FileBackendTests(unittest.TestCase):
         signals = [e['signal'] for e in run['stopEvidence'] if e['event'] == 'signal']
         self.assertEqual(signals, [15, 9])
         self.assertTrue(run['waitObserved'])
-        self.assertFalse(run['stopEvidence'][-1]['leaseBusy'])
+        self.assertNotIn('leaseBusy', run['stopEvidence'][-1])
         prior_ops = self.journal()['operations']
         late = self.ctl('control', 'task/a', 'stop', '--from', 'queue/dispatcher').stdout.strip()
         wait_for(lambda: self.ack(late))
