@@ -1,6 +1,5 @@
 ---
 name: agentd
-生产对象客户端入口为 `object_runner.py`，消费调用方固定 serviced 的声明与状态接口；Task/Service 合同见 serviced 仓 RUND.md。运行源码和机器配置由调用方提供，历史实验适配器不属于当前生产执行入口。
 anchors:
   usage: "用法"
   report: "报表（report.py）"
@@ -41,11 +40,9 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 
 ## 正式执行入口
 
-`python -B rund_runner.py --config /absolute/agent.json [--runtime-source /absolute/pinned-S]` 只连接本机文件 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent/v1，声明 workspace、host、runtimeRoot、protocolRoot、runtimeSource（可由显式参数提供）、runtimeRevision、runtimeManifest、sources、python、home、path；可选 aliases/env/inheritEnv/interval/legacyCutover。文件客户端来自固定 S 源码的 `runtime/file_owner/protocol.py`，不装载执行 Owner。源码由固定 Git 声明准备；新登记命令用 `$AGENTD_CODE` 定位本次执行的 A。既有登记的根路径仅在编译时映射至同一固定源码。
+`python -B object_runner.py --config /absolute/agent.json` 连接本机对象 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent-objects/v1，提供 workspace、host、runtimeSource、nodeConfig、python、home、agentCode、piCode；可选 aliases/env/interval/needs。客户端来自调用方固定 serviced 的 runtime/protocol.py，needs 只引用文件。部署值与源码准备属于调用方。
 
-普通任务和常驻/auto 的分类复用原协议政策；登记、scheduler、resources/needs、报告、ask、通知、控制回执和历史仍由 A 处理。动态发现仅认本 host。S 是唯一执行与停止者。旧 runner 的历史进程须先按实际身份关闭整个组，再提供显式 legacyCutover 证据；保留原观测与归档，A 代次单调映射到 S 的新代次，不伪造 S wait。
-
-保留集成测试使用调用方指定的 A_RUND_RUNTIME_SOURCE、A_RUND_RUNTIME_REVISION 和全新 A_RUND_TEST_OUTPUT。测试运行真实独立 A/S 进程与固定本地 Git 假负载，不调用模型或真实 agents 树。
+一次性业务实例映射为 Task，常驻实例映射为 Service；每次执行投影回原协议 pid.json。登记、scheduler、resources/needs、报告、ask、通知和控制回执仍由 agentd 处理。目标节点 Owner 是唯一进程执行者，终态来自对应 Task 的真实 wait 事实。对象客户端的集成测试入口为 test_object_runner.py。
 
 ## 文件
 
@@ -56,7 +53,7 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `scheduling.py` / `task_labels.py` | 只读任务快照与门禁结果 / 状态文案 |
 | `proto.py` | 原子文件、寻址、信封、ask 与进程身份公共原语 |
 | `agentctl.py` | 登记、消息、答复、控制、调度字段更新；参数取 `--help` |
-| `rund_runner.py` / `runner.py` | 每机 S 文件客户端、协议代次/控制/历史/终态与通知；runner 的 CLI 转入正式文件入口 |
+| `object_runner.py` / `runner.py` | 每机 S 文件客户端、协议代次/控制/历史/终态与通知；runner 的 CLI 转入正式文件入口 |
 | `scheduler.py` | 单实例无状态 DAG 放行，作为普通前台 Service 运行 |
 | `report.py` / `needscheck.py` | Markdown 报表 / JSON 不可满足依赖清单，均只读 |
 | `agentd4web.py` / `tasks.md` | 报表的 web 入口与视图 |
