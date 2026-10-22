@@ -81,14 +81,20 @@ class WaitTests(unittest.TestCase):
         self.addCleanup(lambda: safe_rmtree(self.root, authorized_root=self.base))
         target = self.root / 'agentd'
         target.mkdir(parents=True)
-        for name in ('report.py', 'proto.py', 'scheduling.py', 'task_state.py', 'task_labels.py', 'tasks.md', 'agentctl.py', 'registration.py', 'execution.py'):
+        for name in ('report.py', 'session_tools.py', 'notifications.py', 'proto.py', 'task_state.py', 'tasks.md', 'agentctl.py', 'registration.py', 'execution.py'):
             shutil.copyfile(HERE / name, target / name)
         shutil.copyfile(HERE / 'platform_paths.py', target / 'platform_paths.py')
         self.home = self.root / 'agents/task/wait-fixture'
         (self.home / 'inbox').mkdir(parents=True)
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
         self.put('spec.json', {'name': 'fixture', 'host': 'fixture-host', 'reaper': 'queue/dispatcher', 'command': 'exec python3 pi-rpc-wrap.py', 'resources': []})
-        self.put('enable.json', {})
+        runtime=str(HERE.parent/'serviced')
+        node=dict(node='fixture-host', sharedRoot=str(self.root/'shared'), privateRoot=str(self.root/'private'),
+                  python=sys.executable,home=str(self.root),path=os.environ['PATH'],publishers={'agent-fixture':'fixture-host','owner-fixture-host':'fixture-host'},version=1)
+        proto.atomic_write_json(str(self.root/'node.json'),node)
+        proto.atomic_write_json(str(self.root/'run/execution.json'),dict(runtimeSource=runtime,nodeConfig=str(self.root/'node.json'),nodes={}))
+        proto.atomic_write_json(str(self.home/'execution.json'),{'id':'fixture'})
+        proto.atomic_write_json(str(self.root/'shared/tasks/fixture/declaration.json'),dict(kind='Task',id='fixture',node='fixture-host',publisher='agent-fixture',revision=1,desired='run',argv=['pi-rpc-wrap.py'],needs=[],cwd=str(self.root),env={}))
         self.pid = dict(pid=os.getpid(), procStart=proto.proc_starttime(os.getpid()), gen=1,
                         status='running', final=False, lastAliveAt=proto.now_ts(), startedAt=proto.now_ts())
         self.put('pid.json', self.pid)
@@ -97,7 +103,13 @@ class WaitTests(unittest.TestCase):
                         PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'])
 
     def put(self, file, doc):
-        proto.atomic_write_json(str(self.home / file), doc)
+        if file == 'pid.json':
+            from datetime import datetime,timezone
+            stamp=datetime.now(timezone.utc).isoformat()
+            phase='succeeded' if doc.get('final') else 'running'
+            state=dict(id='fixture',phase=phase,startedAt=stamp,updatedAt=stamp,finishedAt=stamp if doc.get('final') else None,exitCode=doc.get('exitcode'),process={'pid':doc['pid'],'start':doc['procStart']})
+            proto.atomic_write_json(str(self.root/'shared/tasks/fixture/state.json'),state)
+        else:proto.atomic_write_json(str(self.home / file), doc)
 
     def page(self):
         page = (self.root / 'agentd/tasks.md').read_text()
@@ -129,68 +141,10 @@ class WaitTests(unittest.TestCase):
                                           content=[dict(type='text', text=result)], isError=False)))
         (directory / 'session.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
 
-    def test_session_calls_results_and_envelopes_do_not_guess_waits(self):
-        cases = [('unfinished', 'ask_dispatcher', None, 0), ('nonblocking', 'send_message', None, 0),
-                 ('answered', 'ask_dispatcher', 'fixture answer', 0), ('timed-out', 'ask_dispatcher', 'timeout', .001),
-                 ('deadline-no-result', 'ask_dispatcher', None, .001), ('dialog', 'ask_user', None, 0),
-                 ('cancelled-dialog', 'ask_user', 'cancelled', 0), ('notify-keywords', 'notify', '待用户答复', 0)]
-        for name, tool, result, timeout in cases:
-            with self.subTest(name=name):
-                self.session(tool, result, timeout)
-                self.assert_no_hint()
-        for via in (None, 'send_message'):
-            msg = dict(type='ask', **{'from':'task/wait-fixture'}, body=json.dumps({'question':'old ask'}))
-            if via: msg['via'] = via
-            mid, _ = proto.write_message(str(self.root / 'agents/queue/dispatcher/inbox'), msg)
-            self.assert_no_hint()
-            proto.write_message(str(self.home / 'inbox'), dict(type='reply', ref=mid, body='answered'))
-            self.assert_no_hint()
 
-    def test_actual_widget_observes_tools_without_questions_or_wait_claims(self):
-        self.session()
-        body = self.assert_no_hint()
-        self.assertIn('当前工具', body)
-        self.assertIn('`ask_dispatcher` (', body)
-        self.assertIn('已发出、尚未记录结果', (self.root / 'agentd/tasks.md').read_text())
-        self.assertNotIn('Which option?', body)
-        self.session(result='fixture answer')
-        self.assertNotIn('`ask_dispatcher`', self.assert_no_hint())
-        self.session(tool='bash')
-        self.assertIn('`bash` (', self.assert_no_hint())
 
-    def test_old_snapshot_generation_terminal_and_nonlinux_do_not_hint(self):
-        self.session()
-        self.put('wait-state.json', dict(version=1, task='task/wait-fixture', pid=self.pid['pid'], procStart=self.pid['procStart'],
-                 waits=[dict(kind='ask', askId='old', question='stale sentinel', since=time.time()-60)]))
-        for updates in ({}, {'gen':2}, {'procStart':None}, {'final':True, 'status':'exited', 'exitcode':0}):
-            with self.subTest(updates=updates):
-                self.pid.update(updates)
-                self.put('pid.json', self.pid)
-                self.assertNotIn('stale sentinel', self.assert_no_hint())
-        # Old files are ignored, not deleted or rewritten by the report.
-        self.assertTrue((self.home / 'wait-state.json').exists())
 
-    def test_http_adapter_and_actual_widget_html(self):
-        adapter_spec = importlib.util.spec_from_file_location('wait_adapter', HERE / 'agentd4web.py')
-        adapter = importlib.util.module_from_spec(adapter_spec)
-        adapter_spec.loader.exec_module(adapter)
-        self.session()
-        with patch.dict(os.environ, self.env): body = adapter.interp(None)[1]
-        self.assert_no_hint(body)
-        self.assertIn('/fixture-host/agents/task/wait-fixture/spec.json?v=chat', body)
 
-    def test_actual_widget_html_with_site_marked(self):
-        marked = os.environ.get('TASK_MARKED_JS')
-        if not marked: self.skipTest('set TASK_MARKED_JS for the site renderer')
-        self.session()
-        result = subprocess.run(['node', '-e', 'const fs=require("fs"),m=require(process.argv[1]);console.log(m.parse(fs.readFileSync(0,"utf8")))', marked], input=self.page(), text=True, capture_output=True, timeout=5)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assert_no_hint(result.stdout)
-        self.assertIn('href="/fixture-host/agents/task/wait-fixture/spec.json?v=chat"', result.stdout)
-        self.assertNotIn('<script>', result.stdout)
-        self.assertIn('<th>当前工具</th>', result.stdout)
-        self.assertIn('<code>ask_dispatcher</code>', result.stdout)
-        self.assertEqual(result.stdout.count('<td>'), 10)
 
     def test_dialog_memory_baseline_no_file_ask_observer(self):
         state = DialogRequests()

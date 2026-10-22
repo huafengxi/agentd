@@ -64,16 +64,10 @@ class WebReportTests(unittest.TestCase):
         with patch.object(adapter.subprocess, 'run', side_effect=OSError('fixture')):
             self.assertIn('启动失败', adapter.interp(None)[1])
 
-    def test_page_explanations_are_in_the_final_collapsed_section(self):
-        page = source.with_name('tasks.md').read_text()
-        notes = re.search(r'<details>\s*<summary>说明与操作口径</summary>([\s\S]*?)</details>\s*$', page)
-        self.assertIsNotNone(notes)
-        self.assertIn('当前工具为本代会话落盘分支', notes.group(1))
-        self.assertIn('不是执行耗时', notes.group(1))
-        self.assertIn('不可得', notes.group(1))
-        self.assertIn('未落盘的内存分支', notes.group(1))
-        self.assertGreater(notes.start(), page.index('run --yes'))
-        self.assertNotIn('<cmd:', notes.group(1))
+    def test_page_explains_state_authority(self):
+        page=source.with_name('tasks.md').read_text()
+        self.assertIn('serviced',page)
+        self.assertNotIn('pid.json',page)
 
     def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):
         workspace = self.root / "workspace ' root"

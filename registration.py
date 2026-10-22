@@ -8,7 +8,7 @@ import proto
 
 SPEC_KEYS = frozenset({"command", "workdir", "creator", "restartPolicy", "name",
                        "reaper", "createdAt", "host", "createdByHost", "resources",
-                       "provides", "needs", "profile", "resident"})
+                       "needs", "profile", "resident"})
 
 
 def register_task(root, name, spec, prompt=None):
@@ -37,7 +37,7 @@ def register_task(root, name, spec, prompt=None):
         raise ValueError("restartPolicy 取值须为 manual|auto|one-shot")
     if "reaper" in spec and not proto.is_reaper_value(spec["reaper"]):
         raise ValueError("spec.reaper 非法")
-    for key in ("resources", "provides", "needs"):
+    for key in ("resources", "needs"):
         if key in spec and (not isinstance(spec[key], list) or
                             any(not isinstance(v, str) for v in spec[key])):
             raise ValueError("spec.%s 必须为字符串数组" % key)
@@ -53,6 +53,8 @@ def register_task(root, name, spec, prompt=None):
     if prompt is not None:
         prompt.encode("utf-8")
     json.dumps(spec, ensure_ascii=False).encode("utf-8")
+    from execution import client
+    client(root)
     adir = proto.task_dir(root, name)
     for candidate in (adir, proto.bot_dir(root, name)):
         if os.path.exists(candidate):

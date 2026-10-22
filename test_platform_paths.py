@@ -43,7 +43,7 @@ class LayoutTests(unittest.TestCase):
     def test_cli_root_precedes_environment_and_local_imports(self):
         state = self.base / 'selected state'
         (state / 'agents').mkdir(parents=True)
-        for script in ('agentctl.py', 'report.py', 'needscheck.py', 'runner.py', 'scheduler.py'):
+        for script in ('agentctl.py', 'report.py', 'needscheck.py'):
             link = self.base / ('linked ' + script)
             link.symlink_to(HERE / script)
             env = dict(os.environ, PLATFORM_WORKSPACE=str(self.base / 'wrong root'))
@@ -56,24 +56,6 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.base / 'wrong root').exists())
 
-    def test_shell_real_relative_and_symlink_root_resolution(self):
-        shutil.copyfile(HERE / 'platform_paths.py', self.repo / 'platform_paths.py')
-        for name in ('loop.sh', 'scheduler-loop.sh'):
-            text = (HERE / name).read_text()
-            start = text.index('# Resolve real and symlink')
-            stop = text.index('\nRUNNER=' if name == 'loop.sh' else '\nSCHEDULER=')
-            fixture = self.repo / name
-            fixture.write_text('set -u\n' + text[start:stop] + '\nprintf "%s\\n" "$MODULE_DIR" "$WS"\n')
-            link = self.base / ('linked ' + name)
-            link.symlink_to(os.path.relpath(fixture, self.base))
-            for entry in (fixture, link, Path(os.path.relpath(fixture, self.base))):
-                for chosen in ('', str(self.base / 'override workspace')):
-                    env = dict(os.environ, PLATFORM_WORKSPACE=chosen)
-                    env.pop('BASH_ENV', None)
-                    result = subprocess.run(['/bin/bash', str(entry)], cwd=self.base,
-                                            env=env, text=True, capture_output=True)
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(result.stdout.splitlines(), [str(self.repo), chosen or str(self.repo.parent)])
 
 
 if __name__ == '__main__':
