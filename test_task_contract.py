@@ -84,5 +84,17 @@ class ExecutionContract(unittest.TestCase):
             self.assertEqual(len(messages),1);self.assertEqual(json.loads(json.loads(messages[0].read_text())['body'])['event'],'task_done')
             self.assertFalse(hasattr(watcher,'spawn'));self.assertFalse(hasattr(watcher,'popen'))
         finally:watcher.ownerlock.close()
+    def test_clear_session_is_a_finite_owner_task(self):
+        from unittest.mock import patch
+        participant=self.register(resident=True,restartPolicy='manual')
+        session=Path(proto.agent_dir(str(self.root),participant))/'session/session.jsonl'
+        session.write_text('session transcript')
+        with patch.object(execution,'service_action') as action, patch('time.sleep',side_effect=lambda _:self.owner.round()):
+            state=execution.clear_service_session(str(self.root),participant)
+        self.assertEqual(state['phase'],'succeeded');self.assertTrue(state['waitObserved'])
+        self.assertEqual(session.read_text(),'')
+        self.assertEqual(next((self.root/'run/backup').glob('*.jsonl')).read_text(),'session transcript')
+        self.assertEqual([call.args[-1] for call in action.call_args_list],['stop','start'])
+
 
 if __name__=='__main__':unittest.main()

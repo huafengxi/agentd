@@ -219,7 +219,7 @@ def gen_terminal(pid_doc) -> bool:
     return bool(pid_doc) and pid_doc.get('status') in TERMINAL_STATUSES
 
 def life_terminal(pid_doc) -> bool:
-    return bool(pid_doc) and pid_doc.get('final') is True and gen_terminal(pid_doc)
+    return bool(pid_doc) and pid_doc.get('final') is True
 
 def ack_key(env, fn) -> str:
     raw = env.get('id') if isinstance(env, dict) else None
