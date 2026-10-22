@@ -1,9 +1,4 @@
-"""Local workspace-root contract v1 (source: agent-platform/platform_paths.py).
-
-Source identity follows realpath, not cwd or symlink ancestors. The caller may
-supply PLATFORM_WORKSPACE; portable deliberately implements a narrower contract.
-No marker, sibling repository, or platform installation is consulted.
-"""
+"""Resolve the caller workspace from an explicit PLATFORM_WORKSPACE or the real source location."""
 import os
 from pathlib import Path
 import sys

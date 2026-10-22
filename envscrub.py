@@ -1,26 +1,5 @@
 #!/usr/bin/env python3
-"""envscrub.py — spawn 环境洗刷口径单点（票 1t7e9o）。
-
-服务/任务进程从调度上下文（派发任务、调度员会话）spawn 时，必须剥掉
-任务/会话身份族，防止身份投毒与机密泄漏：
-  - serviced/serviced.py 启动服务 → scrub_env()（keep 空集：历史上唯一豁免
-    PI_WEB_PASSWORD 已改为解密后在洗刷之外注入）；
-  - agentd/runner.py spawn 任务进程 → scrub_env()（keep 空集——任务进程
-    无业务需要保留任何 PI_/调度身份变量）。
-
-名单单一事实源在本模块：三个调用方 import 同一份 ENV_SCRUB_EXACT /
-ENV_SCRUB_PREFIXES，禁止各自复制名单漂移：
-  - serviced/serviced.py（服务启动，同工作区经 sys.path 共享）；
-  - agentd/runner.py（任务进程 spawn，strip_third_party=True）；
-  - w/ext/sessiond/sessions.py（web 会话进程 spawn 收敛：
-    原独立拷贝漂移后改同源；keep 空集、不剥第三方 key 族）。
-第三方 API key 族（ENV_SCRUB_SUFFIXES）仅 runner 侧经
-strip_third_party=True 启用（服务/会话启动路径不剥）。
-
-历史：口径诞生于 2026-08-27 pi-web 投毒事故后执行层 clean_env 补 SESSIOND_SESSION_FILE + PI_ 前缀族；2026-08-31 实证
-runner spawn 零洗刷（任务进程 environ 可见 PI_WEB_PASSWORD 明文），
-抽为本模块双方共用（票 1t7e9o）。仅使用 python3 标准库。
-"""
+"""Process identity scrubbing for agent execution and session adapters. Callers inject task identity explicitly; inherited scheduler identity is removed."""
 
 import os
 
