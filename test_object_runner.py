@@ -29,7 +29,7 @@ class ObjectIntegration(unittest.TestCase):
             p.wait(timeout=5)
         self.agent.ownerlock.close();self.owner.close()
     def register(self,command,**kw):
-        spec=dict(host='fixture',command=command,createdAt=proto.now_ts(),restartPolicy='one-shot',**kw)
+        spec=dict(host='fixture',command=command,createdAt=proto.now_ts(),restartPolicy='one-shot');spec.update(kw)
         self.write(Path(proto.spec_path(str(self.ws),'task/demo')),spec)
         from execution import submit
         submit(str(self.ws),'task/demo',spec)
@@ -58,6 +58,15 @@ class ObjectIntegration(unittest.TestCase):
         self.assertIsNone(self.agent.read_pid('task/demo'))
         self.agent.service('task/demo')
         self.assertEqual(self.agent.read_pid('task/demo')['exitcode'],0)
+    def test_submit_keeps_published_service_version_and_initial_intent(self):
+        from execution import submit
+        self.register('sleep 1',resident=True,restartPolicy='auto')
+        ref=proto.read_json(str(self.ws/'agents/task/demo/execution.json'))
+        d=ref['declaration'];updated=dict(d,revision=2,version=2,task=dict(d['task'],argv=[sys.executable,'-c','pass']))
+        self.agent.put(updated)
+        actual=submit(str(self.ws),'task/demo',self.agent.read_spec('task/demo'))
+        self.assertEqual(actual,updated)
+        self.assertEqual(proto.read_json(str(self.ws/'agents/task/demo/execution.json')),ref)
     def test_queued_stop_has_no_payload(self):
         self.register('sleep 100')
         self.write(Path(proto.control_path(str(self.ws),'task/demo'))/'stop.req',dict(id='stop',action='stop',ts=proto.now_ts()))

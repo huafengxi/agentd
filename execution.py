@@ -51,14 +51,16 @@ def submit(root,pid,spec):
     reference=Path(proto.agent_dir(root,pid))/'execution.json'
     prior=proto.read_json(str(reference))
     if prior is not None:
-        if prior['declaration']!=d:raise ValueError('execution intent changed')
+        if prior['inputDigest']!=fingerprint(spec):raise ValueError('execution intent changed')
+        d=prior['declaration']
     else:proto.atomic_write_json(str(reference),{'declaration':d,'inputDigest':fingerprint(spec)})
     found,errors=discover(local['sharedRoot'])
     if errors:raise ValueError('; '.join(errors))
     if d['id'] in found:
         existing=found[d['id']][1]
         fields=lambda x:{k:v for k,v in x.items() if k not in ('revision','desired','cancelMode')}
-        if fields(existing)!=fields(d):raise ValueError('execution object identity collision')
+        if any(existing[k]!=d[k] for k in ('kind','id','publisher','node')):raise ValueError('execution object identity collision')
+        if d['kind']=='Task' and fields(existing)!=fields(d):raise ValueError('Task execution changed')
         return existing
     publish(local['sharedRoot'],d,writer=local['node'],publishers=local['publishers'])
     return d

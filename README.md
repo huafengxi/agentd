@@ -179,3 +179,5 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 外部测试有界运行并保留真实退出码。调用方扩展测试及 opt-in 真 pi 注入探针住扩展 tests/；收件闸门的三态判据与探针入口 = `@notify-and-delivery`。封装与人格装配测试住 pi-wrap，资产与名字引用校验住调用方 bots，不在本模块复制步骤。
 
 历史测试基线、环境戳与事故来源可按固定版本 `02ed2173:README.md` 取证；当前行为以上述权威与代码为准。
+
+submit 对已发布对象返回现行声明，保留 execution.json 中的初始发布意图；Service 的执行模板升级由原发布者显式提高 version。重复 seed 不回写已接受执行定义。
