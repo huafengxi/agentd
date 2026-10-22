@@ -35,7 +35,7 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # scrubbing. They are identity/signal class exactly like
                    # AGENTD_RESIDENT above: they must only ever come from the writer
                    # itself. Inherited copies leak into every grandchild (bash tool ->
-                   # node/python/make -> serviced/serviced.py -> the service), and let a
+                   # node/python/make -> rund/rund.py -> the service), and let a
                    # nested receiver-child trust an OUTER task's marks. No caller relies
                    # on inheritance (repo-wide: only spawn_pi's explicit assignment,
                    # fakepi_rpc.py fixtures and ext tests, all explicit).
@@ -44,7 +44,7 @@ ENV_SCRUB_EXACT = {"AGENTD_TASK", "AGENT_SELF", "AGENT_HOME", "AGENT_ROOT",
                    # 解析出该任务的 reaper 信箱，经这两枚 env 交子端 core.writeAskMessage 取值
                    # （AGENTD_ASK_INBOX=收件目录、AGENTD_ASK_NOTE=回落成因 note），set explicitly AFTER
                    # scrubbing。与 AGENTD_WRAP_* 同族同理：身份/信号类，必须只来自写者本身——继承进孙进程
-                   # （bash→make→serviced.py）会把它带进被启动的服务，且嵌套 receiver 会误用外层任务的 ask
+                   # （bash→make→rund.py）会把它带进被启动的服务，且嵌套 receiver 会误用外层任务的 ask
                    # 路由。No caller relies on inheritance。
                    "AGENTD_ASK_INBOX", "AGENTD_ASK_NOTE",
                    # harness marker set by pi itself at entry (dist/cli.js,
@@ -83,7 +83,7 @@ def scrub_env(base=None, keep=frozenset(), strip_third_party=False):
     base 缺省 = 当前进程 os.environ；keep = 前缀族豁免名单（调用方参数化；
     当前三个调用方都传空集）。strip_third_party = 是否连第三方 API key 族
     （ENV_SCRUB_SUFFIXES）一并剥除：仅 runner spawn 任务进程启用；服务启动
-    路径（serviced/serviced.py）保持 False，宿主服务用钥不受影响。
+    路径（rund/rund.py）保持 False，宿主服务用钥不受影响。
     """
     src = os.environ if base is None else base
     return {k: v for k, v in src.items()

@@ -1,4 +1,4 @@
-"""Agent publication adapter and read-only serviced execution views."""
+"""Agent publication adapter and read-only rund execution views."""
 import base64
 import hashlib
 import json
@@ -80,7 +80,7 @@ def submit(root, participant, spec):
     from runtime.protocol import get
     if existing_id:
         declaration, _ = get(Path(node['sharedRoot']), existing_id)
-        if declaration is None: raise ValueError('Referenced serviced declaration has not arrived: ' + existing_id)
+        if declaration is None: raise ValueError('Referenced rund declaration has not arrived: ' + existing_id)
         return declaration
     if spec.get('provides'): raise ValueError('provides was removed; publish explicit output files')
     target = config['nodes'][spec['host']]
@@ -123,7 +123,7 @@ def desired(root, participant, value):
 
 
 def service_action(root, participant, action):
-    """Route normal servicectl lifecycle commands to the execution node."""
+    """Route normal runctl lifecycle commands to the execution node."""
     import shlex
     import subprocess
     config, node = client(root)
@@ -131,7 +131,7 @@ def service_action(root, participant, action):
     if not declaration or declaration['kind'] != 'Service':
         raise ValueError('Only a Service can restart; create a new Task participant')
     target = config['nodes'][declaration['node']]
-    argv = [target['home'] + '/.agentd/bin/servicectl', action, declaration['id']]
+    argv = [target['home'] + '/.agentd/bin/runctl', action, declaration['id']]
     if declaration['node'] != node['node']:
         argv = ['ssh', '-o', 'BatchMode=yes', target['host'], shlex.join(argv)]
     subprocess.run(argv, check=True, timeout=150)

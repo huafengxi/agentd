@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Foreground agent session adapter. serviced owns the outer execution; this adapter owns the Pi RPC conversation, session files and local socket. Protocol and message processing are documented in RPC-ADAPTER.md."""
+"""Foreground agent session adapter. rund owns the outer execution; this adapter owns the Pi RPC conversation, session files and local socket. Protocol and message processing are documented in RPC-ADAPTER.md."""
 import atexit
 import fcntl
 import hashlib

@@ -1,4 +1,4 @@
-"""Real serviced integration: sole execution/state authority and agent protocol."""
+"""Real rund integration: sole execution/state authority and agent protocol."""
 import json
 import os
 from pathlib import Path
@@ -18,15 +18,18 @@ class ExecutionContract(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(prefix='agent-contract-',dir='/tmp');self.addCleanup(self.tmp.cleanup)
         self.base=Path(self.tmp.name);self.root=self.base/'workspace';(self.root/'agents').mkdir(parents=True)
         (self.root/'env').mkdir();(self.root/'env/host-id').write_text('fixture fixture\n')
-        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'serviced'))
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'rund'))
         from runtime.store import write
         from runtime.owner import Owner
         self.write=write
-        self.node=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'owner-fixture':'fixture','agent-fixture':'fixture'},version=1,scheduler={'node':'fixture','maxConcurrent':2})
+        self.node=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'owner-fixture':'fixture','agent-fixture':'fixture','scheduler':'fixture'},version=1,admission={'publisher':'scheduler'})
         cfg=self.base/'node.json';write(cfg,self.node);self.owner=Owner(self.node)
-        self.c=dict(host='fixture',workspace=str(self.root),nodeConfig=str(cfg),runtimeSource=str(Path(__file__).resolve().parents[1]/'serviced'),agentCode=str(Path(__file__).resolve().parent),piCode=str(self.base),python=sys.executable,home=str(self.base))
+        from runtime.scheduling import Scheduler
+        self.scheduler=Scheduler(dict(nodeConfig=str(cfg),publisher='scheduler',maxConcurrent=2))
+        self.c=dict(host='fixture',workspace=str(self.root),nodeConfig=str(cfg),runtimeSource=str(Path(__file__).resolve().parents[1]/'rund'),agentCode=str(Path(__file__).resolve().parent),piCode=str(self.base),python=sys.executable,home=str(self.base))
         write(self.root/'run/execution.json',dict(nodes={'fixture':self.c},nodeConfig=str(cfg),runtimeSource=self.c['runtimeSource']))
     def tearDown(self):
+        self.scheduler.close()
         for child in self.owner.processes.handles.values():
             if child.poll() is None:
                 try:os.killpg(child.pid,signal.SIGKILL)
@@ -40,7 +43,7 @@ class ExecutionContract(unittest.TestCase):
     def until(self,participant,phase):
         end=time.monotonic()+8
         while time.monotonic()<end:
-            self.owner.round();d,s,t=execution.facts(str(self.root),participant)
+            self.scheduler.round();self.owner.round();d,s,t=execution.facts(str(self.root),participant)
             if t and t['phase']==phase:return d,s,t
             time.sleep(.02)
         self.fail(str((d,s,t)))

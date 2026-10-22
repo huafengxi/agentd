@@ -16,7 +16,7 @@ intelligence (entry baselines, event rings, injection, self-healing) belongs to 
 consumer; this wrapper owns only the lifecycle semantics — and the exit code it
 hands back to its supervisor.
 
-To the supervisor (the serviced Owner) the wrapper is an ordinary command plus an
+To the supervisor (the rund Owner) the wrapper is an ordinary command plus an
 exit code. That single invariant is what makes the whole system debuggable: no
 side channel, no state machine to query — read the exit code and the session's
 `report.md`.
@@ -95,7 +95,7 @@ Stale markers from a previous generation are removed before spawn.
 
 ## Environment contract
 
-Injected by the serviced declaration (and scrubbed of inherited scheduler identity first):
+Injected by the rund declaration (and scrubbed of inherited scheduler identity first):
 
 | Variable | Meaning |
 |---|---|

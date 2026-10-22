@@ -66,7 +66,7 @@ class WebReportTests(unittest.TestCase):
 
     def test_page_explains_state_authority(self):
         page=source.with_name('tasks.md').read_text()
-        self.assertIn('serviced',page)
+        self.assertIn('rund',page)
         self.assertNotIn('pid.json',page)
 
     def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):

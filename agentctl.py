@@ -362,7 +362,7 @@ def cmd_bot_register(a):
     print('  subscribes %s' % (json.dumps(subs, ensure_ascii=False) if subs else '（未声明）'))
     print('  name     %s' % (description if description else '（未声明）'))
     print('  reaper   %s' % (reaper if reaper else '（未声明 → 终态通知回落职位信箱 %s）' % proto.POSITION_PID))
-    print('  serviced 执行声明已发布：bot/%s' % a.name)
+    print('  rund 执行声明已发布：bot/%s' % a.name)
 
 def require_pid(s, what='参与方'):
     if not proto.is_valid_participant_id(s):
@@ -442,7 +442,7 @@ def cmd_control(a):
         die('Use inbox messages to inject context')
     declaration, _, _ = facts(a.root, a.participant)
     if declaration is None:
-        die('No serviced execution object')
+        die('No rund execution object')
     if a.action != 'stop' and declaration['kind'] != 'Service':
         die('A Task is immutable; create a new participant to run again')
     if declaration['kind'] == 'Service':
@@ -530,7 +530,7 @@ def cmd_submit(a):
     from execution import submit
     d = submit(a.root, a.participant, spec)
     if d is None:
-        die('本工作区未配置 serviced 执行入口')
+        die('本工作区未配置 rund 执行入口')
     print(json.dumps(d, ensure_ascii=False))
 
 def main():
@@ -542,7 +542,7 @@ def main():
     p = sub.add_parser('create', help='写 spec.json 创建参与方')
     p.add_argument('--name', help='自定义目录名；缺省自动生成（§2.2）。值为空/纯空白即拒（rc=2、零落盘）：要随机 id 请**不传**本旗标')
     p.add_argument('--command', required=True, help='启动命令（必填）。值为空/纯空白即拒（rc=2、零落盘）：空值会被逐字写进 spec.command ⇒ 会话什么也不跑而登记侧看不出来')
-    p.add_argument('--workdir', required=True, help='--workdir；执行声明与状态以 serviced 为准')
+    p.add_argument('--workdir', required=True, help='--workdir；执行声明与状态以 rund 为准')
     p.add_argument('--creator', required=True, help='登记方（必填；写入 spec.creator 审计字段）。值为空/纯空白即拒（rc=2、零落盘）：空白值会写进审计字段 ⇒ 查不出登记方')
     p.add_argument('--description', default=None, help='写入 spec `name` 字段（人类可读描述，§4.1）；缺省（= **不传**本旗标）不写该键。值为空/纯空白即拒（rc=2、零落盘）：两形态都会被假值回落并进「没传旗标」那一档 ⇒ 描述被静默丢弃而登记侧看不出差异')
     p.add_argument('--reaper', default=None, help='写入 spec `reaper` 字段（终态通知唯一收件面，§4.1）：两段路径式 <family>/<name>，family ∈ {%s}；∨ 哨兵 `%s`（= 无收件方、不发终态通知）；非法即拒。缺省（= **不传**本旗标）不写该键 → 运行时回落职位信箱 %s 带 note。值为空/纯空白即拒（rc=2、零落盘）：空值会被并进「没给旗标」那一档 ⇒ 指定的收尾方被静默丢弃，要缺省回落请**不传**本旗标' % (', '.join(proto.FAMILIES), proto.NO_REAPER, proto.POSITION_PID))
@@ -551,8 +551,8 @@ def main():
     p.add_argument('--profile', default=None, help='人格 profile 名（可选）。**白名单 = 现场枚举** <root>/%s/*.json 的基名（⛔ 不写死名单；枚举根按 --root 解析，口径同 env/host-id）；**非法即拒**（rc=2、stderr 打印可选名单、零落盘），只核名字命中清单、不核清单的 form 字段。**落地 = 把 `%s=<名> ` 前缀拼进 spec.command**（人格装载的唯一载入口；本 CLI ⛔ 不给 spec 加键、⛔ 不动调度语义）：与 --command 里既有的同键前缀**同值 ⇒ 幂等不重复拼**、**异值 ⇒ 拒**（打印两侧值，⛔ 静默覆盖）。缺省（且 command 无前缀）⇒ 打一行 WARN（会话按运行时缺省档回落、工具面为最基线档）但**照建**；**值为空/纯空白即拒**（rc=2、零落盘）：空值会静默降到基线人格，且产物与**不传**本旗标逐字同款 ⇒ 要基线档请**不传**本旗标' % (PROFILES_REL, PROFILE_ENV_KEY))
     p.add_argument('--host', help='执行节点规范名')
     p.add_argument('--created-by-host', help='登记机规范名（缺省 = 登记机）。值为空/纯空白即拒（rc=2、零落盘，口径同 --host：空白值会逐字写进 spec.createdByHost ⇒ 审计面失真）；要缺省请**不传**本旗标')
-    p.add_argument('--resources', default=None, help='调度：互斥资源名数组（JSON，如 \'["gpu"]\'；缺省=["serial"]，[]=不占）')
-    p.add_argument('--needs', default=None, help='调度：依赖的能力名数组（JSON；provider 成功后才放行）')
+    p.add_argument('--resources', default=None, help='调度：互斥资源名数组（JSON，如 \'["gpu"]\'；缺省=["serial"]，[]=仅占全局并发名额）')
+    p.add_argument('--needs', default=None, help='执行：目标节点文件路径数组（JSON；全部文件在场后参与放行）')
     p.add_argument('--prompt-file', default=None, help='任务书文件路径（可选）：create 自己把该文件内容**逐字**原子写进 `agents/task/<id>/%s`，且**写点在 `spec.json` 之前** ⇒ 登记返回 taskId 时任务书必已在场（消掉「create 与写 %s 分两次调用」的竞态：调度方看见 spec.json 即可能同秒放行、会话封装在 spawn 后数十毫秒读 prompt ⇒ 分两次调用会以 prompt 不可读死首代，而 one-shot 件首代失败即 final、restart 也救不回）。本 CLI **⛔ 渲染**任务书正文（正文由调用方渲染好写进该文件，收录判据 ①）。拒分支（rc=2 + **零落盘**、⛔ 留半成品目录）：旗标值为空/纯空白 ∨ 路径不可读 ∨ 内容为空（零字节/纯空白）∨ 非 UTF-8。**缺省不传 ⇒ 行为逐字不变**（不写该文件）' % (PROMPT_FILE_NAME, PROMPT_FILE_NAME))
     p.set_defaults(fn=cmd_create)
     p = sub.add_parser('create-bot', help='创建信箱型 bot（bot/<名字>/，只建 inbox/，无 spec）')
@@ -564,7 +564,7 @@ def main():
     p.add_argument('--name', required=True, help='bot 裸名（§2.1 段白名单）')
     p.add_argument('--subscribes', default=None, help='逗号分隔的 topic/<id> 列表（只有 topic/ 族可绑定，防抢收）；空串 = 显式清空（删字段）')
     p.add_argument('--command', help='新建 spec 必备：启动命令（同 create）。值为空/纯空白即拒（rc=2、零落盘）：空白值会被逐字写进 spec.command ⇒ 会话什么也不跑而登记侧看不出来')
-    p.add_argument('--workdir', help='--workdir；执行声明与状态以 serviced 为准')
+    p.add_argument('--workdir', help='--workdir；执行声明与状态以 rund 为准')
     p.add_argument('--creator', help='新建 spec 必备：登记方（路径式 id 或任务名）。值为空/纯空白即拒（rc=2、零落盘）：空白值会写进审计字段 spec.creator ⇒ 查不出登记方')
     p.add_argument('--resident', action='store_true', help='声明常驻监督（spec.resident=true；与 profile.form 无关）')
     p.add_argument('--restart-policy', choices=['', 'manual', 'auto', 'one-shot'], default=None, help='Service 监督策略：manual、auto 或 one-shot')
@@ -609,13 +609,13 @@ def main():
     p.add_argument('participant')
     p.add_argument('action', choices=['stop', 'restart', 'clear'])
     p.add_argument('--inject', help='仅 restart：进新一代启动上下文（§5.3）。值为空/纯空白即拒（rc=2、零落盘）：空白值非假值 ⇒ action≠restart 时会让报文指错成因（落到「仅对 restart 有意义」那条）、restart 时被逐字写进控制请求；不需要注入请**不传**本旗标')
-    p.add_argument('--reason', help='--reason；执行声明与状态以 serviced 为准')
+    p.add_argument('--reason', help='--reason；执行声明与状态以 rund 为准')
     p.add_argument('--from', dest='sender', help='控制方身份（两段路径式 id，如 bot/<名>、task/<id>）；缺省取环境 AGENT_SELF，再缺省回落职位信箱 %s（不接受裸名）。值为空/纯空白即拒（rc=2、零落盘，口径同 send --from）' % proto.POSITION_PID)
     p.set_defaults(fn=cmd_control)
     p = sub.add_parser('submit', help='发布或修复已登记参与方的执行声明')
     p.add_argument('participant')
     p.set_defaults(fn=cmd_submit)
-    p = sub.add_parser('status', help='读取 serviced 执行状态')
+    p = sub.add_parser('status', help='读取 rund 执行状态')
     p.add_argument('participant')
     p.set_defaults(fn=cmd_status)
     p = sub.add_parser('list', help='列出参与方')

@@ -1,4 +1,4 @@
-"""Agent notification policy. Execution facts are read from serviced."""
+"""Agent notification policy. Execution facts are read from rund."""
 import datetime
 import fcntl
 import json
@@ -112,7 +112,7 @@ class Notifications:
             pass
         if pid_ in self._subscribed_ids(cache):
             return (True, '')
-        return (False, '目录在场但无消费者（serviced 执行缺失或已终态、无 watcher 订阅、无 spec.subscribes 声明者）')
+        return (False, '目录在场但无消费者（rund 执行缺失或已终态、无 watcher 订阅、无 spec.subscribes 声明者）')
 
     def _subscribed_ids(self, cache=None):
         if cache is not None and '*' in cache:

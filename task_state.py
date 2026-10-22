@@ -1,4 +1,4 @@
-"""Agent business predicates; execution authority belongs to serviced."""
+"""Agent business predicates; execution authority belongs to rund."""
 import os
 REPORT_HEAD_BYTES=4096
 

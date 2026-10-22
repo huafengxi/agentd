@@ -844,7 +844,7 @@ def t31_ready_env_scrub():
     """T31 就绪门信号 env 的洗刷面（🔴1 后果①）：
     `AGENTD_WRAP_INIT_OK`/`AGENTD_WRAP_RECV_ARMED` 装的是 wrap 给**本次会话**的两枚标记绝对路径
     （身份/信号类，与 AGENTD_RESIDENT/DISPATCH_PROFILE 同族），必须只来自写者自身、不得继承：
-    未进洗刷名单时它们被任务内每个孙进程继承 → 经 bash 工具 → `make` → `serviced/serviced.py` 带进被启动的
+    未进洗刷名单时它们被任务内每个孙进程继承 → 经 bash 工具 → `make` → `rund/rund.py` 带进被启动的
     服务，且嵌套 receiver 会拿外层任务的标记开门。
       scrub_env 洗掉两枚信号键并保留其余键；握手行为由 T30 覆盖。"""
     import envscrub

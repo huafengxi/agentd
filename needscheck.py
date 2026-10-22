@@ -1,4 +1,4 @@
-"""Read-only file dependencies from serviced declarations and target state."""
+"""Read-only file dependencies from rund declarations and target state."""
 import argparse
 import json
 import os, sys

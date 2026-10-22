@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read agent metadata and serviced execution facts; no scheduling inference."""
+"""Read agent metadata and rund execution facts; no scheduling inference."""
 import argparse
 import json
 import os
@@ -48,7 +48,7 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
         return '\n'.join(out) if values else '（无）'
     terminal = sorted((r for r in rows if r['phase'] in ('succeeded','failed','canceled')), key=lambda r:r['finishedAt'] or '', reverse=True)
     active=[r for r in rows if r['phase'] not in ('succeeded','failed','canceled')]
-    system='```json\n'+json.dumps({'node':node['node'],'total':health['total'],'diagnostics':health.get('diagnostics',[]),'blockedTargets':health.get('blockedTargets',[]),'scheduler':node.get('scheduler')},indent=2,ensure_ascii=False)+'\n```'
+    system='```json\n'+json.dumps({'node':node['node'],'total':health['total'],'diagnostics':health.get('diagnostics',[]),'blockedTargets':health.get('blockedTargets',[]),'admission':node.get('admission')},indent=2,ensure_ascii=False)+'\n```'
     sections={'abnormal':'\n'.join(abnormal) or '（无异常）','active':table(active),'recent':table(terminal[:10]),
               'terminal':table(terminal if all_terminal else terminal[:20]),'system':system,
               'stats': '\n'.join(phase+': '+str(sum(r['phase']==phase for r in rows)) for phase in sorted(set(r['phase'] for r in rows))),

@@ -1,4 +1,4 @@
-"""Bounded read-only session tool observation; execution identity comes from serviced."""
+"""Bounded read-only session tool observation; execution identity comes from rund."""
 import datetime, io, json, os, re, stat, time
 import proto
 from pathlib import Path

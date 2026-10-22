@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deliver agent notifications from serviced facts; never execute or mirror state."""
+"""Deliver agent notifications from rund facts; never execute or mirror state."""
 import argparse
 import json
 from pathlib import Path
