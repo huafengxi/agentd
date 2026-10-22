@@ -86,11 +86,6 @@ class Notifications:
     def ensure_dispatcher_inbox(self):
         os.makedirs(proto.position_inbox(self.root), exist_ok=True)
 
-    @staticmethod
-    def _bare(tid):
-        tid = str(tid)
-        return tid
-
     def _pid_active(self, pid_, cache=None):
         if cache is not None and pid_ in cache:
             return cache[pid_]
@@ -146,19 +141,12 @@ class Notifications:
                 log.warning('spec.reaper 文法非法（%r），回落职位信箱', raw)
         if target is None:
             return {'pid': NOTIFY_TO, 'inbox': proto.position_inbox(self.root), 'note': 'spec 缺 reaper 字段（或文法非法），回落职位信箱'}
-        retired_note = None
-        moved = proto.retired_move(target)
-        if moved:
-            retired_note = 'reaper %s 已退役（地址移族），按退役表改投 %s' % (target, moved)
-            target = moved
         if target == NOTIFY_TO:
-            return {'pid': NOTIFY_TO, 'inbox': proto.position_inbox(self.root), 'note': retired_note}
+            return {'pid': target, 'inbox': proto.position_inbox(self.root), 'note': None}
         alive, why = self._pid_active(target, cache)
         if alive:
-            return {'pid': target, 'inbox': proto.inbox_path(self.root, target), 'note': retired_note}
+            return {'pid': target, 'inbox': proto.inbox_path(self.root, target), 'note': None}
         note = 'reaper %s 不存在，回落职位信箱' % target if why == '目录不存在' else 'reaper %s %s，回落职位信箱' % (target, why)
-        if retired_note:
-            note = retired_note + '；' + note
         return {'pid': NOTIFY_TO, 'inbox': proto.position_inbox(self.root), 'note': note}
 
     def _ask_inbox_env(self, spec):
@@ -190,19 +178,16 @@ class Notifications:
         mark = self._mark_doc(pid_)
         return mark is not None and to_pid in mark['to']
 
-    def stop_requests(self, pid_):
-        return []
-
-    def canceled(self, doc, stop_reqs):
+    def canceled(self, doc):
         return doc.get('runtime', {}).get('phase') == 'canceled'
 
     def terminal_event(self, doc, pid_):
-        if self.canceled(doc, []):
+        if self.canceled(doc):
             return 'task_canceled'
         return 'task_done' if doc.get('exitcode') == 0 else 'task_failed'
 
     def replay_suppressed(self, pid_, doc):
-        if pid_ in self._seen_nonterminal or self._bare(pid_) in self._seen_nonterminal:
+        if pid_ in self._seen_nonterminal:
             return False
         ended = ts_epoch(doc.get('endedAt'))
         age = None if ended is None else self.run_started_epoch - ended
@@ -240,14 +225,9 @@ class Notifications:
                 payload['report'] = report
             if recipient.get('note'):
                 payload['note'] = recipient['note']
-            stop_reqs = self.stop_requests(pid_)
-            is_canceled = self.canceled(doc, stop_reqs)
+            is_canceled = self.canceled(doc)
             if event == 'task_done' and doc.get('exitcode') == 0 and ('report' not in payload) and (not is_canceled):
                 payload['warn'] = 'no_report'
-            for req in stop_reqs:
-                if req.get('reason'):
-                    payload['stopReason'] = req['reason']
-                    break
             inbox = recipient['inbox']
             os.makedirs(inbox, exist_ok=True)
             for _ in range(8):
