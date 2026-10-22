@@ -93,7 +93,7 @@ python3 agentd/agentctl.py control task/<id> stop
 
 身份、路径与命令等取值旗标显式传空/纯空白拒绝；想用缺省值应省略旗标。可清空的数组与订阅字段按各子命令 --help。create 的正文为空、不可读或非 UTF-8 同样拒绝且零落盘。名字不得以 `.` 开头、含连续点或 `*?[]`；寻址文法仍兼容存量名字，以便读取、投递和清理。
 
-部署服务由调用方启动器管理。直接调试 runner/scheduler 可用 `--help`；人工 scheduler `--once` 必须先确认没有其它调度实例。树内清理走同步层的删除清单，不能只删单机副本。
+部署服务由调用方启动器管理。协议 watcher 通过 `--config` 接入执行底座；执行启停由 servicectl 操作。树内清理走同步层的删除清单，不能只删单机副本。
 
 ## 报表（report.py）
 
@@ -106,7 +106,7 @@ python3 agentd/needscheck.py
 
 报表复用 scheduler 的状态、报告非空与占位判据；终态表缺省隐藏，`-s` 可按小节输出。坏 JSON 降级标读取不完整，不中断整份报表。无报告终态以中性标记呈现；取消优先于无报告。`stale/127` 且报告非空显示接管成功。
 
-基础设施面以 runner 锁新鲜度观察运行与同步链路；有效并发上限取同 root 的 scheduler 实跑 argv，读不到显示未核实，不拿声明值冒充生效值。卡点与异常列的渲染以 `report.py` 为准。
+基础设施面以协议 watcher 心跳观察同步链路；有效并发上限读取 serviced 全局放行记录，协调节点直接核验 Owner 身份，远端观测不冒充本机进程事实。卡点与异常列的渲染以 `report.py` 为准。
 
 活跃 task 表「当前工具」为只读会话观察：从封装固定的 `session/session.jsonl` 中，沿最后落盘条目的 `parentId` 分支提取本代启动后记录的 assistant `toolCall`，按同分支 `toolCallId` 配对消除 `toolResult`。只展示未配对的工具名与距调用记录的时长，不展示参数/问题正文；多调用并列，不挑一个称作真正执行者。`-` 表示无本代未返回调用或不采集（无 pid、非会话任务）；终态与 bot 不扫描。会话缺坏、半行、格式不支持、分支断链、无本代记录或读取超限显示「不可得」，不改变生命周期结论。读取字节/单行/条目数与展示项数的上限由 `report.py` 定义；使用有界完整快照，不用缺少祖先/结果的尾窗猜测。
 
@@ -114,11 +114,7 @@ python3 agentd/needscheck.py
 
 ## 运行参数（生产化）
 
-| 程序 | 参数与用途 |
-|---|---|
-| runner | `--root` 工作区根；`--host`/`--aliases` 本机认领身份；`--interval` 扫描周期；`--replay-grace` 历史通知宽限窗 |
-| scheduler | 同 root/身份/周期；`--all-hosts` 全局视图；`--max-concurrent` 占位上限；`--once` 单轮 |
-| 两者 | `--log-file`/`--log-level` 日志；数值缺省取各自 `--help` |
+watcher.py 接受 --config 与可选 --log-file；配置显式提供协议工作区、节点身份、固定源码和本机 nodeConfig。agentctl/report 的 --root 是协议工作区，业务 checkout 由调用方独立提供。
 
 ## 部署形态
 
@@ -158,9 +154,7 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 ## 判死纪律与杀纪律（协议 §5.5）
 
-有本进程 spawn 句柄用 poll 收尾；无句柄用 `(pid, procStart)` 校验，禁裸 waitpid。kill 前由 `kill_proc` 经 `probe_alive` 验身份；不匹配不杀，按 stale/127 记账，restart 可换代。校验到 kill 间仍有极窄 pid 复用窗口。
-
-孤儿身份匹配则续监督，真死因不可得记 stale/127。其通知按报告存在性分 done/failed 并附 note；调度成功另要求报告非空。
+负载原生身份、信号、wait 和进程组收口由 serviced Owner 负责。协议 watcher 仅读取 Task 状态，不以 PID 消失制造退出结果。unknown 保持未收口，不能启动替代执行。
 
 ## 约定赋值与实现口径
 
@@ -174,7 +168,7 @@ home 内 command/workdir 路径存 `~/…`，runner 按执行机 home 展开；�
 
 ## 验证
 
-运行 `python3 recovery/run-tests.py` 可在自建临时 HOME/TMPDIR 内执行全部根级单测、`e2e.py --core` 和显式 `python3 -I -S -B portable/test_portable.py`，日志及授权根保留。CLI 参数与覆盖场景取 `e2e.py` 文件头；runner 生命周期、通知与报表分别有 `test_runner_final.py`、`test_runner_notify.py`、`test_report_slots.py`；本机互斥回归见 `test_runner_lock.py`。用临时根运行，禁止测试负载落生产树；并发改代码时用完整快照隔离。e2e 缺省为 standalone core，不发现或调用真实模型；跨仓场景须显式 `--integration` 提供测试依赖，S53 还须 `--live-pi`，不属于离线验收。
+正式执行客户端的集成入口为 `python -B test_object_runner.py`，需由调用方提供相邻 serviced 测试源码。文件协议测试使用自建临时 HOME/TMPDIR；历史恢复 harness 的结果不代替现行对象执行验收。CLI 参数与覆盖场景取 `e2e.py` 文件头；runner 生命周期、通知与报表分别有 `test_runner_final.py`、`test_runner_notify.py`、`test_report_slots.py`；本机互斥回归见 `test_runner_lock.py`。用临时根运行，禁止测试负载落生产树；并发改代码时用完整快照隔离。e2e 缺省为 standalone core，不发现或调用真实模型；跨仓场景须显式 `--integration` 提供测试依赖，S53 还须 `--live-pi`，不属于离线验收。
 
 外部测试有界运行并保留真实退出码。调用方扩展测试及 opt-in 真 pi 注入探针住扩展 tests/；收件闸门的三态判据与探针入口 = `@notify-and-delivery`。封装与人格装配测试住 pi-wrap，资产与名字引用校验住调用方 bots，不在本模块复制步骤。
 
