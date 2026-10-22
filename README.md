@@ -40,9 +40,13 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 
 ## 正式执行入口
 
-`python -B object_runner.py --config /absolute/agent.json` 连接本机对象 Owner，不持有负载 Popen/wait/signal。配置 apiVersion 为 rund-agent-objects/v1，提供 workspace、host、runtimeSource、nodeConfig、python、home、agentCode、piCode；可选 aliases/env/interval/needs。客户端来自调用方固定 serviced 的 runtime/protocol.py，needs 只引用文件。部署值与源码准备属于调用方。
+agentctl 登记后通过 execution.py 直接发布 serviced 的 Task 或 Service，并在参与方目录写 execution.json 引用。调用方在工作区 run/execution.json 提供本机节点配置、固定 serviced 源码和目标节点执行配置；该文件只包含路径与公共配置，不含密钥。无此配置的工作区仅操作文件协议。
 
-一次性业务实例映射为 Task，常驻实例映射为 Service；每次执行投影回原协议 pid.json。登记、scheduler、resources/needs、报告、ask、通知和控制回执仍由 agentd 处理。目标节点 Owner 是唯一进程执行者，终态来自对应 Task 的真实 wait 事实。对象客户端的集成测试入口为 test_object_runner.py。
+watcher.py 是普通 Service：将 Task 事实投影为 pid.json，转译协议控制并发送终态通知。它不放行执行、不持有负载 Popen/wait/signal。Owner 是唯一执行者；运行不依赖 watcher 在线，协议投影和通知会等待 watcher 恢复。
+
+一次性实例映射为 Task，常驻实例映射为 Service。非 resident 实例的 resources 逐字传给 serviced，缺省 ["serial"]；[] 仅占执行名额、不占互斥资源。resources 是全局名称，区分机器仓库时由调用方使用 <host>-<repo>。资源与名额由 serviced 唯一全局放行者管理。
+
+agent spec 的 provides/needs 是业务交付能力；watcher 依据 scheduling.py 的只读判据满足后写 dependencies.ready，Task.needs 仅引用该完成文件。消息、ack、业务成功判据不进入 serviced。
 
 ## 文件
 
@@ -53,8 +57,8 @@ Web 报表适配器通过宿主提供的 `__file__` 定位相邻 CLI，并使用
 | `scheduling.py` / `task_labels.py` | 只读任务快照与门禁结果 / 状态文案 |
 | `proto.py` | 原子文件、寻址、信封、ask 与进程身份公共原语 |
 | `agentctl.py` | 登记、消息、答复、控制、调度字段更新；参数取 `--help` |
-| `object_runner.py` / `runner.py` | 每机 S 文件客户端、协议代次/控制/历史/终态与通知；runner 的 CLI 转入正式文件入口 |
-| `scheduler.py` | 单实例无状态 DAG 放行，作为普通前台 Service 运行 |
+| `watcher.py` / `runner.py` | 协议代次/控制/历史/终态投影与通知；runner 的 CLI 转入正式文件入口 |
+| `execution.py` | 登记时直接发布执行对象 |
 | `report.py` / `needscheck.py` | Markdown 报表 / JSON 不可满足依赖清单，均只读 |
 | `agentd4web.py` / `tasks.md` | 报表的 web 入口与视图 |
 | `wait_state.py` | 封装 socket attach 的内存 dialog 基线（不写等待快照） |
@@ -118,34 +122,21 @@ python3 agentd/needscheck.py
 
 ## 部署形态
 
-每机一个 runner，全系统至多一个 scheduler（enable 单写者）。登记、调度与执行通过同一棵同步文件树解耦；scheduler 故障期间暂停新放行，已运行任务由各机续监督，恢复后无状态重扫追平。主机清单、调度方位置与启动命令由调用方声明。
+每机一个协议 watcher；职位信箱由自己的 watcher Service 监听，收到消息后登记一次性 handler Task。协议 watcher 处理状态投影、控制及通知，职位 watcher 处理收件与业务触发。执行资源和排队由 serviced 管理。
 
-文件写者与路由必须保持协议单写者矩阵；同步不会赋予其它机器改写原件的权利。
+已发布执行定义不可修改。更改 resources 或 needs 必须取消后重新登记；execution.json 与 spec 的摘要必须一致。旧 enable 文件是历史记录，不参与现行执行。
 
 ## 调度（独立调度方，scheduler.py）
 
-每轮重扫，放行/阻塞写日志，依据写 enable.note。restart 不需要恢复私有队列；人工兜底也必须遵守全局单实例约束。监督壳通过 `AGENTD_MAX_CONCURRENT` 接收调用方并发上限；未设置时使用 CLI 缺省值。
+执行放行的权威为 serviced/PROTOCOL.md。scheduling.py 保留 agent 交付能力的只读观察，供 watcher、report 和 needscheck 使用。
 
 ### 调度参数（spec.json 可选字段，登记时写入）
 
-| 字段 | 语义 |
-|---|---|
-| resources | 互斥资源数组；缺省 `["serial"]`，显式 `[]` 无资源占用 |
-| provides | 成功后提供的能力数组，缺省 `[]` |
-| needs | 所需能力数组，缺省 `[]` |
-
-成功 provider = 生命周期终态 ∧ report.md 去空白后非空 ∧（exited/0 或 stale/127）。真实非零退出、killed/137、取消、空报告不满足依赖；取消判据 = `proto.EXITCODE_CANCELED`。完成、通知与依赖成功是不同判据，不以通知抬头替代调度判断。
+resources 是执行互斥名数组；provides/needs 是 agent 交付能力数组。业务成功 provider 的判据由 task_state.py 定义；watcher 将满足结果转换为 dependencies.ready 文件。
 
 ### 放行规则（每轮无状态重扫，允许越位）
 
-候补 = 有 spec、无 enable、无 pid，按 spec mtime 与目录名排序；本机模式还过滤 host。被阻塞候补不挡后面的可放行者。放行须同时满足：
-
-1. needs 各有成功 provider 且无未终态 provider；同能力在途者优先于旧 success。无 provider/全无成功者为不可满足，后续每轮重评。
-2. resources 与占位者无交集。
-3. 占位数未到上限。
-4. 目标机 runner 锁 updatedAt 新鲜；缺锁、坏字段或超阈值保守排队。
-
-running 与已放行未落 pid 均占位；远端终态同步延迟只延后放行。enable 单调不回撤，拦已放行任务用 stop。无参数任务互相 FIFO 串行；能力环不检测，靠日志定位。调度常量与依赖决策归 `scheduling.py`，放行动作归 `scheduler.py`，生命周期与交付判据归 `task_state.py`。
+Task 的文件依赖由目标 Owner 检查；全局资源和名额由唯一 serviced 放行者分配。未知执行保留占位，取得终态事实后释放。能力依赖由 agent watcher 处理，不取得执行放行权。
 
 ## 路由字段
 

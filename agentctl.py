@@ -894,6 +894,8 @@ def cmd_bot_register(a):
         spec["reaper"] = reaper           # §4.1 终态通知唯一收件面（缺失 → 回落职位信箱）
     warn_unwritten_spec_keys(reaper, a.restart_policy)   # 只打 WARN，不改上面的键集
     proto.atomic_write_json(spath, spec)  # temp+rename（§5.1）
+    from execution import submit
+    submit(a.root,'bot/'+a.name,spec)
     print("bot/%s" % a.name)
     print("  spec     %s（新建）" % spath)
     print("  subscribes %s" % (json.dumps(subs, ensure_ascii=False) if subs else "（未声明）"))
@@ -1169,6 +1171,8 @@ def cmd_update(a):
         die("update：--resources/--provides/--needs 至少传一个（传 '[]' = 显式清空）")
     parsed = [(k, parse_str_array(v, "--" + k)) for k, v in given]
     require_live_participant(a.root, a.participant, "update")
+    if os.path.exists(os.path.join(proto.agent_dir(a.root,a.participant),'execution.json')):
+        die('execution 已发布且不可变；修改资源或依赖请 cancel 后重新登记',code=2)
     if os.path.exists(proto.enable_path(a.root, a.participant)):
         die("update 失败：%s 已放行（存在 enable.json），其依赖/资源判定已被调度器消费，"
             "拒绝修改调度字段。已放行/运行中任务要改需求请走干预手段（send --type inform "
@@ -1247,6 +1251,16 @@ def cmd_list(a):
 def die(msg, code=1):
     print("agentctl: " + msg, file=sys.stderr)
     sys.exit(code)
+
+
+def cmd_submit(a):
+    require_pid(a.participant)
+    spec=proto.read_json(proto.spec_path(a.root,a.participant))
+    if spec is None:die('spec.json 不可读')
+    from execution import submit
+    d=submit(a.root,a.participant,spec)
+    if d is None:die('本工作区未配置 serviced 执行入口')
+    print(json.dumps(d,ensure_ascii=False))
 
 
 def main():
@@ -1501,6 +1515,9 @@ def main():
                                   "即拒（rc=2、零落盘）：该档是放行动作（只进不退）唯一的可追溯"
                                   "载体，空白 note 让「为什么放行」查不出；没有要记的就**不传**本旗标")
     p.set_defaults(fn=cmd_enable)
+
+    p = sub.add_parser('submit',help='发布或修复已登记参与方的执行声明')
+    p.add_argument('participant');p.set_defaults(fn=cmd_submit)
 
     p = sub.add_parser("status", help="读 pid.json 输出谓词判定")
     p.add_argument("participant")

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""Agent policy over serviced objects. Payload spawn/wait/signals stay in Owner."""
+"""Project execution facts, translate protocol controls, and deliver notifications."""
 import argparse
-import base64
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,14 +8,14 @@ import sys
 from datetime import datetime
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import proto
+from execution import declaration,fingerprint
 from runner import Runner,acquire_single_instance_lock,setup_logging,ts_epoch
 from task_state import is_resident
 
 
-def fingerprint(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 def ats(s):return datetime.fromisoformat(s).astimezone().strftime('%Y-%m-%dT%H:%M:%S%z') if s else proto.now_ts()
 
-class ObjectRunner(Runner):
+class ProtocolWatcher(Runner):
     def __init__(self,c):
         self.config=c;self.host=c['host']
         sys.path.insert(0,c['runtimeSource'])
@@ -32,22 +30,11 @@ class ObjectRunner(Runner):
         self.journals=Path(self.root)/'run/object-agent';self.journals.mkdir(mode=0o700,parents=True,exist_ok=True)
     def journal(self,pid):return self.journals/(fingerprint(pid)+'.json')
     def put(self,d):return self.client.publish(self.shared,d,writer=self.node['node'],publishers=self.node['publishers'])
-    def set_desired(self,id,value):return self.client.desired(self.shared,id,value,writer=self.node['node'],publishers=self.node['publishers'])
+    def set_desired(self,id,value):
+        from runtime.cli import set_desired
+        return set_desired(self.node,id,value)
     def build(self,pid,spec,j):
-        cmd=spec['command']
-        for spelling in ('$AGENT_ROOT/agent-platform/agentd/','${AGENT_ROOT}/agent-platform/agentd/','$AGENT_ROOT/agentd/','${AGENT_ROOT}/agentd/'):
-            cmd=cmd.replace(spelling,'$AGENTD_CODE/')
-        code=self.config['agentCode'];env=dict(self.config.get('env',{}),AGENTD_CODE=code,PI_HOST_DIR=self.config['piCode'],AGENT_HOME=self.adir(pid),AGENT_ROOT=self.root,AGENT_SELF=pid,AGENTD_ROOT=self.root,PYTHONDONTWRITEBYTECODE='1')
-        if is_resident(spec):env['AGENTD_RESIDENT']='1'
-        else:env.update(self._ask_inbox_env(spec));env['AGENTD_TASK']='1'
-        cwd=spec.get('workdir') or self.root
-        if cwd=='~' or cwd.startswith('~/'):cwd=self.config['home']+cwd[1:]
-        task=dict(argv=[self.config['python'],code+'/exec_task.py',base64.b64encode(cmd.encode()).decode()],env=env,cwd=str(Path(cwd).resolve()),needs=self.config.get('needs',[]))
-        service=spec.get('restartPolicy')=='auto' or is_resident(spec) and spec.get('restartPolicy')!='one-shot'
-        d=dict(kind='Service' if service else 'Task',id='a-'+fingerprint([self.host,pid,j['generation']])[:40],publisher='agent-'+self.node['node'],node=self.node['node'],revision=1)
-        if service:d.update(version=1,desired='online',restart='always' if spec.get('restartPolicy')=='auto' else 'manual',task=task)
-        else:d.update(task,desired='run')
-        return d
+        return declaration(self.config,self.node,pid,spec,j['generation'],self._ask_inbox_env(spec))
     def fact(self,d):
         _,s=self.client.get(self.shared,d['id'])
         if d['kind']=='Service':
@@ -79,17 +66,25 @@ class ObjectRunner(Runner):
             for r in reqs:self.write_ack(pid,r['id'],'noop' if r.get('action')=='stop' else 'rejected','already final')
             return
         self._seen_nonterminal.add(pid)
+        if spec.get('needs'):
+            from scheduling import scheduling_view,eval_needs
+            ready=Path(self.adir(pid))/'dependencies.ready'
+            if not ready.exists():
+                view=scheduling_view(self.root,self.local_ids,True)
+                decision,reasons=eval_needs(spec['needs'],view.providers_by_cap)
+                if decision=='ok':self.write(ready,{'needs':spec['needs'],'reason':reasons})
         jp=self.journal(pid);j=self.read(jp) if jp.exists() else None
-        enable=proto.read_json(proto.enable_path(self.root,pid))
+        reference=proto.read_json(str(Path(self.adir(pid))/'execution.json'))
         if j is None:
-            if not enable and not reqs:return
+            if reference is None:return
             self.require(doc is None or doc.get('status') in proto.CRASH_STATUSES,'legacy live participant needs explicit handoff')
             j=dict(generation=(doc or {}).get('gen',0)+1,children=[],control=None,inputDigest=fingerprint(spec))
-            d=self.build(pid,spec,j)
-            if reqs:d['desired']='offline' if d['kind']=='Service' else 'cancel'
-            j['declaration']=d;self.write(jp,j);self.put(d)
+            d=reference['declaration']
+            self.require(reference['inputDigest']==fingerprint(spec),'registered execution changed')
+            if d['id'] not in self.client.objects(self.shared):return
+            j['declaration']=d;self.write(jp,j)
         d=j['declaration'];self.require(j['inputDigest']==fingerprint(spec),'registered execution changed')
-        self.put(d);s,t=self.fact(d);doc=self.project(pid,j,d,s,t) or doc
+        s,t=self.fact(d);doc=self.project(pid,j,d,s,t) or doc
         control=j.get('control')
         if not control and reqs:
             r=reqs[0];expected=r.get('expectedGeneration');gen=(doc or {}).get('gen',0)
@@ -129,7 +124,7 @@ class ObjectRunner(Runner):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--log-file');a=p.parse_args();setup_logging(a.log_file,'INFO')
-    c=json.loads(Path(a.config).read_text());r=ObjectRunner(c)
+    c=json.loads(Path(a.config).read_text());r=ProtocolWatcher(c)
     try:r.run()
     finally:r.ownerlock.close()
 

@@ -61,6 +61,7 @@ def atomic_write(path: str, data: str) -> None:
     os.makedirs(d, exist_ok=True)
     tmp = os.path.join(d, ".tmp-%s-%s" % (os.getpid(), rand_suffix(6)))
     with open(tmp, "w", encoding="utf-8") as f:
+        os.fchown(f.fileno(), -1, os.getgid())
         f.write(data)
         f.flush()
         os.fsync(f.fileno())
@@ -94,6 +95,7 @@ def exclusive_write_json(path: str, obj) -> bool:
     tmp = os.path.join(d, ".tmp-%s-%s" % (os.getpid(), rand_suffix(6)))
     try:
         with open(tmp, "w", encoding="utf-8") as f:
+            os.fchown(f.fileno(), -1, os.getgid())
             f.write(json.dumps(obj, ensure_ascii=False, indent=1) + "\n")
             f.flush()
             os.fsync(f.fileno())

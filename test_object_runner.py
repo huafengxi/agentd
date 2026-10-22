@@ -8,7 +8,7 @@ import time
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import proto
-from object_runner import ObjectRunner
+from watcher import ProtocolWatcher
 
 class ObjectIntegration(unittest.TestCase):
     def setUp(self):
@@ -16,10 +16,11 @@ class ObjectIntegration(unittest.TestCase):
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'serviced'))
         from runtime.store import write
         from runtime.owner import Owner
-        self.write=write;self.c=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'owner-fixture':'fixture','agent-fixture':'fixture'},version=1)
+        self.write=write;self.c=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'owner-fixture':'fixture','agent-fixture':'fixture'},version=1,scheduler={'node':'fixture','maxConcurrent':2})
         cfg=self.base/'node.json';write(cfg,self.c);self.owner=Owner(self.c)
         c=dict(host='fixture',workspace=str(self.ws),nodeConfig=str(cfg),runtimeSource=str(Path(__file__).resolve().parents[1]/'serviced'),agentCode=str(Path(__file__).resolve().parent),piCode=str(self.base),python=sys.executable,home=str(self.base))
-        self.agent=ObjectRunner(c)
+        self.agent=ProtocolWatcher(c)
+        write(self.ws/'run/execution.json',dict(nodes={'fixture':c},nodeConfig=str(cfg),runtimeSource=c['runtimeSource']))
     def tearDown(self):
         for p in self.owner.processes.handles.values():
             if p.poll() is None:
@@ -30,7 +31,8 @@ class ObjectIntegration(unittest.TestCase):
     def register(self,command,**kw):
         spec=dict(host='fixture',command=command,createdAt=proto.now_ts(),restartPolicy='one-shot',**kw)
         self.write(Path(proto.spec_path(str(self.ws),'task/demo')),spec)
-        self.write(Path(proto.enable_path(str(self.ws),'task/demo')),dict(by='agentd-scheduler',ts=proto.now_ts()))
+        from execution import submit
+        submit(str(self.ws),'task/demo',spec)
     def until(self,fn):
         end=time.monotonic()+8
         while time.monotonic()<end:
@@ -42,6 +44,20 @@ class ObjectIntegration(unittest.TestCase):
         self.register('printf ok');doc=self.until(lambda:(d if (d:=self.agent.read_pid('task/demo')) and d.get('final') else None))
         self.assertEqual((doc['status'],doc['exitcode']),('exited',0));self.assertFalse(self.agent.popen)
         self.assertNotIn('runtime.owner',getattr(self.agent.client,'__dict__',{}))
+    def test_registration_executes_without_protocol_watcher(self):
+        self.register('printf direct')
+        end=time.monotonic()+8
+        reference=proto.read_json(str(self.ws/'agents/task/demo/execution.json'))
+        while time.monotonic()<end:
+            self.owner.round()
+            _,state=self.agent.client.get(self.agent.shared,reference['declaration']['id'])
+            if state and state['phase']=='succeeded':break
+            time.sleep(.03)
+        else:self.fail('direct Task did not execute')
+        self.assertTrue(state['waitObserved'])
+        self.assertIsNone(self.agent.read_pid('task/demo'))
+        self.agent.service('task/demo')
+        self.assertEqual(self.agent.read_pid('task/demo')['exitcode'],0)
     def test_queued_stop_has_no_payload(self):
         self.register('sleep 100')
         self.write(Path(proto.control_path(str(self.ws),'task/demo'))/'stop.req',dict(id='stop',action='stop',ts=proto.now_ts()))

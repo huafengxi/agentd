@@ -995,7 +995,7 @@ class Runner:
 
 def main():
     """The public runner entry uses the single local runtime file client."""
-    from object_runner import main as run
+    from watcher import main as run
     return run()
 
 

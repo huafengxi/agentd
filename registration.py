@@ -67,4 +67,6 @@ def register_task(root, name, spec, prompt=None):
     if prompt is not None:
         proto.atomic_write(os.path.join(adir, "prompt.md"), prompt)
     proto.atomic_write_json(os.path.join(adir, "spec.json"), spec)
+    from execution import submit
+    submit(root,'task/'+name,spec)
     return {"taskId": name, "agentDir": adir}

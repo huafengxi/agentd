@@ -77,7 +77,7 @@ class WebReportTests(unittest.TestCase):
 
     def test_page_widgets_run_from_workspace_with_spaces_and_quotes(self):
         workspace = self.root / "workspace ' root"
-        cli = workspace / 'agent-platform/agentd/report.py'
+        cli = workspace / 'agentd/report.py'
         cli.parent.mkdir(parents=True)
         cli.write_text('import json,sys;print(json.dumps(sys.argv[1:]))')
         page = source.with_name('tasks.md').read_text()

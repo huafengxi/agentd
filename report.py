@@ -691,6 +691,14 @@ def _parse_max_concurrent(argv):
     return n if n > 0 else None
 
 
+def execution_runtime(root):
+    config=proto.read_json(os.path.join(root,'run/execution.json'))
+    if not config:return None
+    node=proto.read_json(config['nodeConfig'])
+    if not node:return None
+    return config,node
+
+
 def effective_max_concurrent(root):
     """**有效占位上限** → (limit ∕ None, note)。权威落点 = 运行态层。
 
@@ -707,6 +715,13 @@ def effective_max_concurrent(root):
     ⇒ 调用方 ⛔ 判「满」：宁可不报槽位层（继续判主机层），也不报一个错层的数。
     部署假设与既有 `scheduler_process_alive()` 同形（调度方全局唯一实例；report.py 现网
     跑在它所在机）⇒ 他机报表走降级路径，不引入新假设。"""
+    execution=execution_runtime(root)
+    if execution:
+        config,node=execution
+        state=proto.read_json(os.path.join(node['sharedRoot'],'scheduling/state.json'))
+        if state and state.get('node')==node['scheduler']['node']:
+            return state.get('maxConcurrent'), 'serviced 全局放行记录；实际活性由 Owner 状态核验'
+        return None, 'serviced 全局放行记录不可得'
     hits = []
     for pid in _scheduler_pids():
         argv = _proc_argv(pid)
@@ -772,6 +787,16 @@ def collect_system_health(root, now):
                 if row["readable"] else "锁不可读（半截/坏 JSON）"
             abn.append("- 🚨 **基础设施** `%s` runner stale：%s（阈值 %ds）"
                        % (host, detail, int(scheduling.HOST_ALIVE_THRESHOLD)))
+    execution=execution_runtime(root)
+    if execution:
+        config,node=execution
+        sched_ok=None
+        if node['node']==node['scheduler']['node']:
+            sys.path.insert(0,config['runtimeSource'])
+            from runtime.cli import owner_alive
+            sched_ok=owner_alive(node)
+        if sched_ok is False:abn.append('- 🚨 **基础设施** serviced 全局放行节点 Owner 未运行')
+        return rows,sched_ok,abn
     sched_ok = scheduler_process_alive()
     if not sched_ok:
         abn.append("- 🚨 **基础设施** scheduler 不在（pgrep -f 'agentd/scheduler.py' "
@@ -1144,7 +1169,10 @@ def build_report(root, now, show_terminal=False, all_terminal=False):
             link = "⚠️ 无法证明"
         L.append("| %s | %s | %s | %s | %s |" % (r["host"], runner, hb, mt, link))
     L.append("")
-    L.append("scheduler（dev）：%s" % ("✅ 在跑" if sched_ok else "🚨 不在"))
+    if execution_runtime(root):
+        L.append('serviced 全局放行者：'+('远端 Owner，需直接核验' if sched_ok is None else '✅ Owner 在跑' if sched_ok else '🚨 Owner 不在'))
+    else:
+        L.append("scheduler（dev）：%s" % ("✅ 在跑" if sched_ok else "🚨 不在"))
     # 占位上限的有效层读数（= 卡点列「等槽位」与「应跑未跑」门禁共用的那个上限）：
     # 报量带层次 ⇒ 读者能判这个数取自哪一层（本体/装配声明/运行态）与取证依据。
     L.append("占位上限（有效层）：%s ｜ %s"

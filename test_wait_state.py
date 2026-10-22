@@ -79,12 +79,11 @@ class WaitTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(dir=self.base))
         self.addCleanup(lambda: safe_rmtree(self.root, authorized_root=self.base))
-        target = self.root / 'agent-platform/agentd'
+        target = self.root / 'agentd'
         target.mkdir(parents=True)
-        for name in ('report.py', 'proto.py', 'scheduling.py', 'task_state.py', 'task_labels.py', 'tasks.md', 'agentctl.py', 'registration.py'):
+        for name in ('report.py', 'proto.py', 'scheduling.py', 'task_state.py', 'task_labels.py', 'tasks.md', 'agentctl.py', 'registration.py', 'execution.py'):
             shutil.copyfile(HERE / name, target / name)
-        shutil.copyfile(HERE.parent / 'platform_paths.py', target.parent / 'platform_paths.py')
-        (target.parent / '.platform-root').touch()
+        shutil.copyfile(HERE / 'platform_paths.py', target / 'platform_paths.py')
         self.home = self.root / 'agents/task/wait-fixture'
         (self.home / 'inbox').mkdir(parents=True)
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
@@ -101,7 +100,7 @@ class WaitTests(unittest.TestCase):
         proto.atomic_write_json(str(self.home / file), doc)
 
     def page(self):
-        page = (self.root / 'agent-platform/agentd/tasks.md').read_text()
+        page = (self.root / 'agentd/tasks.md').read_text()
         command = next(c for c in re.findall(r'<cmd:([^>]+)>', page) if c.endswith('-s active'))
         result = subprocess.run(['bash', '-c', command], cwd=self.root, env=self.env,
                                 text=True, capture_output=True, timeout=10)
@@ -152,7 +151,7 @@ class WaitTests(unittest.TestCase):
         body = self.assert_no_hint()
         self.assertIn('当前工具', body)
         self.assertIn('`ask_dispatcher` (', body)
-        self.assertIn('已发出、尚未记录结果', (self.root / 'agent-platform/agentd/tasks.md').read_text())
+        self.assertIn('已发出、尚未记录结果', (self.root / 'agentd/tasks.md').read_text())
         self.assertNotIn('Which option?', body)
         self.session(result='fixture answer')
         self.assertNotIn('`ask_dispatcher`', self.assert_no_hint())
@@ -288,7 +287,7 @@ class WaitTests(unittest.TestCase):
         current = next(a for a in asks if a['id'] != old_id)
         answer = self.root / 'answer.txt'
         answer.write_text('fixture answer')
-        result = subprocess.run([sys.executable, 'agent-platform/agentd/agentctl.py', 'send', 'task/wait-fixture',
+        result = subprocess.run([sys.executable, 'agentd/agentctl.py', 'send', 'task/wait-fixture',
             '--type','reply','--ref',current['id'],'--body-file',str(answer)], cwd=self.root,
             env=dict(self.env, AGENT_SELF='queue/dispatcher'), text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

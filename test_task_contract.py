@@ -135,21 +135,16 @@ class TaskContractTests(unittest.TestCase):
                     child.join()
             result.close()
 
-    def test_supervisor_passes_caller_concurrency_or_cli_default(self):
-        launcher = Path(__file__).with_name("scheduler-loop.sh").read_text()
-        # Run the actual argument assembly under the platform's /bin/bash,
-        # including macOS Bash 3.2's nounset handling of empty arguments.
-        assembly = launcher[launcher.index("# The caller supplies"):launcher.index("while :; do")]
-        for value, expected in ((None, ["0"]), ("", ["0"]),
-                                ("10", ["2", "--max-concurrent", "10"])):
-            env = dict(os.environ)
-            env.pop("AGENTD_MAX_CONCURRENT", None)
-            if value is not None:
-                env["AGENTD_MAX_CONCURRENT"] = value
-            run = subprocess.run(["/bin/bash", "-uc", assembly + '\nprintf "%s\\n" "$#" "$@"'],
-                                 text=True, capture_output=True, env=env)
-            self.assertEqual(run.returncode, 0, run.stderr)
-            self.assertEqual(run.stdout.splitlines(), expected)
+    def test_execution_passes_global_resource_names_without_host_prefix(self):
+        from execution import declaration
+        c=dict(host='target',workspace='/workspace',agentCode='/code',piCode='/pi',python=sys.executable,home='/home',needs=[])
+        node={'node':'origin'}
+        d=declaration(c,node,'task/example',dict(spec(),resources=['mac-m']),1,{})
+        self.assertEqual(d['resources'],['mac-m'])
+        self.assertEqual(d['node'],'target')
+        self.assertEqual(d['publisher'],'agent-origin')
+        resident=declaration(c,node,'queue/example',dict(spec(),resident=True),1,{})
+        self.assertNotIn('resources',resident.get('task',resident))
 
     def test_delivery_matrix_preserves_orphan_and_cancel_semantics(self):
         home = self.root / "agents/task/sample"
