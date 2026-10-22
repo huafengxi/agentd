@@ -1,5 +1,6 @@
 ---
 name: agentd
+生产对象客户端入口为 `object_runner.py`，消费调用方固定 serviced 的声明与状态接口；Task/Service 合同见 serviced 仓 RUND.md。运行源码和机器配置由调用方提供，历史实验适配器不属于当前生产执行入口。
 anchors:
   usage: "用法"
   report: "报表（report.py）"
