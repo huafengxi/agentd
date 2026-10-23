@@ -16,7 +16,7 @@ intelligence (entry baselines, event rings, injection, self-healing) belongs to 
 consumer; this wrapper owns only the lifecycle semantics — and the exit code it
 hands back to its supervisor.
 
-To the supervisor (the rund Owner) the wrapper is an ordinary command plus an
+To the supervisor (the rund) the wrapper is an ordinary command plus an
 exit code. That single invariant is what makes the whole system debuggable: no
 side channel, no state machine to query — read the exit code and the session's
 `report.md`.

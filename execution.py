@@ -138,7 +138,7 @@ def service_action(root, participant, action):
 
 
 def clear_service_session(root, participant):
-    """Run a finite file operation through the Owner after the Service stops."""
+    """Run a finite file operation through rund after the Service stops."""
     import time
     import uuid
     config, node = client(root)

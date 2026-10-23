@@ -90,7 +90,7 @@ class WaitTests(unittest.TestCase):
         self.put('spec.json', {'name': 'fixture', 'host': 'fixture-host', 'reaper': 'queue/dispatcher', 'command': 'exec python3 pi-rpc-wrap.py', 'resources': []})
         runtime=str(HERE.parent/'rund')
         node=dict(node='fixture-host', sharedRoot=str(self.root/'shared'), privateRoot=str(self.root/'private'),
-                  python=sys.executable,home=str(self.root),path=os.environ['PATH'],publishers={'agent-fixture':'fixture-host','owner-fixture-host':'fixture-host'},version=1)
+                  python=sys.executable,home=str(self.root),path=os.environ['PATH'],publishers={'agent-fixture':'fixture-host','rund-fixture-host':'fixture-host'},version=1)
         proto.atomic_write_json(str(self.root/'node.json'),node)
         proto.atomic_write_json(str(self.root/'run/execution.json'),dict(runtimeSource=runtime,nodeConfig=str(self.root/'node.json'),nodes={}))
         proto.atomic_write_json(str(self.home/'execution.json'),{'id':'fixture'})
