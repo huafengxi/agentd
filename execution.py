@@ -15,7 +15,7 @@ def client(root):
     config = json.loads((Path(root) / 'run/execution.json').read_text())
     sys.path.insert(0, config['runtimeSource'])
     from runtime.config import node_config
-    return config, node_config(config['nodeConfig'])
+    return config, node_config(config['runtimeRoot'])
 
 def object_id(root, participant):
     reference = proto.read_json(str(Path(proto.agent_dir(root, participant)) / 'execution.json'))
@@ -100,7 +100,7 @@ def submit(root, participant, spec):
     if not resident: task['resources'] = spec.get('resources', ['serial'])
     service = resident or spec.get('restartPolicy') == 'auto'
     declaration = dict(kind='Service' if service else 'Task', id='a-' + fingerprint([target['host'], participant])[:40],
-                       publisher='agent-' + node['node'], node=target['host'], revision=1)
+                       node=target['host'])
     if service: declaration.update(task,version=1, desired='online', restart='always' if spec.get('restartPolicy') == 'auto' else 'manual')
     else: declaration.update(task, desired='run')
     from runtime.config import publish
@@ -108,7 +108,7 @@ def submit(root, participant, spec):
     if service:
         from runtime.services import publish as publish_service
         publish_service(node,declaration)
-    else:publish(node['sharedRoot'], declaration, writer=node['node'], publishers=node['publishers'])
+    else:publish(node['sharedRoot'], declaration)
     proto.atomic_write_json(str(Path(proto.agent_dir(root, participant)) / 'execution.json'), {'id': declaration['id']})
     clean = {key: value for key, value in spec.items() if key not in EXECUTION_KEYS and key != 'provides'}
     proto.atomic_write_json(proto.spec_path(root, participant), clean)
@@ -158,13 +158,13 @@ if session.exists() and session.stat().st_size:
 with session.open('w'):pass
 os.chown(session,os.getuid(),os.getgid())
 '''
-    task = dict(kind='Task',id=identifier,publisher='agent-'+node['node'],node=declaration['node'],revision=1,desired='run',
+    task = dict(kind='Task',id=identifier,node=declaration['node'],desired='run',
                 argv=[target['python'],'-c',script,str(Path(target['workspace'])/'agents'/participant/'session/session.jsonl'),
                       str(Path(target['workspace'])/'run/backup'/(identifier+'.jsonl'))],
                 cwd=target['workspace'],env={},needs=[])
     from runtime.config import publish
     from runtime.services import get
-    publish(node['sharedRoot'],task,writer=node['node'],publishers=node['publishers'])
+    publish(node['sharedRoot'],task)
     end=time.monotonic()+150
     while time.monotonic()<end:
         state=get(node,identifier)[1]

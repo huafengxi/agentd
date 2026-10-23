@@ -22,13 +22,14 @@ class ExecutionContract(unittest.TestCase):
         from runtime.store import write
         from runtime.engine import Engine
         self.write=write
-        self.node=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'rund-fixture':'fixture','agent-fixture':'fixture','scheduler':'fixture'},version=1,admission={'publisher':'scheduler'})
-        self.node.update(configRoot=str(self.base/'config'),servicesRoot=str(self.base/'config/objects/services'))
-        cfg=self.base/'node.json';write(cfg,self.node);self.engine=Engine(self.node)
+        import socket
+        config=self.base/'config';config.mkdir();(config/'host-id').write_text(socket.gethostname()+' fixture\n')
+        from runtime.config import node_config
+        self.node=node_config(self.base);self.engine=Engine(self.node)
         from runtime.scheduling import Scheduler
-        self.scheduler=Scheduler(dict(nodeConfig=str(cfg),publisher='scheduler',maxConcurrent=2))
-        self.c=dict(host='fixture',workspace=str(self.root),nodeConfig=str(cfg),runtimeSource=str(Path(__file__).resolve().parents[1]/'rund'),agentCode=str(Path(__file__).resolve().parent),piCode=str(self.base),python=sys.executable,home=str(self.base))
-        write(self.root/'run/execution.json',dict(nodes={'fixture':self.c},nodeConfig=str(cfg),runtimeSource=self.c['runtimeSource']))
+        self.scheduler=Scheduler(self.base,max_concurrent=2)
+        self.c=dict(host='fixture',workspace=str(self.root),runtimeRoot=str(self.base),runtimeSource=str(Path(__file__).resolve().parents[1]/'rund'),agentCode=str(Path(__file__).resolve().parent),piCode=str(self.base),python=sys.executable,home=str(self.base))
+        write(self.root/'run/execution.json',dict(nodes={'fixture':self.c},runtimeRoot=str(self.base),runtimeSource=self.c['runtimeSource']))
     def tearDown(self):
         self.scheduler.close()
         for child in self.engine.processes.handles.values():
@@ -76,7 +77,7 @@ class ExecutionContract(unittest.TestCase):
         participant=self.register(resident=True,restartPolicy='auto',command='sleep 100')
         d,_,_=self.until(participant,'running')
         from runtime.services import publish
-        updated=dict(d,revision=2,version=2,cwd=str(self.base))
+        updated=dict(d,version=2,cwd=str(self.base))
         publish(self.node,updated)
         self.assertEqual(proto.participant_spec(str(self.root),participant)['workdir'],str(self.base))
         self.assertEqual(execution.submit(str(self.root),participant,{}),updated)

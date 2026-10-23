@@ -89,12 +89,11 @@ class WaitTests(unittest.TestCase):
         (self.root / 'agents/queue/dispatcher/inbox').mkdir(parents=True)
         self.put('spec.json', {'name': 'fixture', 'host': 'fixture-host', 'reaper': 'queue/dispatcher', 'command': 'exec python3 pi-rpc-wrap.py', 'resources': []})
         runtime=str(HERE.parent/'rund')
-        node=dict(node='fixture-host', sharedRoot=str(self.root/'shared'), privateRoot=str(self.root/'private'),
-                  python=sys.executable,home=str(self.root),path=os.environ['PATH'],publishers={'agent-fixture':'fixture-host','rund-fixture-host':'fixture-host'},version=1)
-        proto.atomic_write_json(str(self.root/'node.json'),node)
-        proto.atomic_write_json(str(self.root/'run/execution.json'),dict(runtimeSource=runtime,nodeConfig=str(self.root/'node.json'),nodes={}))
+        import socket
+        (self.root/'config').mkdir();(self.root/'config/host-id').write_text(socket.gethostname()+' fixture-host\n')
+        proto.atomic_write_json(str(self.root/'run/execution.json'),dict(runtimeSource=runtime,runtimeRoot=str(self.root),nodes={}))
         proto.atomic_write_json(str(self.home/'execution.json'),{'id':'fixture'})
-        proto.atomic_write_json(str(self.root/'shared/tasks/fixture/declaration.json'),dict(kind='Task',id='fixture',node='fixture-host',publisher='agent-fixture',revision=1,desired='run',argv=['pi-rpc-wrap.py'],needs=[],cwd=str(self.root),env={}))
+        proto.atomic_write_json(str(self.root/'shared/tasks/fixture/declaration-v1.json'),dict(kind='Task',id='fixture',node='fixture-host',desired='run',argv=['pi-rpc-wrap.py'],needs=[],cwd=str(self.root),env={}))
         self.pid = dict(pid=os.getpid(), procStart=proto.proc_starttime(os.getpid()), gen=1,
                         status='running', final=False, lastAliveAt=proto.now_ts(), startedAt=proto.now_ts())
         self.put('pid.json', self.pid)
