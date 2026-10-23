@@ -131,7 +131,7 @@ def service_action(root, participant, action):
     if not declaration or declaration['kind'] != 'Service':
         raise ValueError('Only a Service can restart; create a new Task participant')
     target = config['nodes'][declaration['node']]
-    argv = [target['home'] + '/.agentd/bin/runctl', action, declaration['id']]
+    argv = [target['home'] + '/.rund/bin/runctl', action, declaration['id']]
     if declaration['node'] != node['node']:
         argv = ['ssh', '-o', 'BatchMode=yes', target['host'], shlex.join(argv)]
     subprocess.run(argv, check=True, timeout=150)

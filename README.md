@@ -10,7 +10,7 @@ anchors:
 
 # agentd
 
-Agent 文件通信协议、登记工具、会话封装与通知机制。部署值与政策资产由调用方提供；执行契约由 rund/PROTOCOL.md 定义。
+Agent 文件通信协议、登记工具、会话封装与通知机制。agentd 作为 rund 上层应用部署，执行底座默认根为 ~/.rund；部署值与政策资产由调用方提供；执行契约由 rund/PROTOCOL.md 定义。
 
 ## 收录判据
 

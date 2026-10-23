@@ -36,6 +36,13 @@ class ExecutionContract(unittest.TestCase):
                 except ProcessLookupError:pass
             child.wait(timeout=5)
         self.engine.close()
+    def test_service_lifecycle_routes_to_rund_entry(self):
+        from unittest.mock import patch
+        service=dict(kind='Service',id='service-demo',node='fixture')
+        with patch.object(execution,'facts',return_value=(service,None,None)),patch('subprocess.run') as run:
+            execution.service_action(str(self.root),'task/demo','stop')
+        self.assertEqual(run.call_args.args[0],[str(self.base/'.rund/bin/runctl'),'stop','service-demo'])
+
     def register(self,name='demo',command='printf done',**extra):
         spec=dict(command=command,workdir=str(self.root),creator='queue/dispatcher',createdAt=proto.now_ts(),host='fixture',createdByHost='fixture',reaper='none',restartPolicy='one-shot',resources=[])
         spec.update(extra);registration.register_task(str(self.root),name,spec)
