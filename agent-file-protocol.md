@@ -30,7 +30,7 @@ spec.json 包含 name、creator、createdAt、createdByHost、reaper、profile�
 
 ## 执行与生命周期
 
-Task 是一次执行，Service 管理持续监督和每次执行的 Task。阶段、原生身份、真实 wait 结果和取消状态均以 rund 为准，业务视图只读计算。未知状态保持未知，报告文件不能证明进程正常退出。
+Task 是一次执行，Service 直接监督常驻进程；两者为平行执行对象。阶段、原生身份、真实 wait 结果和取消状态均以 rund 为准，业务视图只读计算。未知状态保持未知，报告文件不能证明进程正常退出。
 
 登记需要调用方提供 run/execution.json。command、workdir、host、resources、needs、restartPolicy、resident 是登记输入，发布后保存在 rund 声明中。needs 指目标文件，resources 为全局资源名。执行定义修改遵循 rund 的声明契约。
 

@@ -25,11 +25,9 @@ def facts(root, participant):
     identifier = object_id(root, participant)
     if identifier is None: return None, None, None
     _, node = client(root)
-    from runtime.protocol import get
-    declaration, state = get(Path(node['sharedRoot']), identifier)
+    from runtime.services import get
+    declaration, state = get(node, identifier)
     task = state
-    if declaration and declaration['kind'] == 'Service':
-        task = get(Path(node['sharedRoot']), state['currentTask'])[1] if state and state.get('currentTask') else None
     return declaration, state, task
 
 def state_view(root, participant):
@@ -52,8 +50,8 @@ def state_view(root, participant):
     view = dict(status=status, final=bool(final), exitcode=code,
                 pid=process.get('pid'), procStart=process.get('start'),
                 startedAt=timestamp(task.get('startedAt')), endedAt=timestamp(task.get('finishedAt')),
-                lastAliveAt=timestamp(task.get('updatedAt')), gen=task.get('id'),
-                runtime={'id': declaration['id'], 'task': task.get('id'), 'phase': phase})
+                lastAliveAt=timestamp(task.get('updatedAt')), gen=task.get('runId',task.get('id')),
+                runtime={'id': declaration['id'], 'task': task.get('id') if declaration['kind']=='Task' else None, 'run':task.get('runId'), 'phase': phase})
     argv = execution.get('argv', [])
     command = base64.b64decode(argv[-1]).decode() if any(p.endswith('/exec_task.py') for p in argv) else ' '.join(argv)
     if 'pi-rpc-wrap.py' in command:
@@ -77,9 +75,9 @@ def metadata(root, participant):
 def submit(root, participant, spec):
     config, node = client(root)
     existing_id = object_id(root, participant)
-    from runtime.protocol import get
+    from runtime.services import get
     if existing_id:
-        declaration, _ = get(Path(node['sharedRoot']), existing_id)
+        declaration, _ = get(node, existing_id)
         if declaration is None: raise ValueError('Referenced rund declaration has not arrived: ' + existing_id)
         return declaration
     if spec.get('provides'): raise ValueError('provides was removed; publish explicit output files')
@@ -103,11 +101,14 @@ def submit(root, participant, spec):
     service = resident or spec.get('restartPolicy') == 'auto'
     declaration = dict(kind='Service' if service else 'Task', id='a-' + fingerprint([target['host'], participant])[:40],
                        publisher='agent-' + node['node'], node=target['host'], revision=1)
-    if service: declaration.update(version=1, desired='online', restart='always' if spec.get('restartPolicy') == 'auto' else 'manual', task=task)
+    if service: declaration.update(task,version=1, desired='online', restart='always' if spec.get('restartPolicy') == 'auto' else 'manual')
     else: declaration.update(task, desired='run')
     from runtime.config import publish
     # Publish the object first; retries use the same deterministic identity.
-    publish(node['sharedRoot'], declaration, writer=node['node'], publishers=node['publishers'])
+    if service:
+        from runtime.services import publish as publish_service
+        publish_service(node,declaration)
+    else:publish(node['sharedRoot'], declaration, writer=node['node'], publishers=node['publishers'])
     proto.atomic_write_json(str(Path(proto.agent_dir(root, participant)) / 'execution.json'), {'id': declaration['id']})
     clean = {key: value for key, value in spec.items() if key not in EXECUTION_KEYS and key != 'provides'}
     proto.atomic_write_json(proto.spec_path(root, participant), clean)
@@ -131,7 +132,7 @@ def service_action(root, participant, action):
     if not declaration or declaration['kind'] != 'Service':
         raise ValueError('Only a Service can restart; create a new Task participant')
     target = config['nodes'][declaration['node']]
-    argv = [target['home'] + '/.rund/bin/runctl', action, declaration['id']]
+    argv = [target['home'] + '/.rund/rund/runctl', action, declaration['id']]
     if declaration['node'] != node['node']:
         argv = ['ssh', '-o', 'BatchMode=yes', target['host'], shlex.join(argv)]
     subprocess.run(argv, check=True, timeout=150)
@@ -162,11 +163,11 @@ os.chown(session,os.getuid(),os.getgid())
                       str(Path(target['workspace'])/'run/backup'/(identifier+'.jsonl'))],
                 cwd=target['workspace'],env={},needs=[])
     from runtime.config import publish
-    from runtime.protocol import get
+    from runtime.services import get
     publish(node['sharedRoot'],task,writer=node['node'],publishers=node['publishers'])
     end=time.monotonic()+150
     while time.monotonic()<end:
-        state=get(Path(node['sharedRoot']),identifier)[1]
+        state=get(node,identifier)[1]
         if state and state['phase'] in ('succeeded','failed','canceled','unknown'):
             if state['phase']!='succeeded' or not state.get('waitObserved'):raise ValueError('Session clear failed: '+str(state))
             service_action(root,participant,'start')

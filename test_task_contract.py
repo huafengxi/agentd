@@ -23,6 +23,7 @@ class ExecutionContract(unittest.TestCase):
         from runtime.engine import Engine
         self.write=write
         self.node=dict(node='fixture',sharedRoot=str(self.base/'shared'),privateRoot=str(self.base/'private'),python=sys.executable,home=str(self.base),path=os.environ['PATH'],publishers={'rund-fixture':'fixture','agent-fixture':'fixture','scheduler':'fixture'},version=1,admission={'publisher':'scheduler'})
+        self.node.update(configRoot=str(self.base/'config'),servicesRoot=str(self.base/'config/objects/services'))
         cfg=self.base/'node.json';write(cfg,self.node);self.engine=Engine(self.node)
         from runtime.scheduling import Scheduler
         self.scheduler=Scheduler(dict(nodeConfig=str(cfg),publisher='scheduler',maxConcurrent=2))
@@ -41,7 +42,7 @@ class ExecutionContract(unittest.TestCase):
         service=dict(kind='Service',id='service-demo',node='fixture')
         with patch.object(execution,'facts',return_value=(service,None,None)),patch('subprocess.run') as run:
             execution.service_action(str(self.root),'task/demo','stop')
-        self.assertEqual(run.call_args.args[0],[str(self.base/'.rund/bin/runctl'),'stop','service-demo'])
+        self.assertEqual(run.call_args.args[0],[str(self.base/'.rund/rund/runctl'),'stop','service-demo'])
 
     def register(self,name='demo',command='printf done',**extra):
         spec=dict(command=command,workdir=str(self.root),creator='queue/dispatcher',createdAt=proto.now_ts(),host='fixture',createdByHost='fixture',reaper='none',restartPolicy='one-shot',resources=[])
@@ -74,9 +75,9 @@ class ExecutionContract(unittest.TestCase):
     def test_service_changes_are_read_from_current_declaration(self):
         participant=self.register(resident=True,restartPolicy='auto',command='sleep 100')
         d,_,_=self.until(participant,'running')
-        from runtime.config import publish
-        updated=dict(d,revision=2,version=2,task=dict(d['task'],cwd=str(self.base)))
-        publish(self.node['sharedRoot'],updated,writer='fixture',publishers=self.node['publishers'])
+        from runtime.services import publish
+        updated=dict(d,revision=2,version=2,cwd=str(self.base))
+        publish(self.node,updated)
         self.assertEqual(proto.participant_spec(str(self.root),participant)['workdir'],str(self.base))
         self.assertEqual(execution.submit(str(self.root),participant,{}),updated)
     def test_no_offline_publication_or_capability_dependency(self):

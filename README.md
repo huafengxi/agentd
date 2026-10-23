@@ -67,3 +67,5 @@ needs 合并目标节点装配依赖与用户路径，用户路径必须以 `/` 
 - pi-rpc-wrap.py / wait_state.py：会话与 RPC 适配。
 - persona.py / envscrub.py：调用方资产和进程环境处理。
 - test_*.py：协议、执行集成与 RPC 测试。
+
+Service 声明直接写入配置仓，配置跨机传播遵循配置仓的 Git 工作流；常驻注册的配置变更须提交并推送。Service 状态直接包含进程事实；一次性 Task 使用共享执行协议。节点 runctl 入口为 ~/.rund/rund/runctl。
