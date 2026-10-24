@@ -101,7 +101,7 @@ def submit(root, participant, spec):
     service = resident or spec.get('restartPolicy') == 'auto'
     declaration = dict(kind='Service' if service else 'Task', id='a-' + fingerprint([target['host'], participant])[:40],
                        node=target['host'])
-    if service: declaration.update(task,version=1, desired='online', restart='always' if spec.get('restartPolicy') == 'auto' else 'manual')
+    if service: declaration.update(task, repos=target.get('repos',{}), desired='online', restart='always' if spec.get('restartPolicy') == 'auto' else 'manual')
     else: declaration.update(task, desired='run')
     from runtime.config import publish
     # Publish the object first; retries use the same deterministic identity.

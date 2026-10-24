@@ -20,15 +20,15 @@ Agent 文件通信协议、登记工具、会话封装与通知机制。agentd �
 
 调用方在工作区 `run/execution.json` 提供固定 rund 源码、runtimeRoot 和目标节点装配参数。登记必须具备此配置。协议目录与 rund 执行对象通过同一共享树同步。
 
-一次性会话登记为 Task，持续监督对象登记为 Service。`execution.py` 将登记参数发布为rund declaration.json 完整声明（Task 不可变，Service 原地更新），参与方目录的 `execution.json` 只保存对象 id。`spec.json` 只保存业务元数据。登记参数中的 command、cwd、node、resources、文件 needs 和监督策略保存在 rund 声明中。
+一次性会话登记为 Task，持续监督对象登记为 Service。`execution.py` 将登记参数发布为 rund declaration.json 完整声明（Task 不可变，Service 原地更新），参与方目录的 `execution.json` 只保存对象 id。`spec.json` 只保存业务元数据。登记参数中的 command、cwd、node、resources、文件 needs 和监督策略保存在 rund 声明中。
 
-`watcher.py` 是普通通知 Service，读取 rund 事实并发送终态消息。业务视图按需计算，查询与执行均不依赖通知 Service 在线。通知去重记录属于业务协议。
+`watcher.py` 是普通通知 Service，读取 rund 事实并发送终态消息。业务视图按需计算，查询与执行均不依赖通知 Service 在线。通知去重记录属于业务协议。可通过节点配置的 workspaceLinks 直接链接源码和政策资产，并用 executionNodes 初始化 run/execution.json；不复制源码。
 
 ## 用法
 
 统一业务入口为 `agentctl.py --root <workspace>`，参数以 `--help` 为准。create/register-json 创建参与方与执行对象；send/ack/answer 操作信箱；status/list 读取 rund 状态；cancel 发布取消意图；control stop/restart 操作已有 Service。Task 再次执行必须新建参与方。control clear 先停止 Service，再发布有限 Task 备份并清空所属节点会话，成功后启动 Service。
 
-needs 为目标节点文件路径，resources 为全局互斥资源名。执行字段发布后修改遵循 rund 的 Task 不变性和 Service 版本规则。
+needs 为目标节点文件路径，resources 为全局互斥资源名。执行字段发布后修改遵循 rund 的 Task 不变性和 Service 声明摘要与源码 tag 规则。
 
 | 命令（前缀 `agentctl --root <workspace>`） | 实际行为 |
 | --- | --- |

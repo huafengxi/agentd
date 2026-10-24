@@ -25,7 +25,10 @@ def main():
     parser.add_argument('--log-file')
     args = parser.parse_args()
     setup_logging(args.log_file, 'INFO')
-    watcher = ProtocolWatcher(json.loads(Path(args.config).read_text()))
+    config=json.loads(Path(args.config).read_text())
+    from workspace import initialize
+    initialize(config)
+    watcher = ProtocolWatcher(config)
     try: watcher.run()
     finally: watcher.ownerlock.close()
 

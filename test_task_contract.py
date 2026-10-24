@@ -77,7 +77,7 @@ class ExecutionContract(unittest.TestCase):
         participant=self.register(resident=True,restartPolicy='auto',command='sleep 100')
         d,_,_=self.until(participant,'running')
         from runtime.services import publish
-        updated=dict(d,version=2,cwd=str(self.base))
+        updated=dict(d,cwd=str(self.base))
         publish(self.node,updated)
         self.assertEqual(proto.participant_spec(str(self.root),participant)['workdir'],str(self.base))
         self.assertEqual(execution.submit(str(self.root),participant,{}),updated)
