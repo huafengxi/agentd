@@ -93,7 +93,7 @@ class WaitTests(unittest.TestCase):
         (self.root/'config').mkdir();(self.root/'config/host-id').write_text(socket.gethostname()+' fixture-host\n')
         proto.atomic_write_json(str(self.root/'run/execution.json'),dict(runtimeSource=runtime,runtimeRoot=str(self.root),nodes={}))
         proto.atomic_write_json(str(self.home/'execution.json'),{'id':'fixture'})
-        proto.atomic_write_json(str(self.root/'shared/tasks/fixture/declaration-v1.json'),dict(kind='Task',id='fixture',node='fixture-host',desired='run',argv=['pi-rpc-wrap.py'],needs=[],cwd=str(self.root),env={}))
+        proto.atomic_write_json(str(self.root/'shared/tasks/fixture/declaration.json'),dict(kind='Task',id='fixture',node='fixture-host',desired='run',argv=['pi-rpc-wrap.py'],needs=[],cwd=str(self.root),env={}))
         self.pid = dict(pid=os.getpid(), procStart=proto.proc_starttime(os.getpid()), gen=1,
                         status='running', final=False, lastAliveAt=proto.now_ts(), startedAt=proto.now_ts())
         self.put('pid.json', self.pid)
