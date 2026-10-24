@@ -1,11 +1,13 @@
 """Initialize business runtime metadata while using source checkouts directly."""
 import os
+import subprocess
 from pathlib import Path
 import proto
 
 
 def initialize(config):
     root=Path(config['workspace']);root.mkdir(parents=True,exist_ok=True)
+    if config.get('runtimeRoot'):(Path(config['runtimeRoot'])/'shared/agents').mkdir(parents=True,exist_ok=True)
     for relative,target in config.get('workspaceLinks',{}).items():
         path=root/relative;path.parent.mkdir(parents=True,exist_ok=True)
         target=Path(target)
@@ -15,3 +17,7 @@ def initialize(config):
         temporary.unlink(missing_ok=True);temporary.symlink_to(target,target_is_directory=target.is_dir());os.replace(temporary,path)
     if 'executionNodes' in config:
         proto.atomic_write_json(str(root/'run/execution.json'),dict(nodes=config['executionNodes'],runtimeSource=config['runtimeSource'],runtimeRoot=config['runtimeRoot']))
+    if config.get('seedSource'):
+        source=Path(config['seedSource'])
+        env=dict(os.environ,BOTS_SEED_SRC=str(source),BOTS_SEED_DST_ROOT=str(root/'agents'))
+        subprocess.run(['bash',str(source.parent/'seed.sh')],env=env,check=True)
